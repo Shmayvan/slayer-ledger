@@ -57,13 +57,11 @@ Each feature's full list of limitations is in [Counting rules and details](docs/
 
 ## Credits and licence
 
-Slayer Ledger is by Shmayvan. The code is licensed under the [BSD 2-Clause License](LICENSE).
+Slayer Ledger is by Shmayvan, under the [BSD 2-Clause License](LICENSE).
 
-The luck meter's drop rates ([`slayer-drop-snapshot.json`](src/main/resources/com/shmayvan/slayerledger/slayer-drop-snapshot.json)) and the suggested task location names ([`slayer-task-locations.json`](src/main/resources/com/shmayvan/slayerledger/slayer-task-locations.json)) are adapted from the [Old School RuneScape Wiki](https://oldschool.runescape.wiki/) by Old School RuneScape Wiki contributors, and are distributed under [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/), not the plugin's BSD licence. The articles and revisions used are listed in each file and in [`NOTICE`](NOTICE).
-
-The task icon table ([`TaskIcons.java`](src/main/java/com/shmayvan/slayerledger/TaskIcons.java)) is adapted from RuneLite's Slayer plugin, under the BSD 2-Clause License; its notice is in [`NOTICE`](NOTICE).
-
-The Slayer masters' face pictures ([`masters/`](src/main/resources/com/shmayvan/slayerledger/masters/)) are © Jagex Ltd., obtained from the [Old School RuneScape Wiki](https://oldschool.runescape.wiki/). They are Jagex's game art, not covered by the Wiki's CC licence or the plugin's BSD licence; the files are listed in [`NOTICE`](NOTICE).
+- The task icon table is adapted from RuneLite's Slayer plugin by Tyler and Shaun Dreclin.
+- The luck meter's drop rates and the suggested task location names are from the [Old School RuneScape Wiki](https://oldschool.runescape.wiki/) by Old School RuneScape Wiki contributors, under [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/).
+- The Slayer master pictures are © Jagex Ltd.
 
 ## For developers
 

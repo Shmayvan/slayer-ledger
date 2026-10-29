@@ -39,7 +39,7 @@ import net.runelite.api.gameval.ItemID;
  * draws it before a monster's name ({@link OverallTotalsSection}).
  *
  * <p>The table is a copy of the core plugin's {@code net.runelite.client.plugins.slayer.Task} enum (task name and
- * {@code itemSpriteId}) in RuneLite 1.13.4, BSD 2-Clause (notice above and in {@code NOTICE}). That enum and its
+ * {@code itemSpriteId}) in RuneLite 1.13.4, BSD 2-Clause (notice above and in {@code LICENSE}). That enum and its
  * {@code getTask} are package-private, so a Plugin Hub plugin can't call them without reflection, which the hub
  * forbids; {@code TaskIconsTest} checks the copy against the enum (by reflection, test code only), so a RuneLite
  * update that changes it fails the build here.</p>

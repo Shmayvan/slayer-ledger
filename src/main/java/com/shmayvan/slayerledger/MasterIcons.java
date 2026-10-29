@@ -16,7 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * The Slayer masters' face icons of Overall totals' By master headers: each master's chathead image from the
- * Old School RuneScape Wiki, bundled as a class resource under {@link #DIRECTORY} (Jagex's art; see {@code NOTICE}).
+ * Old School RuneScape Wiki, bundled as a class resource under {@link #DIRECTORY} (Jagex's art, credited in the README).
  *
  * <p>Every image is optional: a missing or unreadable file gives {@link SmallItemIcon#EMPTY}, the same 18 by 16 slot,
  * and nothing throws, so deleting the {@code masters/} folder removes the faces with no code change.
