@@ -1,0 +1,1509 @@
+{
+  "version": 1,
+  "source": "Old School RuneScape Wiki",
+  "license": "CC BY-NC-SA 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-nc-sa/3.0/",
+  "contributors": "Old School RuneScape Wiki contributors",
+  "retrieved": "2026-10-27",
+  "attribution": "Slayer task location names adapted from the listed Old School RuneScape Wiki articles (revisions given per task) by Old School RuneScape Wiki contributors. This dataset is a modified, partial snapshot (only location names kept, shortened and standardised) and is shared under the same CC BY-NC-SA 3.0 license.",
+  "tasks": [
+    {
+      "task": "Aberrant spectres",
+      "article": "Slayer task/Aberrant spectres",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Aberrant_spectres",
+      "revision": 15379449,
+      "locations": [
+        "Slayer Tower",
+        "Stronghold Slayer Cave",
+        "Catacombs of Kourend",
+        "Deepfin Mine"
+      ]
+    },
+    {
+      "task": "Abyssal demons",
+      "article": "Slayer task/Abyssal demons",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Abyssal_demons",
+      "revision": 15355993,
+      "locations": [
+        "Abyssal Area",
+        "Catacombs of Kourend",
+        "Slayer Tower",
+        "Wilderness Slayer Cave"
+      ]
+    },
+    {
+      "task": "Ankou",
+      "article": "Slayer task/Ankou",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Ankou",
+      "revision": 15372802,
+      "locations": [
+        "Catacombs of Kourend",
+        "Stronghold of Security: Sepulchre of Death",
+        "Stronghold Slayer Cave",
+        "Wilderness Slayer Cave",
+        "The Forgotten Cemetery"
+      ]
+    },
+    {
+      "task": "Aquanites",
+      "article": "Aquanite",
+      "page": "https://oldschool.runescape.wiki/w/Aquanite",
+      "revision": 15376641,
+      "locations": [
+        "Ynysdail Cavern"
+      ]
+    },
+    {
+      "task": "Araxytes",
+      "article": "Slayer task/Araxytes",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Araxytes",
+      "revision": 15381519,
+      "locations": [
+        "Morytania Spider Cave"
+      ]
+    },
+    {
+      "task": "Aviansies",
+      "article": "Slayer task/Aviansie",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Aviansie",
+      "revision": 15299787,
+      "locations": [
+        "God Wars Dungeon",
+        "Wilderness God Wars Dungeon"
+      ]
+    },
+    {
+      "task": "Bandits",
+      "article": "Slayer task/Bandits",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Bandits",
+      "revision": 15372765,
+      "locations": [
+        "Bandit Camp (Wilderness)",
+        "Wilderness Slayer Cave"
+      ]
+    },
+    {
+      "task": "Banshees",
+      "article": "Slayer task/Banshees",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Banshees",
+      "revision": 15330527,
+      "locations": [
+        "Slayer Tower",
+        "Catacombs of Kourend"
+      ]
+    },
+    {
+      "task": "Basilisks",
+      "article": "Slayer task/Basilisks",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Basilisks",
+      "revision": 15341651,
+      "locations": [
+        "Fremennik Slayer Dungeon",
+        "Jormungand's Prison"
+      ]
+    },
+    {
+      "task": "Bats",
+      "article": "Slayer task/Bats",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Bats",
+      "revision": 15333631,
+      "locations": [
+        "Silvarea",
+        "Slayer Tower",
+        "Haunted Woods",
+        "Graveyard of Heroes",
+        "Abandoned Mine",
+        "Yanille Agility Dungeon",
+        "Keep Le Faye",
+        "Coal Trucks",
+        "Legends' Guild",
+        "Heroes' Guild",
+        "Temple of Ikov",
+        "Wilderness",
+        "Crandor and Karamja Dungeon",
+        "Taverley Dungeon",
+        "Underground Pass",
+        "Chaos Druid Tower Dungeon",
+        "Grand Tree",
+        "Brine Rat Cavern",
+        "Dark Altar",
+        "Mount Karuulm",
+        "Hosidius",
+        "Slepe",
+        "Goblin Cave",
+        "Mos Le'Harmless Cave",
+        "Shaman Caves"
+      ]
+    },
+    {
+      "task": "Bears",
+      "article": "Slayer task/Bears",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Bears",
+      "revision": 15250961,
+      "locations": [
+        "Ardougne Zoo",
+        "Entrana",
+        "Fremennik Province",
+        "Gnome Maze",
+        "Great Kourend",
+        "Isafdar",
+        "Kebos Lowlands",
+        "Ardougne",
+        "Observatory",
+        "Tyras Camp",
+        "Dark Warriors' Fortress",
+        "Mind Altar",
+        "Prifddinas",
+        "Demonic Ruins",
+        "Gu'Tanoth",
+        "Tree Gnome Village",
+        "Tree Gnome Stronghold",
+        "Varrock",
+        "Lletya",
+        "Graveyard of Shadows"
+      ]
+    },
+    {
+      "task": "Birds",
+      "article": "Slayer task/Birds",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Birds",
+      "revision": 15341657,
+      "locations": [
+        "Fred's Farm",
+        "River Lum",
+        "Corsair Cove",
+        "Port Sarim",
+        "Port Piscarilius"
+      ]
+    },
+    {
+      "task": "Black demons",
+      "article": "Slayer task/Black demons",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Black_demons",
+      "revision": 15296848,
+      "locations": [
+        "Brimhaven Dungeon",
+        "Catacombs of Kourend",
+        "Charred Dungeon",
+        "Chasm of Fire",
+        "Crash Site Cavern",
+        "Edgeville Dungeon",
+        "Taverley Dungeon",
+        "Wilderness Slayer Cave"
+      ]
+    },
+    {
+      "task": "Black dragons",
+      "article": "Slayer task/Black dragons",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Black_dragons",
+      "revision": 15379976,
+      "locations": [
+        "Taverley Dungeon",
+        "Mynydd",
+        "Charred Dungeon",
+        "Lava Maze Dungeon",
+        "Evil Chicken's Lair",
+        "Wilderness Slayer Cave",
+        "Corsair Cove Dungeon",
+        "Catacombs of Kourend"
+      ]
+    },
+    {
+      "task": "Black Knights",
+      "article": "Black Knight",
+      "page": "https://oldschool.runescape.wiki/w/Black_Knight",
+      "revision": 15332965,
+      "locations": [
+        "Bone Yard",
+        "Draynor Village",
+        "Varrock",
+        "Jolly Boar Inn",
+        "Black Knights' Fortress",
+        "Lava Maze",
+        "Taverley Dungeon"
+      ]
+    },
+    {
+      "task": "Bloodveld",
+      "article": "Slayer task/Bloodveld",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Bloodveld",
+      "revision": 15344399,
+      "locations": [
+        "Buccaneers' Laboratory",
+        "Catacombs of Kourend",
+        "Iorwerth Dungeon",
+        "God Wars Dungeon",
+        "Meiyerditch Laboratories",
+        "Slayer Tower",
+        "Stronghold Slayer Cave",
+        "Wilderness God Wars Dungeon"
+      ]
+    },
+    {
+      "task": "Blue dragons",
+      "article": "Slayer task/Blue dragons",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Blue_dragons",
+      "revision": 15319394,
+      "locations": [
+        "Catacombs of Kourend",
+        "Corsair Cove Dungeon",
+        "Dragon Nest",
+        "Heroes' Guild",
+        "Isle of Souls Dungeon",
+        "Ogre Enclave",
+        "Taverley Dungeon",
+        "Ruins of Tapoyauik",
+        "Ungael"
+      ]
+    },
+    {
+      "task": "Brine rats",
+      "article": "Slayer task/Brine rats",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Brine_rats",
+      "revision": 15372644,
+      "locations": [
+        "Brine Rat Cavern"
+      ]
+    },
+    {
+      "task": "Catablepon",
+      "article": "Catablepon",
+      "page": "https://oldschool.runescape.wiki/w/Catablepon",
+      "revision": 15328106,
+      "locations": [
+        "Stronghold of Security: Pit of Pestilence"
+      ]
+    },
+    {
+      "task": "Cave bugs",
+      "article": "Cave bug",
+      "page": "https://oldschool.runescape.wiki/w/Cave_bug",
+      "revision": 15199199,
+      "locations": [
+        "Dorgesh-Kaan South Dungeon",
+        "Lumbridge Swamp Caves"
+      ]
+    },
+    {
+      "task": "Cave crawlers",
+      "article": "Slayer task/Cave crawlers",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Cave_crawlers",
+      "revision": 15372681,
+      "locations": [
+        "Dorgesh-Kaan South Dungeon",
+        "Fremennik Slayer Dungeon",
+        "Lumbridge Swamp Caves",
+        "Ruins of Tapoyauik"
+      ]
+    },
+    {
+      "task": "Cave horrors",
+      "article": "Slayer task/Cave horrors",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Cave_horrors",
+      "revision": 15341650,
+      "locations": [
+        "Mos Le'Harmless Cave"
+      ]
+    },
+    {
+      "task": "Cave kraken",
+      "article": "Slayer task/Cave krakens",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Cave_krakens",
+      "revision": 15332650,
+      "locations": [
+        "Kraken Cove"
+      ]
+    },
+    {
+      "task": "Cave slimes",
+      "article": "Cave slime",
+      "page": "https://oldschool.runescape.wiki/w/Cave_slime",
+      "revision": 15365366,
+      "locations": [
+        "Dorgesh-Kaan South Dungeon",
+        "Lumbridge Swamp Caves"
+      ]
+    },
+    {
+      "task": "Chaos druids",
+      "article": "Chaos druid",
+      "page": "https://oldschool.runescape.wiki/w/Chaos_druid",
+      "revision": 15259337,
+      "locations": [
+        "Chaos Druid Tower",
+        "Slepe",
+        "Edgeville Dungeon",
+        "Taverley Dungeon",
+        "Yanille Agility Dungeon"
+      ]
+    },
+    {
+      "task": "Cockatrice",
+      "article": "Cockatrice",
+      "page": "https://oldschool.runescape.wiki/w/Cockatrice",
+      "revision": 15374532,
+      "locations": [
+        "Fremennik Slayer Dungeon"
+      ]
+    },
+    {
+      "task": "Cows",
+      "article": "Slayer task/Cows",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Cows",
+      "revision": 15364603,
+      "locations": [
+        "Lumbridge",
+        "Fred's Farm",
+        "Crafting Guild",
+        "South Falador Farm",
+        "Ortus Farm",
+        "Alice's Farm"
+      ]
+    },
+    {
+      "task": "Crabs",
+      "article": "Slayer task/Crabs",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Crabs",
+      "revision": 15375313,
+      "locations": [
+        "Mogre Camp",
+        "Fossil Island",
+        "Ruins of Tapoyauik",
+        "Catacombs of Kourend",
+        "Crabclaw Caves",
+        "Rellekka",
+        "Waterbirth Island",
+        "Mount Quidamortem",
+        "Waterbirth Island Dungeon",
+        "Brine Rat Cavern",
+        "Tonali Cavern",
+        "Avium Savannah",
+        "Crabclaw Isle",
+        "Hosidius",
+        "Isle of Souls",
+        "Outer Fortis",
+        "Haunted Woods",
+        "Slepe"
+      ]
+    },
+    {
+      "task": "Crawling hands",
+      "article": "Slayer task/Crawling Hands",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Crawling_Hands",
+      "revision": 15382699,
+      "locations": [
+        "Meiyerditch Laboratories",
+        "Slayer Tower"
+      ]
+    },
+    {
+      "task": "Crocodiles",
+      "article": "Crocodile",
+      "page": "https://oldschool.runescape.wiki/w/Crocodile",
+      "revision": 15374665,
+      "locations": [
+        "River Elid",
+        "Ruins of Unkah",
+        "Ruins of Ullek"
+      ]
+    },
+    {
+      "task": "Custodian Stalkers",
+      "article": "Slayer task/Custodian stalker",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Custodian_stalker",
+      "revision": 15372314,
+      "locations": [
+        "Stalker Den"
+      ]
+    },
+    {
+      "task": "Dagannoth",
+      "article": "Slayer task/Dagannoth",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Dagannoth",
+      "revision": 15352280,
+      "locations": [
+        "Catacombs of Kourend",
+        "Jormungand's Prison",
+        "Lighthouse Dungeon",
+        "Waterbirth Island Dungeon"
+      ]
+    },
+    {
+      "task": "Dark beasts",
+      "article": "Slayer task/Dark beast",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Dark_beast",
+      "revision": 15357079,
+      "locations": [
+        "Iorwerth Dungeon",
+        "Mourner Tunnels"
+      ]
+    },
+    {
+      "task": "Dark warriors",
+      "article": "Dark warrior",
+      "page": "https://oldschool.runescape.wiki/w/Dark_warrior",
+      "revision": 15373624,
+      "locations": [
+        "Dark Warriors' Fortress",
+        "Shayzien",
+        "Lovakengj"
+      ]
+    },
+    {
+      "task": "Dogs",
+      "article": "Slayer task/Dogs",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Dogs",
+      "revision": 15341658,
+      "locations": [
+        "Hosidius",
+        "Nardah",
+        "Brimhaven Dungeon",
+        "Handelmort Mansion"
+      ]
+    },
+    {
+      "task": "Drakes",
+      "article": "Drake",
+      "page": "https://oldschool.runescape.wiki/w/Drake",
+      "revision": 15371749,
+      "locations": [
+        "Karuulm Slayer Dungeon"
+      ]
+    },
+    {
+      "task": "Dust devils",
+      "article": "Slayer task/Dust devils",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Dust_devils",
+      "revision": 15382347,
+      "locations": [
+        "Catacombs of Kourend",
+        "Wilderness Slayer Cave",
+        "Smoke Dungeon"
+      ]
+    },
+    {
+      "task": "Dwarves",
+      "article": "Slayer task/Dwarves",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Dwarves",
+      "revision": 15373748,
+      "locations": [
+        "Deep Wilderness Dungeon",
+        "Dwarven Mine",
+        "Ice Mountain",
+        "Mining Guild",
+        "Falador",
+        "Keldagrim",
+        "Lovakengj",
+        "Bandit Camp (Wilderness)",
+        "Lava Dragon Isle",
+        "Yanille",
+        "Coal Trucks",
+        "Taverley Dungeon",
+        "White Wolf Mountain"
+      ]
+    },
+    {
+      "task": "Earth warriors",
+      "article": "Slayer task/Earth warriors",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Earth_warriors",
+      "revision": 15251008,
+      "locations": [
+        "Edgeville Dungeon"
+      ]
+    },
+    {
+      "task": "Elves",
+      "article": "Slayer task/Elves",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Elves",
+      "revision": 15357159,
+      "locations": [
+        "Iorwerth Camp",
+        "Iorwerth Dungeon",
+        "Lletya",
+        "Mourner Headquarters",
+        "Prifddinas",
+        "Tower of Voices"
+      ]
+    },
+    {
+      "task": "Ents",
+      "article": "Ent",
+      "page": "https://oldschool.runescape.wiki/w/Ent",
+      "revision": 15366030,
+      "locations": [
+        "Chaos Temple (Wilderness)",
+        "Woodcutting Guild"
+      ]
+    },
+    {
+      "task": "Fever spiders",
+      "article": "Fever spider",
+      "page": "https://oldschool.runescape.wiki/w/Fever_spider",
+      "revision": 15275482,
+      "locations": [
+        "Braindeath Island"
+      ]
+    },
+    {
+      "task": "Fire giants",
+      "article": "Slayer task/Fire giants",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Fire_giants",
+      "revision": 15327832,
+      "locations": [
+        "Brimhaven Dungeon",
+        "Charred Dungeon",
+        "Stronghold Slayer Cave",
+        "Deep Wilderness Dungeon",
+        "Catacombs of Kourend",
+        "Giants' Den",
+        "Karuulm Slayer Dungeon",
+        "Smoke Dungeon",
+        "Waterfall Dungeon",
+        "Isle of Souls Dungeon"
+      ]
+    },
+    {
+      "task": "Fleshcrawlers",
+      "article": "Flesh Crawler",
+      "page": "https://oldschool.runescape.wiki/w/Flesh_Crawler",
+      "revision": 15275490,
+      "locations": [
+        "Stronghold of Security: Catacomb of Famine"
+      ]
+    },
+    {
+      "task": "Fossil island wyverns",
+      "article": "Slayer task/Fossil Island wyverns",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Fossil_Island_wyverns",
+      "revision": 15365203,
+      "locations": [
+        "Wyvern Cave",
+        "Wyvern Cave (task-only)"
+      ]
+    },
+    {
+      "task": "Frost dragons",
+      "article": "Frost dragon",
+      "page": "https://oldschool.runescape.wiki/w/Frost_dragon",
+      "revision": 15357143,
+      "locations": [
+        "Grimstone Dungeon"
+      ]
+    },
+    {
+      "task": "Gargoyles",
+      "article": "Slayer task/Gargoyles",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Gargoyles",
+      "revision": 15381129,
+      "locations": [
+        "Slayer Tower"
+      ]
+    },
+    {
+      "task": "Ghosts",
+      "article": "Slayer task/Ghosts",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts",
+      "revision": 15250974,
+      "locations": [
+        "Catacombs of Kourend",
+        "Crumbling Tower",
+        "Death Altar",
+        "Draynor Manor",
+        "Grave of Scorpius",
+        "Melzar's Maze",
+        "Mynydd",
+        "Dense Essence Mine",
+        "Chaos Temple (Wilderness)",
+        "Ferox Enclave",
+        "Ectofuntus",
+        "Stronghold of Security: Sepulchre of Death",
+        "Taverley Dungeon",
+        "Uzer",
+        "The Forgotten Cemetery",
+        "Revenant Caves",
+        "Varrock Sewers",
+        "Shaman Caves",
+        "West Ardougne",
+        "Port Phasmatys"
+      ]
+    },
+    {
+      "task": "Ghouls",
+      "article": "Ghoul",
+      "page": "https://oldschool.runescape.wiki/w/Ghoul",
+      "revision": 15355380,
+      "locations": [
+        "Mort Myre Swamp"
+      ]
+    },
+    {
+      "task": "Goblins",
+      "article": "Slayer task/Goblins",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Goblins",
+      "revision": 14871486,
+      "locations": [
+        "Lumbridge",
+        "Stronghold of Security",
+        "Lumbridge Swamp Caves",
+        "Dorgeshuun Mines",
+        "Observatory Dungeon",
+        "Goblin Cave",
+        "Goblin Village",
+        "Fishing Guild",
+        "God Wars Dungeon",
+        "Clock Tower Dungeon",
+        "Port Sarim",
+        "Tree Gnome Village"
+      ]
+    },
+    {
+      "task": "Greater demons",
+      "article": "Slayer task/Greater demons",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Greater_demons",
+      "revision": 15270275,
+      "locations": [
+        "Brimhaven Dungeon",
+        "Chasm of Fire",
+        "Catacombs of Kourend",
+        "Entrana Dungeon",
+        "Lava Maze Dungeon",
+        "Demonic Ruins",
+        "Ogre Enclave",
+        "Isle of Souls Dungeon",
+        "Karuulm Slayer Dungeon",
+        "Wilderness Slayer Cave"
+      ]
+    },
+    {
+      "task": "Green dragons",
+      "article": "Slayer task/Green dragons",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Green_dragons",
+      "revision": 15341655,
+      "locations": [
+        "Dark Warriors' Fortress",
+        "Wilderness",
+        "Graveyard of Shadows",
+        "Lava Maze",
+        "Wilderness Slayer Cave"
+      ]
+    },
+    {
+      "task": "Gryphons",
+      "article": "Slayer task/Gryphons",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Gryphons",
+      "revision": 15341628,
+      "locations": [
+        "Gryphon Cave (west)",
+        "Gryphon Cave (task-only)"
+      ]
+    },
+    {
+      "task": "Harpie bug swarms",
+      "article": "Harpie Bug Swarm",
+      "page": "https://oldschool.runescape.wiki/w/Harpie_Bug_Swarm",
+      "revision": 15338388,
+      "locations": [
+        "Tai Bwo Wannai",
+        "Colossal Wyrm Remains"
+      ]
+    },
+    {
+      "task": "Hellhounds",
+      "article": "Slayer task/Hellhounds",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Hellhounds",
+      "revision": 15357324,
+      "locations": [
+        "Buccaneers' Laboratory",
+        "Catacombs of Kourend",
+        "Charred Dungeon",
+        "God Wars Dungeon",
+        "Karuulm Slayer Dungeon",
+        "Stronghold Slayer Cave",
+        "Taverley Dungeon",
+        "Witchaven Dungeon",
+        "Wilderness Resource Area",
+        "Wilderness Slayer Cave",
+        "Wilderness"
+      ]
+    },
+    {
+      "task": "Hill giants",
+      "article": "Slayer task/Hill giants",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Hill_giants",
+      "revision": 15272947,
+      "locations": [
+        "Lava Maze",
+        "Giant Pit",
+        "Gnome Maze",
+        "Observatory",
+        "Tree Gnome Stronghold",
+        "Bone Yard",
+        "Edgeville Dungeon",
+        "Taverley Dungeon",
+        "Deep Wilderness Dungeon",
+        "Catacombs of Kourend",
+        "Giants' Plateau",
+        "Warriors' Guild",
+        "Ardougne Zoo",
+        "God Wars Dungeon",
+        "Giants' Den",
+        "Avium Savannah"
+      ]
+    },
+    {
+      "task": "Hobgoblins",
+      "article": "Slayer task/Hobgoblins",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Hobgoblins",
+      "revision": 15251007,
+      "locations": [
+        "Bandit Camp (Wilderness)",
+        "Hosidius",
+        "God Wars Dungeon",
+        "Crafting Guild",
+        "Outpost",
+        "Asgarnian Ice Dungeon",
+        "Edgeville Dungeon"
+      ]
+    },
+    {
+      "task": "Hydras",
+      "article": "Slayer task/Hydras",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Hydras",
+      "revision": 15317930,
+      "locations": [
+        "Karuulm Slayer Dungeon"
+      ]
+    },
+    {
+      "task": "Icefiends",
+      "article": "Slayer task/Icefiends",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Icefiends",
+      "revision": 15336183,
+      "locations": [
+        "Ice Mountain",
+        "Ruins of Tapoyauik",
+        "Ralos' Rise",
+        "Mons Gratia",
+        "God Wars Dungeon",
+        "Wilderness God Wars Dungeon"
+      ]
+    },
+    {
+      "task": "Ice giants",
+      "article": "Slayer task/Ice giants",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Ice_giants",
+      "revision": 15369843,
+      "locations": [
+        "Asgarnian Ice Dungeon",
+        "Settlement Ruins",
+        "White Wolf Mountain",
+        "Ice Queen's Lair",
+        "Ruins of Tapoyauik",
+        "Wilderness Slayer Cave",
+        "Frozen Waste Plateau"
+      ]
+    },
+    {
+      "task": "Ice warriors",
+      "article": "Ice warrior",
+      "page": "https://oldschool.runescape.wiki/w/Ice_warrior",
+      "revision": 15382514,
+      "locations": [
+        "Frozen Waste Plateau",
+        "Asgarnian Ice Dungeon",
+        "White Wolf Mountain",
+        "Ice Queen's Lair",
+        "Ruins of Tapoyauik"
+      ]
+    },
+    {
+      "task": "Infernal mages",
+      "article": "Infernal Mage",
+      "page": "https://oldschool.runescape.wiki/w/Infernal_Mage",
+      "revision": 15382958,
+      "locations": [
+        "Slayer Tower"
+      ]
+    },
+    {
+      "task": "Jellies",
+      "article": "Slayer task/Jellies",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Jellies",
+      "revision": 15347496,
+      "locations": [
+        "Fremennik Slayer Dungeon",
+        "Catacombs of Kourend",
+        "Wilderness Slayer Cave",
+        "Ruins of Tapoyauik",
+        "Grimstone Dungeon"
+      ]
+    },
+    {
+      "task": "Jungle horrors",
+      "article": "Jungle horror",
+      "page": "https://oldschool.runescape.wiki/w/Jungle_horror",
+      "revision": 15369331,
+      "locations": [
+        "Mos Le'Harmless"
+      ]
+    },
+    {
+      "task": "Kalphites",
+      "article": "Slayer task/Kalphites",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Kalphites",
+      "revision": 15344284,
+      "locations": [
+        "Kalphite Lair",
+        "Kalphite Cave"
+      ]
+    },
+    {
+      "task": "Killerwatts",
+      "article": "Killerwatt",
+      "page": "https://oldschool.runescape.wiki/w/Killerwatt",
+      "revision": 15381139,
+      "locations": [
+        "Killerwatt Plane"
+      ]
+    },
+    {
+      "task": "Kurask",
+      "article": "Slayer task/Kurask",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Kurask",
+      "revision": 15373542,
+      "locations": [
+        "Fremennik Slayer Dungeon",
+        "Iorwerth Dungeon",
+        "Kurask Lair"
+      ]
+    },
+    {
+      "task": "Lava Dragons",
+      "article": "Lava dragon",
+      "page": "https://oldschool.runescape.wiki/w/Lava_dragon",
+      "revision": 15343124,
+      "locations": [
+        "Lava Dragon Isle"
+      ]
+    },
+    {
+      "task": "Lesser demons",
+      "article": "Slayer task/Lesser demon",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_demon",
+      "revision": 15344163,
+      "locations": [
+        "Lava Maze",
+        "Demonic Ruins",
+        "King Black Dragon Lair",
+        "Crandor",
+        "Kourend Castle",
+        "Wizards' Tower",
+        "Kingstown",
+        "Crandor and Karamja Dungeon",
+        "Sisterhood Sanctuary",
+        "Taverley Dungeon",
+        "Wilderness Slayer Cave",
+        "Chasm of Fire",
+        "Catacombs of Kourend",
+        "Temple of Ikov",
+        "Viyeldi Caves",
+        "Isle of Souls Dungeon",
+        "Charred Dungeon"
+      ]
+    },
+    {
+      "task": "Lesser Nagua",
+      "article": "Slayer task/Lesser Nagua",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_Nagua",
+      "revision": 15343878,
+      "locations": [
+        "Neypotzli",
+        "Ruins of Tapoyauik",
+        "Crypt of Tonali"
+      ]
+    },
+    {
+      "task": "Lizardmen",
+      "article": "Slayer task/Lizardmen",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Lizardmen",
+      "revision": 15250962,
+      "locations": [
+        "Shayziens' Wall",
+        "Lizardman Canyon",
+        "Lizardman Settlement",
+        "Kebos Swamp",
+        "Battlefront",
+        "Molch",
+        "Xeric's Shrine",
+        "Lizardman Caves",
+        "Lizardman Temple"
+      ]
+    },
+    {
+      "task": "Lizards",
+      "article": "Slayer task/Lizards",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Lizards",
+      "revision": 15116877,
+      "locations": [
+        "Kharidian Desert",
+        "Karuulm Slayer Dungeon",
+        "Neypotzli"
+      ]
+    },
+    {
+      "task": "Magic axes",
+      "article": "Magic axe",
+      "page": "https://oldschool.runescape.wiki/w/Magic_axe",
+      "revision": 15371732,
+      "locations": [
+        "Magic Axe Hut",
+        "Taverley Dungeon",
+        "Catacombs of Kourend"
+      ]
+    },
+    {
+      "task": "Mammoths",
+      "article": "Mammoth",
+      "page": "https://oldschool.runescape.wiki/w/Mammoth",
+      "revision": 15365428,
+      "locations": [
+        "Ferox Enclave"
+      ]
+    },
+    {
+      "task": "Metal dragons",
+      "article": "Slayer task/Metal dragons",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Metal_dragons",
+      "revision": 15332692,
+      "locations": [
+        "Brimhaven Dungeon",
+        "Catacombs of Kourend",
+        "Isle of Souls Dungeon",
+        "Ancient Cavern",
+        "Lithkren Vault"
+      ]
+    },
+    {
+      "task": "Minotaurs",
+      "article": "Minotaur",
+      "page": "https://oldschool.runescape.wiki/w/Minotaur",
+      "revision": 15204227,
+      "locations": [
+        "Stronghold of Security: Vault of War"
+      ]
+    },
+    {
+      "task": "Mogres",
+      "article": "Mogre",
+      "page": "https://oldschool.runescape.wiki/w/Mogre",
+      "revision": 15346116,
+      "locations": [
+        "Mudskipper Point"
+      ]
+    },
+    {
+      "task": "Molanisks",
+      "article": "Slayer task/Molanisks",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Molanisks",
+      "revision": 15358990,
+      "locations": [
+        "Dorgesh-Kaan South Dungeon"
+      ]
+    },
+    {
+      "task": "Monkeys",
+      "article": "Slayer task/Monkeys",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Monkeys",
+      "revision": 15250976,
+      "locations": [
+        "Ape Atoll Dungeon",
+        "Ardougne Zoo",
+        "Brimhaven",
+        "Crash Site Cavern",
+        "Tai Bwo Wannai",
+        "Karamja",
+        "Marim",
+        "Mos Le'Harmless",
+        "Shilo Village",
+        "Temple of Marimbo",
+        "Temple of Marimbo Dungeon"
+      ]
+    },
+    {
+      "task": "Moss giants",
+      "article": "Slayer task/Moss giants",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Moss_giants",
+      "revision": 15250972,
+      "locations": [
+        "Brimhaven Dungeon",
+        "Catacombs of Kourend",
+        "Crandor",
+        "Iorwerth Dungeon",
+        "Isle of Souls",
+        "Giants' Den",
+        "Kourend Woodland",
+        "Laguna Aurorae",
+        "Moss Giant Island",
+        "Pirates' Cove",
+        "Varrock Sewers",
+        "Fishing Guild",
+        "Wilderness"
+      ]
+    },
+    {
+      "task": "Mutated zygomites",
+      "article": "Slayer task/Zygomites",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Zygomites",
+      "revision": 15161085,
+      "locations": [
+        "Zanaris",
+        "Mushroom Forest",
+        "Stalker Den"
+      ]
+    },
+    {
+      "task": "Nechryael",
+      "article": "Slayer task/Nechryael",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Nechryael",
+      "revision": 15359113,
+      "locations": [
+        "Slayer Tower",
+        "Catacombs of Kourend",
+        "Wilderness Slayer Cave",
+        "Iorwerth Dungeon",
+        "Charred Dungeon"
+      ]
+    },
+    {
+      "task": "Ogres",
+      "article": "Slayer task/Ogres",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Ogres",
+      "revision": 15320380,
+      "locations": [
+        "Chaos Druid Tower Dungeon",
+        "Clock Tower Dungeon",
+        "Combat Training Camp",
+        "Corsair Cove Dungeon",
+        "Feldip Hills",
+        "Gnome Maze",
+        "God Wars Dungeon",
+        "Gu'Tanoth",
+        "Jiggig",
+        "Jiggig Dungeon",
+        "Mudskipper Point",
+        "Underground Pass",
+        "Yanille",
+        "Wilderness God Wars Dungeon",
+        "Witchaven Dungeon"
+      ]
+    },
+    {
+      "task": "Otherworldly beings",
+      "article": "Otherworldly being",
+      "page": "https://oldschool.runescape.wiki/w/Otherworldly_being",
+      "revision": 15199250,
+      "locations": [
+        "Zanaris"
+      ]
+    },
+    {
+      "task": "Pirates",
+      "article": "Slayer task/Pirate",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Pirate",
+      "revision": 14972749,
+      "locations": [
+        "Pirates' Hideout",
+        "Chaos Temple (Wilderness)"
+      ]
+    },
+    {
+      "task": "Pyrefiends",
+      "article": "Slayer task/Pyrefiends",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Pyrefiends",
+      "revision": 15366444,
+      "locations": [
+        "Fremennik Slayer Dungeon",
+        "God Wars Dungeon",
+        "Isle of Souls",
+        "Sisterhood Sanctuary",
+        "Smoke Dungeon",
+        "Wilderness God Wars Dungeon"
+      ]
+    },
+    {
+      "task": "Rats",
+      "article": "Slayer task/Rats",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Rats",
+      "revision": 15372685,
+      "locations": [
+        "Lumbridge",
+        "Rimmington",
+        "Lumbridge Swamp",
+        "Stronghold of Security",
+        "Melzar's Maze",
+        "Brine Rat Cavern",
+        "Evil Dave's Basement",
+        "Clock Tower Dungeon",
+        "Ardougne Sewers",
+        "Goblin Cave",
+        "Barrows",
+        "Varrock Sewers"
+      ]
+    },
+    {
+      "task": "Red dragons",
+      "article": "Slayer task/Red dragons",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Red_dragons",
+      "revision": 15250964,
+      "locations": [
+        "Brimhaven Dungeon",
+        "Charred Dungeon",
+        "Corsair Cove Dungeon",
+        "Forthos Dungeon",
+        "Catacombs of Kourend"
+      ]
+    },
+    {
+      "task": "Rockslugs",
+      "article": "Rockslug",
+      "page": "https://oldschool.runescape.wiki/w/Rockslug",
+      "revision": 15339655,
+      "locations": [
+        "Dorgesh-Kaan South Dungeon",
+        "Fremennik Slayer Dungeon",
+        "Lumbridge Swamp Caves",
+        "Tonali Cavern",
+        "Ynysdail Cavern"
+      ]
+    },
+    {
+      "task": "Rogues",
+      "article": "Rogue",
+      "page": "https://oldschool.runescape.wiki/w/Rogue",
+      "revision": 15374723,
+      "locations": [
+        "Rogues' Castle",
+        "Mage Arena"
+      ]
+    },
+    {
+      "task": "Scabarites",
+      "article": "Slayer task/Scabarites",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Scabarites",
+      "revision": 15250975,
+      "locations": [
+        "Sophanem Dungeon",
+        "Uzer Mastaba"
+      ]
+    },
+    {
+      "task": "Scorpions",
+      "article": "Slayer task/Scorpions",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Scorpions",
+      "revision": 15316864,
+      "locations": [
+        "Al Kharid Mine",
+        "Ardougne Zoo",
+        "Dwarven Mine",
+        "Stonecutter Outpost",
+        "Scorpion Pit",
+        "Scorpion Pit (Cave)"
+      ]
+    },
+    {
+      "task": "Sea snakes",
+      "article": "Slayer task/Sea snakes",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Sea_snakes",
+      "revision": 15124331,
+      "locations": [
+        "Miscellania and Etceteria Dungeon"
+      ]
+    },
+    {
+      "task": "Shades",
+      "article": "Slayer task/Shades",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Shades",
+      "revision": 15355228,
+      "locations": [
+        "Stronghold of Security: Sepulchre of Death",
+        "Catacombs of Kourend",
+        "Mort'ton",
+        "Shade Catacombs"
+      ]
+    },
+    {
+      "task": "Shadow warriors",
+      "article": "Shadow warrior",
+      "page": "https://oldschool.runescape.wiki/w/Shadow_warrior",
+      "revision": 15275495,
+      "locations": [
+        "Legends' Guild Dungeon"
+      ]
+    },
+    {
+      "task": "Skeletal wyverns",
+      "article": "Skeletal Wyvern",
+      "page": "https://oldschool.runescape.wiki/w/Skeletal_Wyvern",
+      "revision": 15359558,
+      "locations": [
+        "Asgarnian Ice Dungeon"
+      ]
+    },
+    {
+      "task": "Skeletons",
+      "article": "Slayer task/Skeletons",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Skeletons",
+      "revision": 15346469,
+      "locations": [
+        "Ape Atoll Dungeon",
+        "Barrows",
+        "Catacombs of Kourend",
+        "Digsite Dungeon",
+        "Draynor Manor",
+        "Draynor Sewers",
+        "Edgeville Dungeon",
+        "Jiggig",
+        "Jiggig Dungeon",
+        "Melzar's Maze",
+        "Shayzien Crypts",
+        "Stronghold of Security",
+        "Taverley Dungeon",
+        "Tarn's Lair",
+        "Varrock Sewers",
+        "Waterfall Dungeon",
+        "Wilderness",
+        "Wizards' Tower"
+      ]
+    },
+    {
+      "task": "Smoke devils",
+      "article": "Slayer task/Smoke devils",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Smoke_devils",
+      "revision": 15354583,
+      "locations": [
+        "Smoke Devil Dungeon"
+      ]
+    },
+    {
+      "task": "Sourhogs",
+      "article": "Sourhog",
+      "page": "https://oldschool.runescape.wiki/w/Sourhog",
+      "revision": 15275486,
+      "locations": [
+        "Sourhog Cave"
+      ]
+    },
+    {
+      "task": "Spiders",
+      "article": "Slayer task/Spiders",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Spiders",
+      "revision": 15250979,
+      "locations": [
+        "Arceuus",
+        "Forthos Dungeon",
+        "Gnome Maze",
+        "Hosidius",
+        "Lovakengj",
+        "Morytania Spider Cave",
+        "Ogre Enclave",
+        "Port Piscarilius",
+        "Sisterhood Sanctuary",
+        "Stronghold of Security: Pit of Pestilence",
+        "Underground Pass"
+      ]
+    },
+    {
+      "task": "Spiritual creatures",
+      "article": "Slayer task/Spiritual creatures",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Spiritual_creatures",
+      "revision": 15287407,
+      "locations": [
+        "God Wars Dungeon",
+        "Wilderness God Wars Dungeon"
+      ]
+    },
+    {
+      "task": "Suqahs",
+      "article": "Slayer task/Suqah",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Suqah",
+      "revision": 15345834,
+      "locations": [
+        "Lunar Isle"
+      ]
+    },
+    {
+      "task": "Terror dogs",
+      "article": "Terror dog",
+      "page": "https://oldschool.runescape.wiki/w/Terror_dog",
+      "revision": 15373638,
+      "locations": [
+        "Tarn's Lair"
+      ]
+    },
+    {
+      "task": "Trolls",
+      "article": "Slayer task/Trolls",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Trolls",
+      "revision": 15370558,
+      "locations": [
+        "Enchanted Valley",
+        "Fremennik Isles",
+        "Keldagrim",
+        "Mount Quidamortem",
+        "Death Plateau",
+        "Troll Stronghold",
+        "Wyrmscraig Cavern"
+      ]
+    },
+    {
+      "task": "Turoth",
+      "article": "Slayer task/Turoth",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Turoth",
+      "revision": 15341656,
+      "locations": [
+        "Fremennik Slayer Dungeon"
+      ]
+    },
+    {
+      "task": "Tzhaar",
+      "article": "Slayer task/TzHaar",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/TzHaar",
+      "revision": 15374167,
+      "locations": [
+        "Mor Ul Rek"
+      ]
+    },
+    {
+      "task": "Vampyres",
+      "article": "Slayer task/Vampyres",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Vampyres",
+      "revision": 15373747,
+      "locations": [
+        "Burgh de Rott",
+        "Darkmeyer",
+        "God Wars Dungeon",
+        "Haunted Woods",
+        "Meiyerditch",
+        "Slepe",
+        "Wilderness God Wars Dungeon"
+      ]
+    },
+    {
+      "task": "Venators",
+      "article": "Slayer task/Venators",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Venators",
+      "revision": 15327318,
+      "locations": [
+        "Apsul Hunting Ground",
+        "Virer Hunting Ground"
+      ]
+    },
+    {
+      "task": "Wall beasts",
+      "article": "Wall beast",
+      "page": "https://oldschool.runescape.wiki/w/Wall_beast",
+      "revision": 15382694,
+      "locations": [
+        "Lumbridge Swamp Caves"
+      ]
+    },
+    {
+      "task": "Warped Creatures",
+      "article": "Slayer task/Warped creatures",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Warped_creatures",
+      "revision": 15379662,
+      "locations": [
+        "Poison Waste Dungeon"
+      ]
+    },
+    {
+      "task": "Waterfiends",
+      "article": "Slayer task/Waterfiends",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Waterfiends",
+      "revision": 15364708,
+      "locations": [
+        "Ancient Cavern",
+        "Kraken Cove",
+        "Iorwerth Dungeon"
+      ]
+    },
+    {
+      "task": "Werewolves",
+      "article": "Werewolf",
+      "page": "https://oldschool.runescape.wiki/w/Werewolf",
+      "revision": 15319526,
+      "locations": [
+        "God Wars Dungeon",
+        "Wilderness God Wars Dungeon"
+      ]
+    },
+    {
+      "task": "Wolves",
+      "article": "Slayer task/Wolves",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Wolves",
+      "revision": 14976155,
+      "locations": [
+        "Arandar",
+        "Ardougne Zoo",
+        "Feldip Hills",
+        "Tree Gnome Village",
+        "Fremennik Province",
+        "Hosidius",
+        "Rellekka",
+        "West Ardougne",
+        "Stronghold of Security: Vault of War",
+        "Sinclair Mansion",
+        "Outpost",
+        "White Wolf Mountain",
+        "Deserted Keep"
+      ]
+    },
+    {
+      "task": "Wyrms",
+      "article": "Slayer task/Wyrms",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Wyrms",
+      "revision": 15372412,
+      "locations": [
+        "Karuulm Slayer Dungeon",
+        "Neypotzli",
+        "Wyrmscraig",
+        "Wyrmscraig Cavern",
+        "Charred Dungeon"
+      ]
+    },
+    {
+      "task": "Zombies",
+      "article": "Slayer task/Zombies",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Zombies",
+      "revision": 15327782,
+      "locations": [
+        "Ectofuntus",
+        "Ape Atoll Dungeon",
+        "Ardougne Sewers",
+        "Braindeath Island",
+        "Chaos Temple (Wilderness)",
+        "Draynor Sewers",
+        "Edgeville Dungeon",
+        "Forthos Dungeon",
+        "Glarial's Tomb",
+        "Graveyard of Shadows",
+        "Harmony Island",
+        "Jiggig",
+        "Jiggig Dungeon",
+        "Magic Guild's Dungeon",
+        "Melzar's Maze",
+        "Wilderness",
+        "Shilo Village",
+        "Graveyard of Heroes",
+        "Stronghold of Security",
+        "Temple of Ah Za Rhoon",
+        "Temple of Marimbo Dungeon",
+        "Tomb of Rashiliyia",
+        "Tree Gnome Village Dungeon",
+        "Ungael",
+        "Varrock Sewers",
+        "West Ardougne Cemetery"
+      ]
+    }
+  ]
+}

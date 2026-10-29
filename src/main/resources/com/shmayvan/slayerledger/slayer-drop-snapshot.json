@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "snapshotDate": "2026-10-26",
+  "license": "CC BY-NC-SA 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-nc-sa/3.0/",
+  "source": "Old School RuneScape Wiki",
+  "contributors": "Old School RuneScape Wiki contributors",
+  "attribution": "Selected drop-rate facts adapted from the listed Old School RuneScape Wiki articles (revisions given per table) by Old School RuneScape Wiki contributors. This dataset is a modified, partial snapshot and is shared under the same CC BY-NC-SA 3.0 license.",
+  "scope": "Selected fixed-quantity drops from standard monster tables; conditional, area-specific, clue, tertiary, and shared rare-drop tables are excluded.",
+  "tables": [
+    {
+      "task": "Abyssal demons",
+      "article": "Abyssal demon",
+      "page": "https://oldschool.runescape.wiki/w/Abyssal_demon",
+      "revision": 15357583,
+      "drops": [
+        { "item": "Abyssal whip", "numerator": 1, "denominator": 512 },
+        { "item": "Abyssal dagger", "numerator": 1, "denominator": 32000 }
+      ]
+    },
+    {
+      "task": "Dust devils",
+      "article": "Dust devil",
+      "page": "https://oldschool.runescape.wiki/w/Dust_devil",
+      "revision": 15339619,
+      "drops": [
+        { "item": "Dust battlestaff", "numerator": 1, "denominator": 4000 },
+        { "item": "Dragon chainbody", "numerator": 1, "denominator": 32768 }
+      ]
+    },
+    {
+      "task": "Gargoyles",
+      "article": "Gargoyle",
+      "page": "https://oldschool.runescape.wiki/w/Gargoyle",
+      "revision": 15339578,
+      "drops": [
+        { "item": "Granite maul", "numerator": 1, "denominator": 256 },
+        { "item": "Mystic robe top (dark)", "numerator": 1, "denominator": 512 }
+      ]
+    },
+    {
+      "task": "Kurask",
+      "article": "Kurask",
+      "page": "https://oldschool.runescape.wiki/w/Kurask",
+      "revision": 15373546,
+      "drops": [
+        { "item": "Leaf-bladed sword", "numerator": 1, "denominator": 384 },
+        { "item": "Mystic robe top (light)", "numerator": 1, "denominator": 512 },
+        { "item": "Leaf-bladed battleaxe", "numerator": 1, "denominator": 1026 }
+      ]
+    },
+    {
+      "task": "Nechryael",
+      "article": "Nechryael",
+      "page": "https://oldschool.runescape.wiki/w/Nechryael",
+      "revision": 15381589,
+      "drops": [
+        { "item": "Rune boots", "numerator": 1, "denominator": 116 }
+      ]
+    }
+  ]
+}

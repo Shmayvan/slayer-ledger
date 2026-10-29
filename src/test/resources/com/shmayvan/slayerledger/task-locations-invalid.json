@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "source": "Old School RuneScape Wiki",
+  "license": "CC BY-NC-SA 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-nc-sa/3.0/",
+  "contributors": "Old School RuneScape Wiki contributors",
+  "retrieved": "2026-10-27",
+  "attribution": "Test",
+  "tasks": [
+    {
+      "task": "Dust devils",
+      "article": "Slayer task/Dust devils",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Dust_devils",
+      "revision": 1,
+      "locations": [ "Smoke Dungeon" ]
+    },
+    {
+      "task": " DUST DEVILS ",
+      "article": "Slayer task/Dust devils",
+      "page": "https://oldschool.runescape.wiki/w/Slayer_task/Dust_devils",
+      "revision": 1,
+      "locations": [ "Catacombs of Kourend" ]
+    }
+  ]
+}
