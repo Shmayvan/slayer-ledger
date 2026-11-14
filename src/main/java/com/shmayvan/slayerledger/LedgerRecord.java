@@ -1,5 +1,6 @@
 package com.shmayvan.slayerledger;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -27,12 +28,29 @@ import lombok.Data;
  * records have it {@code null} and show "-" for their XP. {@link #locationRegion} and {@link #location} were added the
  * same way; older records have them {@code null} and show "Unknown" for their location. {@link #variant} was added
  * the same way; older records have it {@code null}, so they count as the standard monster. Whether a task was
- * done with a cannon is not stored: it is derived from {@link #supplies} ({@link #cannonTask}).</p>
+ * done with a cannon was not stored: 1.x derived it from {@link #supplies}; since version 3 it is the Cannon
+ * tag ({@link #cannonTask}).</p>
+ *
+ * <p>Version 3 (2.0) adds the setup tags: the detected cannon, style and gear focus ({@link #detectedCannon},
+ * {@link #detectedStyle}, {@link #detectedGear}), whether each is an estimate ({@link #cannonEstimated} and so on) and
+ * the player's overrides ({@link #cannonOverride} and so on), read only through {@link SetupTags}. It also adds the
+ * kills by NPC ({@link #npcKills}), the setup kill-context counts ({@link #cannonKills}, {@link #styleKills},
+ * {@link #gearKills}, {@link #prayerBonusMin}, {@link #prayerBonusMax}; see {@link SetupKills}) and the spot
+ * ({@link #spotId}). The version was raised because the setup tags change what a task's cannon means: a 1.x build
+ * would ignore the player's overrides and classify the task by its own rule, so it must not write a 2.0 ledger. A
+ * record below version 3 is migrated when it is read ({@link SetupMigration}): it gets estimated tags and version 3 in
+ * memory, and keeps them once the file is next written.</p>
+ *
+ * <p>{@link #bossKills} was added to version 3 later, as an optional field, before any released build wrote
+ * version 3. A 1.x record gets it when it is migrated ({@link SetupMigration}, {@link TaskVariants#migrate}), from its
+ * {@link #npcKills} when it has any or else its {@link #bossKillCounts}, and keeps it once the file is next written.
+ * Now {@link #variant} names any kind a task can be done on besides its own monsters ({@link TaskVariants}):
+ * its Catacombs variant, as before, or its Slayer boss.</p>
  */
 @Data
 public class LedgerRecord
 {
-	public static final int CURRENT_SCHEMA_VERSION = 2;
+	public static final int CURRENT_SCHEMA_VERSION = 3;
 
 	private int schemaVersion = CURRENT_SCHEMA_VERSION;
 	private String id;
@@ -151,50 +169,114 @@ public class LedgerRecord
 	 */
 	private Map<String, Long> xpGained;
 	/**
-	 * Map region id with the most counted kills (see {@link LocationTally}; ties go to the region seen first), or
-	 * {@code null} when no kill was tallied (and in older records).
+	 * The map region the task's location was decided from (see {@link LocationTally#decide}): the region with the
+	 * most kills in the task's spot, or with no spot the region with the most kills of all (1.x saved the region with
+	 * the most kills); {@code null} when no kill was tallied (and in older records).
 	 */
 	private Integer locationRegion;
 	/**
-	 * The task's location name when it was saved (see {@link TaskLocation#recordName}): the assigned area of a Konar or
-	 * Wilderness task, else the player's name for {@link #locationRegion}; {@code null} when unnamed (and in older
-	 * records). Can be edited after saving.
+	 * The task's own location name, which the history shows before any other ({@link TaskLocation#recordLocation}):
+	 * since 2.0 only a name the player gave this task ("Edit location"); a 1.x record also kept the name its
+	 * location had when it was saved (its assigned Konar or Wilderness area, else the player's name for
+	 * {@link #locationRegion}). {@code null} when it has none. Can be edited after saving; never decides the spot.
 	 */
 	private String location;
 	/**
-	 * The Catacombs of Kourend variant the task was done on, by its name ({@link CatacombsVariants.Variant#getName},
-	 * for example "Deviant spectres"), decided from the session's kills per NPC name and its task kills when it was
-	 * saved ({@link CatacombsVariants#decide}); {@code null} for the standard monster (and in older records). The
-	 * session's kills per NPC name are not stored in the record.
+	 * The task's Slayer spot (V2 plan 4.5): the bundled spot table's stable id ({@link SlayerSpots}), or
+	 * {@code region:N} for a region the table doesn't list, decided from its kills when it was saved
+	 * ({@link LocationTally#decide}); {@code null} when unknown, and in records saved before spots, whose spot is worked
+	 * out from {@link #locationRegion} each time it is read ({@link SlayerSpots#recordSpot}).
+	 */
+	private String spotId;
+	/**
+	 * The kind the task was mostly done on besides its own monsters, by its name, decided from the session's kills per
+	 * NPC name and its task kills when it was saved ({@link TaskVariants#decide}): its Catacombs of Kourend variant
+	 * ({@link CatacombsVariants.Variant#getName}, for example "Deviant spectres") or,, its Slayer boss
+	 * ({@link SlayerBosses.Boss#getName}, for example "Grotesque Guardians" on a gargoyle task); {@code null} for the
+	 * standard monster (and in older records). The session's kills per NPC name are kept in {@link #npcKills} since
+	 * version 3.
 	 */
 	private String variant;
+	/**
+	 * Whether the task's kills include its Slayer boss (V2 plan 4.4, {@link TaskVariants#bossKills}), for example
+	 * a Grotesque Guardians kill on a gargoyle task, however few; {@code false} for a boss task (its own pool) or a task
+	 * without a Slayer boss. {@code null} only in a record built without it (none is saved so, and a migrated 1.x
+	 * record gets it), which reads as no boss kills.
+	 */
+	private Boolean bossKills;
+	/**
+	 * The session's kills per NPC name, in the order first seen ({@link NpcKillTally}, kept since version 3), or {@code null} when none (and in older records).
+	 */
+	private List<NpcKills> npcKills;
+	/**
+	 * Task kills made while the cannon was firing ({@link SetupKills}), or {@code null} when no kill context was
+	 * counted (older records).
+	 */
+	private Integer cannonKills;
+	/** Task kills per style ({@link SetupStyle} name), or {@code null} when none were counted. */
+	private Map<String, Integer> styleKills;
+	/** Task kills per gear focus ({@link GearFocus} name), or {@code null} when none were counted. */
+	private Map<String, Integer> gearKills;
+	/** The lowest worn prayer bonus seen at a task kill, or {@code null} when none was read. */
+	private Integer prayerBonusMin;
+	/** The highest worn prayer bonus seen at a task kill, or {@code null} when none was read. */
+	private Integer prayerBonusMax;
+	/**
+	 * The detected cannon tag (V2 plan 4.3): whether the task was done with a cannon, as detected (or, for a migrated
+	 * record, estimated from its cannonballs); {@code null} only in a record built without tags. Read the effective
+	 * value through {@link SetupTags}, never this field.
+	 */
+	private Boolean detectedCannon;
+	/** {@code true} when {@link #detectedCannon} is an estimate (a migrated record); {@code null} otherwise. */
+	private Boolean cannonEstimated;
+	/** The player's cannon override, or {@code null} for none (see {@link SetupOverrides}). Can be edited after saving. */
+	private Boolean cannonOverride;
+	/** The detected (or, migrated, estimated) style tag; {@code null} reads as {@link SetupStyle#UNKNOWN}. */
+	private SetupStyle detectedStyle;
+	/** {@code true} when {@link #detectedStyle} is an estimate (a migrated record); {@code null} otherwise. */
+	private Boolean styleEstimated;
+	/** The player's style override, or {@code null} for none. Can be edited after saving. */
+	private SetupStyle styleOverride;
+	/** The detected gear focus tag; {@code null} reads as {@link GearFocus#UNKNOWN}. */
+	private GearFocus detectedGear;
+	/** {@code true} when {@link #detectedGear} is an estimate; {@code null} otherwise (migrated records' gear is Unknown). */
+	private Boolean gearEstimated;
+	/** The player's gear focus override, or {@code null} for none. Can be edited after saving. */
+	private GearFocus gearOverride;
 
 	/**
 	 * The name the record is shown and grouped under: its {@link #versionName}, with
 	 * {@link CannonTasks#SUFFIX} for a {@link #cannonTask cannon task}, for example "Deviant spectres" or
-	 * "Dust devils (cannon)". The history list and its Monster filter, the task-complete chat line and the Trends list
-	 * and chart group by it (with {@link TaskStatistics#normalize}). The advisor's main advice, the assignment preview,
-	 * the luck meter and the Skipped / blocked rows pool every version and cannon use by task, and
-	 * {@link TaskStatistics} filters by creature plus a {@link TaskSelection}.
+	 * "Dust devils (cannon)". The history list and its Monster filter, the task-complete chat line and Overall totals By
+	 * monster group by it (with {@link TaskStatistics#normalize}). The advisor's main advice and the Skipped / blocked
+	 * rows pool every version
+	 * and cannon use by task, the 2.0 advisor's plan ({@link TaskPlanner}) pools every version in options split by
+	 * cannon, and {@link TaskStatistics} filters by creature plus a
+	 * {@link TaskSelection}.
 	 */
 	String groupName()
 	{
 		return CannonTasks.name(versionName(), cannonTask());
 	}
 
-	/** Its {@link #variant} when it has one, else its {@link #monster}; without the cannon suffix. */
+	/**
+	 * Its {@link #variant} when it has one (its Catacombs variant or Slayer boss), else its
+	 * {@link #monster}; without the cannon suffix.
+	 */
 	String versionName()
 	{
 		return variant != null && !variant.trim().isEmpty() ? variant.trim() : monster;
 	}
 
 	/**
-	 * Whether the task was done with a cannon: its {@link #supplies} hold fired cannonballs
-	 * ({@link CannonTasks#fired}). Derived, not stored; {@code false} for a record without supplies.
+	 * Whether the task counts as a cannon task: its effective Cannon tag ({@link SetupTags#of}: the
+	 * player's override, else the detected value), so the name, the Monster filter and the Cannon filter agree. A
+	 * record without a stored tag (none read through {@link LedgerStore}) falls back to its fired cannonballs
+	 * ({@link CannonTasks#fired}), as 1.x classified it.
 	 */
 	boolean cannonTask()
 	{
-		return CannonTasks.fired(supplies);
+		return SetupTags.of(this).isCannon();
 	}
 
 	/**
@@ -243,11 +325,18 @@ public class LedgerRecord
 		record.setPointsEarned(summary.isCompleted() ? context.getPointsEarned() : null);
 		record.setTaskStreak(summary.isCompleted() ? context.getTaskStreak() : null);
 		record.setXpGained(xpGainedFor(summary));
-		record.setLocationRegion(summary.getDominantRegion());
-		// The region's own name is added when the record is saved (it is the player's, kept per RuneScape profile).
-		record.setLocation(TaskLocation.recordName(context.getLocation(), null));
-		record.setVariant(CatacombsVariants.decide(summary.getMonster(), summary.getNpcKills(),
-			summary.getKills()));
+		// The spot its kills decided. No location name is saved: the history names it from the spot, the region's
+		// name and the player's own name for this task.
+		final TaskSpot spot = summary.getTaskSpot();
+		record.setLocationRegion(spot.getRegion());
+		record.setSpotId(spot.getSpotId());
+		record.setVariant(TaskVariants.decide(summary.getMonster(), summary.getCreatureId(), summary.getNpcKills(),
+			summary.getKills()).getVariant());
+		record.setNpcKills(summary.getNpcKills().isEmpty() ? null : new ArrayList<>(summary.getNpcKills()));
+		// From the kills per NPC name and the boss kill counts just copied.
+		record.setBossKills(TaskVariants.bossKills(record));
+		summary.getSetupKills().copyTo(record);
+		summary.getSetupTags().copyTo(record);
 		return record;
 	}
 
@@ -285,6 +374,61 @@ public class LedgerRecord
 		}
 		lootUnpricedItems = nullIfZero(ItemValuation.countUnpriced(lootTally, prices.getGe()));
 		suppliesUnpricedItems = nullIfZero(ItemValuation.countUnpriced(suppliesTally, prices.getGe()));
+	}
+
+	/**
+	 * Adds loot that came after the record was saved (Araxxor's harvest after the task-completing kill), as if it
+	 * had come before the save. The items join {@link #loot} and its notable stacks join {@link #notableDrops}
+	 * ({@link NotableDrops#add}: the most valuable are kept). A valued record ({@link LedgerHistory#isValued}) also takes
+	 * the new items' unit prices, captured when the loot came ({@code prices}, by {@link #captureValues}' rules), where it
+	 * has none of its own (an item it already priced keeps its saved price), and its loot totals and unpriced count are
+	 * worked out again from them, as {@link #captureValues} works them out. Supplies are unchanged. A record saved
+	 * without values gets the items and notable drops, no prices.
+	 *
+	 * @param items  the loot
+	 * @param prices the loot's unit prices when it came, or {@code null} when it could not be priced
+	 * @param drops  the loot's notable stacks, or {@code null} when none
+	 * @return whether the record changed: {@code false} only for no loot
+	 */
+	boolean addLateLoot(ItemTally items, ItemValuation.UnitPrices prices, List<NotableDrop> drops)
+	{
+		if (items == null || items.isEmpty())
+		{
+			return false;
+		}
+		final ItemTally lootTally = ItemTally.fromMap(loot);
+		lootTally.merge(items);
+		loot = lootTally.toMap();
+		final List<NotableDrop> notable = NotableDrops.add(notableDrops, drops);
+		notableDrops = notable.isEmpty() ? null : notable;
+		if (lootGeValue == null)
+		{
+			return true;
+		}
+		final Map<Integer, Long> ge = unitGePrices == null ? new TreeMap<>() : new TreeMap<>(unitGePrices);
+		final Map<Integer, Long> ha = unitHaPrices == null ? new TreeMap<>() : new TreeMap<>(unitHaPrices);
+		if (prices != null)
+		{
+			for (int id : items.itemIds())
+			{
+				final Long gePrice = prices.getGe().get(id);
+				if (gePrice != null)
+				{
+					ge.putIfAbsent(id, gePrice);
+				}
+				final Long haPrice = prices.getHa().get(id);
+				if (haPrice != null)
+				{
+					ha.putIfAbsent(id, haPrice);
+				}
+			}
+		}
+		unitGePrices = ge.isEmpty() ? null : ge;
+		unitHaPrices = ha.isEmpty() ? null : ha;
+		lootGeValue = ItemValuation.total(lootTally, unitGePrices);
+		lootHaValue = ItemValuation.total(lootTally, unitHaPrices);
+		lootUnpricedItems = nullIfZero(ItemValuation.countUnpriced(lootTally, unitGePrices));
+		return true;
 	}
 
 	private static Integer nullIfZero(int n)

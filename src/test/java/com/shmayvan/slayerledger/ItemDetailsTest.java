@@ -20,6 +20,8 @@ public class ItemDetailsTest
 {
 	private static final int SHARK = ItemID.SHARK;
 	private static final int PRAYER_POTION_4 = ItemID._4DOSEPRAYERRESTORE;
+	private static final int PRAYER_POTION_3 = ItemID._3DOSEPRAYERRESTORE;
+	private static final int SUPER_RESTORE_4 = ItemID._4DOSE2RESTORE;
 	private static final int WHIP = ItemID.ABYSSAL_WHIP;
 	private static final int RUNE_PLATEBODY = ItemID.RUNE_PLATEBODY;
 	private static final int COINS = ItemID.COINS;
@@ -33,6 +35,8 @@ public class ItemDetailsTest
 	{
 		NAMES.put(SHARK, "Shark");
 		NAMES.put(PRAYER_POTION_4, "Prayer potion(4)");
+		NAMES.put(PRAYER_POTION_3, "Prayer potion(3)");
+		NAMES.put(SUPER_RESTORE_4, "Super restore(4)");
 		NAMES.put(WHIP, "Abyssal whip");
 		NAMES.put(RUNE_PLATEBODY, "Rune platebody");
 		NAMES.put(COINS, "Coins");
@@ -115,6 +119,9 @@ public class ItemDetailsTest
 			"Anchovy pizza | 3 bites | 600"), texts(details.supplyRows(LOOKUP)));
 		assertEquals(ItemDetails.Unit.BITES, ItemDetails.doseUnit(ItemID.ANCHOVIE_PIZZA));
 		assertEquals(ItemDetails.Unit.CHARGES, ItemDetails.doseUnit(ItemID.AMULET_OF_GLORY_6));
+		// Slayer bracelets are recorded with charges per bracelet and read as charges, not doses.
+		assertEquals(ItemDetails.Unit.CHARGES, ItemDetails.doseUnit(ItemID.BRACELET_OF_SLAUGHTER));
+		assertEquals(ItemDetails.Unit.CHARGES, ItemDetails.doseUnit(ItemID.EXPEDITIOUS_BRACELET));
 		assertEquals(ItemDetails.Unit.DOSES, ItemDetails.doseUnit(PRAYER_POTION_4));
 	}
 
@@ -305,6 +312,85 @@ public class ItemDetailsTest
 		assertEquals("x123K", row.quantityText());
 		assertEquals("123K", row.valueText());
 		assertTrue(row.tooltip(), row.tooltip().contains("Quantity: 123,456"));
+	}
+
+	/**
+	 * a potion counted under two dose variants (its key moved to the 4-dose one mid-task) is one cell in the
+	 * supplies grids, its doses and values summed, with the 4-dose icon and prices; other supplies are unchanged.
+	 */
+	@Test
+	public void theGridMergesAPotionFamilyIntoOneCell()
+	{
+		Map<Integer, Integer> doses = new HashMap<>();
+		doses.put(PRAYER_POTION_3, 3);
+		doses.put(PRAYER_POTION_4, 4);
+		doses.put(ItemID.ANCHOVIE_PIZZA, 2);
+		ItemDetails details = ItemDetails.of(null,
+			tally(PRAYER_POTION_3, 5, PRAYER_POTION_4, 7, SHARK, 2, ItemID.ANCHOVIE_PIZZA, 3), doses,
+			prices(PRAYER_POTION_3, 6_000, PRAYER_POTION_4, 8_000, SHARK, 1_000, ItemID.ANCHOVIE_PIZZA, 400), null);
+
+		// Apart, as saved: 5 doses at 6,000 per 3 = 10,000 and 7 doses at 8,000 per 4 = 14,000.
+		assertEquals(Arrays.asList("Prayer potion | 7 doses | 14K", "Prayer potion | 5 doses | 10K", "Shark | x2 | 2,000",
+			"Anchovy pizza | 3 bites | 600"), texts(details.supplyRows(LOOKUP)));
+		List<ItemDetails.Row> grid = details.supplyGridRows(LOOKUP);
+		assertEquals(Arrays.asList("Prayer potion | 12 doses | 24K", "Shark | x2 | 2,000", "Anchovy pizza | 3 bites | 600"),
+			texts(grid));
+		ItemDetails.Row potion = grid.get(0);
+		assertEquals("the 4-dose icon", PRAYER_POTION_4, potion.getItemId());
+		assertEquals(Integer.valueOf(4), potion.getDosesPerItem());
+		assertEquals(Long.valueOf(8_000), potion.getUnitGe());
+		assertFalse(potion.isApproximate());
+		assertTrue(potion.tooltip(), potion.tooltip().contains("Quantity: 12 doses<br>Value (GE): 24,000 gp"));
+		// The grid's total is the supplies total.
+		long sum = 0;
+		for (ItemDetails.Row row : grid)
+		{
+			sum += row.getValue();
+		}
+		assertEquals(ItemValuation.total(tally(PRAYER_POTION_3, 5, PRAYER_POTION_4, 7, SHARK, 2,
+			ItemID.ANCHOVIE_PIZZA, 3), prices(PRAYER_POTION_3, 6_000, PRAYER_POTION_4, 8_000, SHARK, 1_000,
+			ItemID.ANCHOVIE_PIZZA, 400), doses), sum);
+	}
+
+	@Test
+	public void aMergedCellWithAnUnpricedVariantIsApproximate()
+	{
+		Map<Integer, Integer> doses = new HashMap<>();
+		doses.put(PRAYER_POTION_3, 3);
+		doses.put(PRAYER_POTION_4, 4);
+		ItemTally supplies = tally(PRAYER_POTION_3, 6, PRAYER_POTION_4, 4);
+
+		ItemDetails.Row some = ItemDetails.of(null, supplies, doses, prices(PRAYER_POTION_3, 6_000), null)
+			.supplyGridRows(LOOKUP).get(0);
+		assertEquals("Prayer potion | 10 doses | ~12K", texts(Collections.singletonList(some)).get(0));
+		assertTrue(some.isApproximate());
+		assertEquals("the icon stays the 4-dose one", PRAYER_POTION_4, some.getItemId());
+
+		ItemDetails.Row none = ItemDetails.of(null, supplies, doses, null, null).supplyGridRows(LOOKUP).get(0);
+		assertEquals("Prayer potion | 10 doses | ?", texts(Collections.singletonList(none)).get(0));
+	}
+
+	@Test
+	public void potionsStayApartWhileANameIsUnknownAndFamiliesDontMix()
+	{
+		Map<Integer, Integer> doses = new HashMap<>();
+		doses.put(PRAYER_POTION_3, 3);
+		doses.put(PRAYER_POTION_4, 4);
+		doses.put(SUPER_RESTORE_4, 4);
+		ItemDetails details = ItemDetails.of(null, tally(PRAYER_POTION_3, 3, PRAYER_POTION_4, 4, SUPER_RESTORE_4, 4),
+			doses, prices(PRAYER_POTION_3, 6_000, PRAYER_POTION_4, 8_000, SUPER_RESTORE_4, 12_000), null);
+
+		assertEquals(Arrays.asList("Prayer potion | 7 doses | 14K", "Super restore | 4 doses | 12K"),
+			texts(details.supplyGridRows(LOOKUP)));
+		// Before the 3-dose potion's name arrives it is a cell of its own.
+		Map<Integer, String> partial = new HashMap<>(NAMES);
+		partial.remove(PRAYER_POTION_3);
+		assertEquals(Arrays.asList("Super restore | 4 doses | 12K", "Prayer potion | 4 doses | 8,000",
+			"Item " + PRAYER_POTION_3 + " | 3 doses | 6,000"), texts(details.supplyGridRows(partial::get)));
+		// The family rule is the advisor's.
+		assertEquals("prayer potion", ItemDetails.potionFamily(PRAYER_POTION_3, LOOKUP));
+		assertNull("a bite-counted food has no potion family", ItemDetails.potionFamily(ItemID.ANCHOVIE_PIZZA, LOOKUP));
+		assertNull(ItemDetails.potionFamily(PRAYER_POTION_3, null));
 	}
 
 	@Test

@@ -68,7 +68,7 @@ public class SessionTrackerXpTest
 		read();
 		gain("SLAYER", 500);
 		assertFalse("before Play nothing counts", read());
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		gain("SLAYER", 120);
 		gain("HITPOINTS", 40);
 		assertTrue(read());
@@ -81,7 +81,7 @@ public class SessionTrackerXpTest
 	@Test
 	public void theFirstReadingOnlySetsTheBaseline()
 	{
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		assertFalse(read());
 		gain("SLAYER", 50);
 		read();
@@ -91,7 +91,7 @@ public class SessionTrackerXpTest
 	@Test
 	public void noChangeAddsNothing()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		read();
 		assertFalse(read());
 		assertTrue(tracker.getXpGained().isEmpty());
@@ -102,7 +102,7 @@ public class SessionTrackerXpTest
 	@Test
 	public void xpWhilePausedIsNotCountedAndResumeCountsFromTheLatestReading()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		read();
 		gain("SLAYER", 100);
 		read();
@@ -111,7 +111,7 @@ public class SessionTrackerXpTest
 		gain("MAGIC", 9_000);
 		assertFalse(read());
 		read();
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		gain("MAGIC", 30);
 		read();
 		assertEquals(xp("SLAYER", 100, "MAGIC", 30), tracker.getXpGained());
@@ -120,9 +120,9 @@ public class SessionTrackerXpTest
 	@Test
 	public void autoPauseStopsCountingToo()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		read();
-		tracker.autoPause();
+		tracker.loggedOut();
 		gain("SLAYER", 100);
 		read();
 		assertTrue(tracker.getXpGained().isEmpty());
@@ -133,7 +133,7 @@ public class SessionTrackerXpTest
 	@Test
 	public void aResetBaselineNeverCountsTheNextReading()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		read();
 		gain("SLAYER", 10);
 		read();
@@ -149,7 +149,7 @@ public class SessionTrackerXpTest
 	@Test
 	public void anUnsyncedReadingDropsTheBaseline()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		read();
 		// Hitpoints XP read 0: the caller passes null and the stats then arrive in a burst.
 		assertFalse(tracker.observeXp(null));
@@ -161,7 +161,7 @@ public class SessionTrackerXpTest
 	@Test
 	public void aDecreaseIsAnotherAccountAndOnlyMovesTheBaseline()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		read();
 		Map<String, Integer> other = new HashMap<>();
 		other.put("SLAYER", 13_034_431);
@@ -179,7 +179,7 @@ public class SessionTrackerXpTest
 	public void aHeldCompletionGetsNoXpAfterItsCompletionTick()
 	{
 		tracker.observe("Abyssal demons", DEMON_ID, 1, 150, false);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		read();
 		// The completion tick: the plugin reads XP before observing the task, so the final kill's XP counts.
 		gain("SLAYER", 300);
@@ -201,7 +201,7 @@ public class SessionTrackerXpTest
 	@Test
 	public void aNewSessionStartsWithNoXpAndCountsItsOwn()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		read();
 		gain("SLAYER", 100);
 		read();
@@ -210,7 +210,7 @@ public class SessionTrackerXpTest
 		assertTrue(tracker.getXpGained().isEmpty());
 		gain("SLAYER", 50);
 		read();
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		gain("SLAYER", 7);
 		read();
 		assertEquals(xp("SLAYER", 7), tracker.getXpGained());
@@ -221,12 +221,12 @@ public class SessionTrackerXpTest
 	@Test
 	public void xpSurvivesASnapshotRoundTripAndTheRestoredSessionKeepsCounting()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		read();
 		gain("SLAYER", 400);
 		gain("MAGIC", 1_200);
 		read();
-		tracker.autoPause();
+		tracker.loggedOut();
 		SessionSnapshot snapshot = SessionSnapshot.fromSummary(tracker.activeSummary(), COUNTERS, now);
 		assertEquals(xp("SLAYER", 400, "MAGIC", 1_200), snapshot.getXpGained());
 		Gson gson = new Gson();
@@ -239,7 +239,7 @@ public class SessionTrackerXpTest
 		assertEquals(xp("SLAYER", 400, "MAGIC", 1_200), restored.getXpGained());
 		// The restored tracker has no baseline: the login's first reading only sets it.
 		restored.observeXp(new HashMap<>(stats));
-		assertTrue(restored.play(ACCOUNT));
+		assertTrue(restored.startNow(ACCOUNT));
 		gain("SLAYER", 100);
 		restored.observeXp(new HashMap<>(stats));
 		assertEquals(xp("SLAYER", 500, "MAGIC", 1_200), LedgerRecord.fromSummary(restored.stopAndReset(), false)
@@ -249,8 +249,8 @@ public class SessionTrackerXpTest
 	@Test
 	public void aSnapshotFromBeforeXpWasTrackedRestoresWithNoneAndCountsFromThere()
 	{
-		tracker.play(ACCOUNT);
-		tracker.autoPause();
+		tracker.startNow(ACCOUNT);
+		tracker.loggedOut();
 		SessionSnapshot snapshot = SessionSnapshot.fromSummary(tracker.activeSummary(), COUNTERS, now);
 		snapshot.setXpGained(null);
 		Gson gson = new Gson();
@@ -271,11 +271,11 @@ public class SessionTrackerXpTest
 	@Test
 	public void aRecordWithNoXpGainedStoresAnEmptyMap()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		read();
 		LedgerRecord record = LedgerRecord.fromSummary(tracker.stopAndReset(), false);
 		assertEquals(Collections.emptyMap(), record.getXpGained());
-		assertEquals("XP: 0", LedgerHistory.formatXp(record));
+		assertEquals("XP: 0", LedgerHistory.formatXpLine(record));
 	}
 
 	@Test
@@ -284,8 +284,7 @@ public class SessionTrackerXpTest
 		LedgerRecord old = new Gson().fromJson("{\"schemaVersion\":2,\"id\":\"a\",\"monster\":\"Abyssal demons\","
 			+ "\"kills\":5,\"activeMillis\":600000}", LedgerRecord.class);
 		assertNull(old.getXpGained());
-		assertEquals("XP: -", LedgerHistory.formatXp(old));
-		assertEquals("", LedgerHistory.formatXpRate(old));
+		assertEquals("no rate either", "XP: -", LedgerHistory.formatXpLine(old));
 	}
 
 	@Test
@@ -295,7 +294,6 @@ public class SessionTrackerXpTest
 			+ "\"kills\":5,\"activeMillis\":1800000,\"xpGained\":{\"SLAYER\":15000,\"HITPOINTS\":5000}}",
 			LedgerRecord.class);
 		assertEquals(xp("SLAYER", 15_000, "HITPOINTS", 5_000), record.getXpGained());
-		assertEquals("XP: 20K", LedgerHistory.formatXp(record));
-		assertEquals("XP/h: 40K", LedgerHistory.formatXpRate(record));
+		assertEquals("XP: 20K (40K/h)", LedgerHistory.formatXpLine(record));
 	}
 }

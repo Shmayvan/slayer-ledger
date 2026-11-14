@@ -39,16 +39,16 @@ public class HarnessLifecycleTest
 	public void startedPluginReceivesEventsFromTheEventBus()
 	{
 		harness.startUp();
-		assertFalse("logged out", harness.canPlay());
+		assertFalse("logged out", harness.tracker().isTaskObserved());
 
 		harness.setTask(TASK, TASK_NAME, 10, 10);
 		harness.login(PluginHarness.ACCOUNT);
 		harness.ticks(PluginHarness.SETTLE_TICKS - 1);
-		assertFalse("task not read while the login settles", harness.canPlay());
+		assertFalse("task not read while the login settles", harness.tracker().isTaskObserved());
 		harness.tick();
 
 		// Only true if onGameStateChanged and onGameTick both ran.
-		assertTrue(harness.canPlay());
+		assertTrue(harness.tracker().isTaskObserved());
 		assertEquals(TASK_NAME, harness.tracker().getCurrentMonster());
 		assertEquals(10, harness.tracker().getCurrentRemaining());
 	}
@@ -93,7 +93,7 @@ public class HarnessLifecycleTest
 		harness.loginAndSettle(PluginHarness.ACCOUNT);
 		assertEquals("client calls by a stopped plugin", callsWhenStopped, harness.pluginCallCount());
 
-		assertFalse(harness.canPlay());
+		assertEquals("no kill started a session", SessionTracker.State.IDLE, harness.sessionState());
 		assertTrue(harness.records(PluginHarness.ACCOUNT).isEmpty());
 		assertNull(harness.activeSession(PluginHarness.ACCOUNT));
 	}
@@ -121,7 +121,7 @@ public class HarnessLifecycleTest
 			null, 0));
 		assertEquals("no handler read the client before the reset", callsBeforeReset, harness.pluginCallCount());
 		assertFalse("the task was not read with the previous run's state", harness.tracker().isTaskObserved());
-		assertFalse(harness.canPlay());
+		assertFalse(harness.tracker().isTaskObserved());
 
 		// The block reads the game state and account itself, so the skipped GameStateChanged loses nothing; the login
 		// settles afresh before the task is read.
@@ -129,7 +129,7 @@ public class HarnessLifecycleTest
 		harness.ticks(PluginHarness.SETTLE_TICKS - 1);
 		assertFalse("task not read while the login settles", harness.tracker().isTaskObserved());
 		harness.tick();
-		assertTrue(harness.canPlay());
+		assertTrue(harness.tracker().isTaskObserved());
 		assertEquals(10, harness.tracker().getCurrentRemaining());
 	}
 
@@ -143,8 +143,8 @@ public class HarnessLifecycleTest
 		harness.startUp();
 		harness.ticks(PluginHarness.SETTLE_TICKS);
 
-		assertTrue(harness.canPlay());
-		assertTrue(harness.play());
+		assertTrue(harness.tracker().isTaskObserved());
+		assertTrue(harness.startNow());
 		assertEquals(SessionTracker.State.RUNNING, harness.sessionState());
 		assertEquals(PluginHarness.ACCOUNT, harness.tracker().getSessionAccountHash());
 	}
@@ -171,7 +171,7 @@ public class HarnessLifecycleTest
 		// Nothing is left subscribed: game events after the failed start reach nothing and throw nothing.
 		harness.setTask(TASK, TASK_NAME, 10, 10);
 		harness.loginAndSettle(PluginHarness.ACCOUNT);
-		assertFalse(harness.canPlay());
+		assertFalse(harness.tracker().isTaskObserved());
 	}
 
 	@Test
@@ -192,7 +192,7 @@ public class HarnessLifecycleTest
 		harness.startUp();
 		harness.setTask(TASK, TASK_NAME, 3, 3);
 		harness.loginAndSettle(PluginHarness.ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.completeTask();
 		harness.tick();
 		assertTrue(harness.tracker().hasPendingCompletion());
@@ -219,7 +219,7 @@ public class HarnessLifecycleTest
 
 		harness.setTask(TASK, TASK_NAME, 3, 3);
 		harness.loginAndSettle(PluginHarness.ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.setRemaining(1);
 		harness.tick();
 		harness.completeTask();

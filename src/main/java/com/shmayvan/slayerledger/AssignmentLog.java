@@ -22,7 +22,7 @@ final class AssignmentLog
 {
 	/** At most this many entries are kept; adding one more drops the oldest (by end time). */
 	static final int MAX_ENTRIES = 500;
-	/** Separator between the parts of a row, as in {@code Abyssal demons \u00b7 Skipped \u00b7 10/26/26}. */
+	/** Separator between the parts of a row's second line, as in {@code 10/26/26 \u00b7 Duradel/Kuradal}. */
 	static final String SEPARATOR = " \u00b7 ";
 
 	/** Newest first by end time; ties broken by id, for a stable order. */
@@ -114,19 +114,6 @@ final class AssignmentLog
 	{
 		final String monster = entry.getMonster();
 		return monster == null || monster.isEmpty() ? LedgerHistory.UNKNOWN_MONSTER : monster;
-	}
-
-	/** {@code Skipped \u00b7 10/26/26}: the outcome and the end date (without a date when there is none). */
-	static String status(AssignmentEntry entry, DateTimeFormatter date)
-	{
-		final String label = AssignmentOutcome.orUnknown(entry.getOutcome()).getLabel();
-		return entry.getEndedAt() > 0 ? label + SEPARATOR + date.format(Instant.ofEpochMilli(entry.getEndedAt())) : label;
-	}
-
-	/** {@code Abyssal demons \u00b7 Skipped \u00b7 10/26/26}. */
-	static String rowText(AssignmentEntry entry, DateTimeFormatter date)
-	{
-		return monster(entry) + SEPARATOR + status(entry, date);
 	}
 
 	/**

@@ -8,17 +8,14 @@ import static org.junit.Assert.assertTrue;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import javax.swing.Icon;
 import org.junit.Test;
 
 /**
- * The masters' faces ({@link MasterIcons}) and the task names Trends' icons come from: every master name has a
- * file, a missing image is an empty slot, a bundled one is read once and drawn in the 18 by 16 slot; a Catacombs
- * variant or cannon group in Trends carries its task's name.
+ * The masters' faces ({@link MasterIcons}): every master name has a file, a missing image is an empty slot, a
+ * bundled one is read once and drawn in the 18 by 16 slot.
  */
 public class MasterIconsTest
 {
@@ -114,46 +111,4 @@ public class MasterIconsTest
 		assertSame(small, MasterIcons.scaled(small, 36, 32));
 	}
 
-	@Test
-	public void trendsGroupsCarryTheirTasksName()
-	{
-		LedgerRecord plain = record("Dust devils", 3);
-		LedgerRecord deviant = record("Aberrant spectres", 2);
-		deviant.setVariant("Deviant spectres");
-		LedgerRecord cannon = record("Dust devils", 1);
-		cannon.setSupplies(Collections.singletonMap(SupplyTracker.CANNONBALL, 100L));
-		List<LedgerRecord> records = Arrays.asList(plain, deviant, cannon);
-
-		Map<String, String> tasks = new HashMap<>();
-		for (TaskRanking.Entry entry : TaskRanking.rank(records, TaskRanking.Metric.XP, LootPriceMode.GE, null))
-		{
-			tasks.put(entry.getMonster(), entry.getTask());
-		}
-		Map<String, String> expected = new HashMap<>();
-		expected.put("Dust devils", "Dust devils");
-		expected.put("Deviant spectres", "Aberrant spectres");
-		expected.put("Dust devils (cannon)", "Dust devils");
-		assertEquals(expected, tasks);
-
-		Map<String, String> chart = new HashMap<>();
-		for (TaskChart.Monster monster : TaskChart.monsters(records, TaskRanking.Metric.XP, LootPriceMode.GE, null))
-		{
-			chart.put(monster.getLabel(), monster.getTask());
-		}
-		assertEquals(expected, chart);
-		assertEquals(TaskIcons.itemId("Aberrant spectres"), TaskIcons.itemId(chart.get("Deviant spectres")));
-	}
-
-	private static LedgerRecord record(String monster, long endedAt)
-	{
-		LedgerRecord record = new LedgerRecord();
-		record.setMonster(monster);
-		record.setEndedAt(endedAt);
-		record.setKills(10);
-		record.setActiveMillis(30 * 60_000L);
-		record.setXpGained(Collections.singletonMap(SkillXp.SLAYER, 1_000L));
-		record.setCompleted(true);
-		record.setPartial(false);
-		return record;
-	}
 }

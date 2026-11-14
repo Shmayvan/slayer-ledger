@@ -98,21 +98,21 @@ public class HarnessLiveValuesTest
 	{
 		assertFalse("idle", timeLeftShown());
 
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		assertTrue("running", timeLeftShown());
-		assertEquals("no kills yet", LiveSessionSection.TIME_LEFT_ESTIMATING, timeLeftText());
+		assertEquals("no kills yet", "Time left: " + LiveSessionSection.TIME_LEFT_UNKNOWN, timeLeftText());
 
 		harness.pause();
 		assertTrue("paused", timeLeftShown());
 
-		harness.stop();
+		harness.endTask();
 		assertFalse("stopped", timeLeftShown());
 	}
 
 	@Test
 	public void valuesOfAnotherSessionAreIgnored()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.ticks(2);
 		assertTrue("the plugin's own values are shown", valuesShown());
 
@@ -129,14 +129,15 @@ public class HarnessLiveValuesTest
 	@Test
 	public void newSessionWithEqualAmountsIsStillShown()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.ticks(2);
 		assertTrue(valuesShown());
 		final String first = harness.tracker().getSessionId();
 
 		// Stop and start again between ticks: the new session's values have the same (zero) amounts as the old one's.
-		harness.stop();
-		assertTrue(harness.play());
+		harness.endTask();
+		harness.trackAgain();
+		assertTrue(harness.startNow());
 		assertNotEquals(first, harness.tracker().getSessionId());
 		harness.ticks(2);
 		assertTrue("the new session's values are published although the amounts are equal", valuesShown());
@@ -159,7 +160,7 @@ public class HarnessLiveValuesTest
 	{
 		final FailingValuation valuation = new FailingValuation();
 		replaceSessionValuation(valuation);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.ticks(1);
 		assertEquals(1, valuation.attempts);
 
@@ -178,7 +179,7 @@ public class HarnessLiveValuesTest
 	{
 		final FailingValuation valuation = new FailingValuation();
 		replaceSessionValuation(valuation);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.postLoot(ItemID.BONES, 1);
 
 		// A new session is valued on its first tick.
@@ -195,7 +196,7 @@ public class HarnessLiveValuesTest
 		valuation.fail = false;
 		harness.ticks(2);
 		assertTrue(valuesShown());
-		harness.stop();
+		harness.endTask();
 		assertEquals(Long.valueOf(100), harness.onlyRecord(ACCOUNT).getLootGeValue());
 	}
 }

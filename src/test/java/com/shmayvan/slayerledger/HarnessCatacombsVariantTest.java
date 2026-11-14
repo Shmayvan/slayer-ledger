@@ -1,7 +1,6 @@
 package com.shmayvan.slayerledger;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import java.util.Arrays;
@@ -18,8 +17,8 @@ import org.junit.Test;
  * Catacombs variants as wired in the plugin ({@link PluginHarness}): the player's hits ({@code HitsplatApplied})
  * and NPC deaths ({@code ActorDeath}) while a session runs are tallied per NPC name (by world view and index), the task
  * box and the overlay's Task row show the variant once the kills say so, and the saved record keeps it, so the History
- * list and Trends show it as its own monster. {@link CatacombsVariantsTest} and {@link CatacombsVariantGroupingTest}
- * cover the rules.
+ * list and Overall totals By monster show it as its own monster. {@link CatacombsVariantsTest} and
+ * {@link CatacombsVariantGroupingTest} cover the rules.
  */
 public class HarnessCatacombsVariantTest
 {
@@ -38,6 +37,8 @@ public class HarnessCatacombsVariantTest
 	@Before
 	public void setUp()
 	{
+		// The saved tasks below have profit and no Slayer XP: the advice compares profit/h under this metric.
+		harness.config.advisorMetric = AdvisorMetric.PROFIT_PER_HOUR;
 		harness.startUp();
 		harness.setInventory();
 		harness.setTrackerClock(now::get);
@@ -89,18 +90,18 @@ public class HarnessCatacombsVariantTest
 	@Test
 	public void variantKillsShowInTheTaskBoxAndAreSavedWithTheTask()
 	{
-		assertTrue(harness.play());
-		assertEquals(SPECTRES + " · 5 left", taskBoxRows().get(0));
+		assertTrue(harness.startNow());
+		assertEquals(SPECTRES, taskBoxRows().get(0));
 
 		killDeviant();
 		assertEquals(Arrays.asList(new NpcKills("Deviant spectre", 1)), harness.tracker().getNpcKills());
-		assertEquals(DEVIANT + " · 4 left", taskBoxRows().get(0));
+		assertEquals(DEVIANT, taskBoxRows().get(0));
 		AtomicReference<String> tooltip = new AtomicReference<>();
 		harness.onEdt(() -> tooltip.set(harness.ui().getTaskBox().getTaskTooltip()));
 		assertTrue(tooltip.get(), tooltip.get().contains("Task: Aberrant spectres<br>Doing: Deviant spectres"));
 
 		killAberrant();
-		assertEquals("a tie is the standard monster", SPECTRES + " · 3 left", taskBoxRows().get(0));
+		assertEquals("a tie is the standard monster", SPECTRES, taskBoxRows().get(0));
 		killDeviant();
 		killDeviant();
 		complete();
@@ -111,20 +112,56 @@ public class HarnessCatacombsVariantTest
 		assertEquals(DEVIANT, record.getVariant());
 	}
 
+	@Test
+	public void aVariantTaskDoneOneKillPerSegmentIsStillSavedAsTheVariant()
+	{
+		// No startNow: each kill below starts or restarts the session, after its NPC died.
+		killDeviant();
+		assertEquals(SessionTracker.State.RUNNING, harness.sessionState());
+		assertEquals(Arrays.asList(new NpcKills("Deviant spectre", 1)), harness.tracker().getNpcKills());
+		for (int segment = 2; segment <= 4; segment++)
+		{
+			harness.pause();
+			killDeviant();
+			assertEquals(SessionTracker.State.RUNNING, harness.sessionState());
+			assertEquals(Arrays.asList(new NpcKills("Deviant spectre", segment)), harness.tracker().getNpcKills());
+		}
+		harness.pause();
+		// The final kill restarts the session, then completes the task.
+		NPC npc = harness.npc(nextIndex++, NpcID.KOUREND_SPECTRE, "Deviant spectre");
+		harness.hitsplat(npc, true);
+		harness.npcDies(npc);
+		complete();
+
+		LedgerRecord record = harness.onlyRecord(ACCOUNT);
+		assertTrue(record.isCompleted());
+		assertEquals(5, record.getKills());
+		assertEquals(SPECTRES, record.getMonster());
+		assertEquals(DEVIANT, record.getVariant());
+	}
+
 	/** The overlay's Task row value, or {@code null} when it has none. */
 	private String overlayTask()
 	{
 		return overlayValue("Task");
 	}
 
-	/** The overlay's {@code label} row value, or {@code null} when it has none. */
+	/**
+	 * The overlay's task name ({@code "Task"}) or kills left ({@code "Left"}: {@code 12}, or {@code ?} while unknown),
+	 * or {@code null} when it shows none.
+	 */
 	private String overlayValue(String label)
 	{
-		for (OverlayRows.Row row : OverlayRows.rows(harness.overlayData(), true, true, true, true))
+		for (OverlayRows.Row row : OverlayRows.rows(harness.overlayData(), OverlayRows.Groups.ALL))
 		{
-			if (label.equals(row.getLabel()))
+			if ("Task".equals(label) && row.getKind() == OverlayRows.Kind.IDENTITY)
 			{
-				return row.getValue();
+				return row.getLeft();
+			}
+			if ("Left".equals(label) && row.getKind() == OverlayRows.Kind.PROGRESS)
+			{
+				return row.getLeft().endsWith(" left") ? row.getLeft().substring(0, row.getLeft().length() - 5)
+					: OverlayRows.UNKNOWN_REMAINING;
 			}
 		}
 		return null;
@@ -146,12 +183,12 @@ public class HarnessCatacombsVariantTest
 	@Test
 	public void theOverlayTaskRowShowsTheVariantLikeTheTaskBox()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		assertOverlayTask("the task before any kill", SPECTRES, "5");
 
 		killDeviant();
 		assertOverlayTask(DEVIANT, "4");
-		assertEquals(DEVIANT + " · 4 left", taskBoxRows().get(0));
+		assertEquals(DEVIANT, taskBoxRows().get(0));
 
 		killAberrant();
 		assertOverlayTask("a tie is the standard monster", SPECTRES, "3");
@@ -166,7 +203,7 @@ public class HarnessCatacombsVariantTest
 	@Test
 	public void anUnrelatedKillDoesNotDecideTheTask()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		// An Ankou on the way: tallied, but not a task kill.
 		NPC ankou = harness.npc(nextIndex++, NpcID.KOUREND_ANKOU, "Ankou");
 		harness.hitsplat(ankou, true);
@@ -174,17 +211,17 @@ public class HarnessCatacombsVariantTest
 		harness.tick();
 		assertEquals(Arrays.asList(new NpcKills("Ankou", 1)), harness.tracker().getNpcKills());
 		assertEquals(TaskSelection.ANY, harness.tracker().getCurrentTaskSelection());
-		assertEquals(SPECTRES + " · 5 left", taskBoxRows().get(0));
+		assertEquals(SPECTRES, taskBoxRows().get(0));
 
 		killDeviant();
 		assertEquals(TaskSelection.of(DEVIANT), harness.tracker().getCurrentTaskSelection());
-		assertEquals(DEVIANT + " · 4 left", taskBoxRows().get(0));
+		assertEquals(DEVIANT, taskBoxRows().get(0));
 	}
 
 	@Test
 	public void npcsAreToldApartByWorldView()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		// The same index on a boat is another NPC: its death isn't the one the player hit.
 		NPC hit = harness.npc(nextIndex, NpcID.KOUREND_SPECTRE, "Deviant spectre");
 		NPC onBoat = harness.npcOnBoat(nextIndex, NpcID.KOUREND_SPECTRE, "Deviant spectre");
@@ -204,13 +241,15 @@ public class HarnessCatacombsVariantTest
 	}
 
 	@Test
-	public void onlyNpcsThePlayerHitWhileRunningAreTallied()
+	public void onlyNpcsThePlayerHitAreTalliedAndOnlyWhileRunning()
 	{
-		// Before Play: not remembered, so its death is not tallied.
+		// Hit before the session started: remembered (a first kill is backdated to its fight), so its death while
+		// running is tallied.
 		NPC early = harness.npc(nextIndex++, NpcID.KOUREND_SPECTRE, "Deviant spectre");
 		harness.hitsplat(early, true);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.npcDies(early);
+		assertEquals(Arrays.asList(new NpcKills("Deviant spectre", 1)), harness.tracker().getNpcKills());
 		// Someone else's hits only.
 		NPC others = harness.npc(nextIndex++, NpcID.KOUREND_SPECTRE, "Deviant spectre");
 		harness.hitsplat(others, false);
@@ -224,29 +263,31 @@ public class HarnessCatacombsVariantTest
 		NPC wilderness = harness.npc(nextIndex++, NpcID.WILD_CAVE_NECHRYAEL, "Greater Nechryael");
 		harness.hitsplat(wilderness, true);
 		harness.npcDies(wilderness);
-		assertTrue(harness.tracker().getNpcKills().isEmpty());
+		assertEquals(Arrays.asList(new NpcKills("Deviant spectre", 1)), harness.tracker().getNpcKills());
 
-		// Paused: hits are not remembered.
+		// Paused: hits are remembered, but a death while paused is not tallied; one after Resume is.
 		harness.pause();
+		NPC diesPaused = harness.npc(nextIndex++, NpcID.KOUREND_SPECTRE, "Deviant spectre");
+		harness.hitsplat(diesPaused, true);
+		harness.npcDies(diesPaused);
 		NPC paused = harness.npc(nextIndex++, NpcID.KOUREND_SPECTRE, "Deviant spectre");
 		harness.hitsplat(paused, true);
-		assertTrue(harness.play());
+		assertTrue(harness.resume());
 		harness.npcDies(paused);
-		assertTrue(harness.tracker().getNpcKills().isEmpty());
+		assertEquals(Arrays.asList(new NpcKills("Deviant spectre", 2)), harness.tracker().getNpcKills());
 
-		// A logout forgets the NPCs hit before it.
+		// A hop (or logout) forgets the NPCs hit before it; the session keeps running through a hop.
 		NPC beforeHop = harness.npc(nextIndex++, NpcID.KOUREND_SPECTRE, "Deviant spectre");
 		harness.hitsplat(beforeHop, true);
 		harness.hop();
 		harness.ticks(5);
-		assertTrue(harness.play());
+		assertEquals(SessionTracker.State.RUNNING, harness.sessionState());
 		harness.npcDies(beforeHop);
-		assertTrue(harness.tracker().getNpcKills().isEmpty());
-		assertNull(harness.tracker().getCurrentTaskSelection().getVariant());
+		assertEquals(Arrays.asList(new NpcKills("Deviant spectre", 2)), harness.tracker().getNpcKills());
 	}
 
 	@Test
-	public void theEstimatePoolsUntilKillsDecideAndTheAdvisorComparesTheVersions()
+	public void theStatisticsPoolBothVersionsUntilTheKillsDecide()
 	{
 		List<LedgerRecord> history = new java.util.ArrayList<>();
 		for (int i = 0; i < TaskAdvisor.MIN_TASKS; i++)
@@ -257,39 +298,28 @@ public class HarnessCatacombsVariantTest
 		harness.onEdt(() -> harness.historyModel().setRecords(ACCOUNT, history));
 		harness.drain();
 
-		// Before any kill both versions count.
-		assertTrue(estimate()[0], estimate()[0].startsWith("History (6 tasks)"));
-		assertTrue(estimate()[1], estimate()[1].contains("Counts Deviant spectres tasks too"));
-		// One monster only: no main advice, but the versions are compared.
-		assertEquals(Arrays.asList(SPECTRES + " · 5 left", "Better: Deviant spectres"), taskBoxRows());
-		AtomicReference<String> tooltip = new AtomicReference<>();
-		harness.onEdt(() -> tooltip.set(harness.ui().getTaskBox().getAdviceTooltip()));
-		assertTrue("the line in full first, as the sidebar may cut it off: " + tooltip.get(),
-			tooltip.get().startsWith("<html>Better: Deviant spectres<br>"));
-		assertTrue(tooltip.get(), tooltip.get().contains(
-			"Profit (GE)/h: Deviant spectres ~400K (n=3), Aberrant spectres ~100K (n=3)"));
+		// Before any kill both versions count. One monster only: no main advice. No master known: the master line has
+		// only the task's size; since the advisor card the task box no longer compares the versions.
+		assertEquals(6, statisticsTasks());
+		assertEquals(Arrays.asList(SPECTRES, "5 left"), taskBoxRows());
 
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		killDeviant();
-		assertTrue(estimate()[0], estimate()[0].startsWith("History (3 tasks)"));
-		assertTrue(estimate()[1], estimate()[1].contains("Only your Deviant spectres tasks count."));
+		assertEquals(TaskSelection.of(DEVIANT), harness.tracker().getCurrentTaskSelection());
+		assertEquals("only the Deviant spectres tasks", 3, statisticsTasks());
 		killAberrant();
-		assertTrue("a tie is standard", estimate()[0].startsWith("History (3 tasks)"));
-		assertTrue(estimate()[1], estimate()[1].contains("Your Deviant spectres tasks are left out."));
+		assertEquals("a tie is standard", TaskSelection.STANDARD, harness.tracker().getCurrentTaskSelection());
+		assertEquals("the Deviant spectres tasks left out", 3, statisticsTasks());
 	}
 
-	/** The History estimate's text and tooltip, after a refresh. */
-	private String[] estimate()
+	/** How many tasks the current task's statistics count, for the session's version (as the time left reads them). */
+	private int statisticsTasks()
 	{
-		String[] result = new String[2];
+		AtomicReference<Integer> tasks = new AtomicReference<>();
 		harness.drain();
-		harness.onEdt(() ->
-		{
-			harness.panel().refresh();
-			result[0] = harness.ui().getHistoryEstimate().getText();
-			result[1] = harness.ui().getHistoryEstimate().getTooltip();
-		});
-		return result;
+		harness.onEdt(() -> tasks.set(harness.historyModel().taskStatistics(TASK, SPECTRES,
+			harness.tracker().getCurrentTaskSelection(), harness.historyModel().currentLocation()).getSampleCount()));
+		return tasks.get();
 	}
 
 	/** An hour-long completed spectres task of 10 kills making {@code profit}, saved earlier with totals only (~). */
@@ -312,9 +342,9 @@ public class HarnessCatacombsVariantTest
 	}
 
 	@Test
-	public void historyAndTrendsShowTheVariantAsItsOwnMonster()
+	public void historyAndTotalsShowTheVariantAsItsOwnMonster()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		for (int i = 0; i < 4; i++)
 		{
 			killAberrant();
@@ -323,7 +353,7 @@ public class HarnessCatacombsVariantTest
 
 		harness.setTask(TASK, SPECTRES, 5, 5);
 		harness.tick();
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		for (int i = 0; i < 4; i++)
 		{
 			killDeviant();
@@ -341,15 +371,18 @@ public class HarnessCatacombsVariantTest
 			titles.set(harness.ui().getHistory().getTitleTexts());
 		});
 		assertEquals(Arrays.asList(LedgerHistory.ALL, SPECTRES, DEVIANT), filter.get());
-		assertEquals("newest first", Arrays.asList(DEVIANT + " | Completed", SPECTRES + " | Completed"), titles.get());
+		assertEquals("newest first", Arrays.asList(DEVIANT, SPECTRES), titles.get());
 
-		harness.onEdt(() -> harness.ui().getTrends().clickTitle());
+		harness.onEdt(() ->
+		{
+			harness.ui().getOverallTotals().clickTitle();
+			harness.ui().getOverallTotals().setGrouping(OverallTotals.Grouping.MONSTER);
+		});
 		harness.drain();
 		AtomicReference<List<String>> rows = new AtomicReference<>();
-		harness.onEdt(() -> rows.set(harness.ui().getTrends().getRows()));
-		assertEquals(rows.get().toString(), 2, rows.get().size());
-		assertTrue(rows.get().toString(), rows.get().stream().anyMatch(row -> row.contains(". " + DEVIANT + " |")));
-		assertTrue(rows.get().toString(), rows.get().stream().anyMatch(row -> row.contains(". " + SPECTRES + " |")));
-		assertFalse(rows.get().toString(), rows.get().stream().anyMatch(row -> row.contains("(n=2)")));
+		harness.onEdt(() -> rows.set(harness.ui().getOverallTotals().getRows()));
+		assertEquals("not pooled: " + rows.get(), 2, rows.get().size());
+		assertTrue(rows.get().toString(), rows.get().stream().anyMatch(row -> row.startsWith(DEVIANT + " | 1 task")));
+		assertTrue(rows.get().toString(), rows.get().stream().anyMatch(row -> row.startsWith(SPECTRES + " | 1 task")));
 	}
 }

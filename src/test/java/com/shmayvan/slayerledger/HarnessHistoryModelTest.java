@@ -24,22 +24,25 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
 /**
- * The plugin's {@link LedgerHistoryModel} as wired ({@link PluginHarness}): the new-task chat preview and
- * the overlay's historical time per kill never need the panel's refresh timer. {@link #setUp} stops that timer
- * and no test calls the panel's {@code refresh()}, so each result below comes from the one trigger the test names:
+ * The plugin's {@link LedgerHistoryModel} as wired ({@link PluginHarness}): the assignment chat line
+ * (which replaced the old preview) and the overlay's historical time per kill never need the panel's refresh
+ * timer. {@link #setUp} stops that timer and no test calls the panel's {@code refresh()}, so each result below comes
+ * from the one trigger the test names:
  * <ul>
- * <li>a new assignment's preview: the settled tick's assignment watch ({@code requestAssignmentPreview});</li>
- * <li>a preview waiting for today's prices whose answer was lost: a later settled tick ending the expired wait
+ * <li>a new assignment's chat line: the settled tick's assignment watch ({@code requestAssignmentLine}), then the
+ * plan worked out off the EDT ({@code Change.VIEWS});</li>
+ * <li>a chat line waiting for today's prices whose answer was lost: a later settled tick ending the expired wait
  * ({@code endExpiredCurrentPricesWait});</li>
- * <li>a preview waiting for the records: the model's own {@code setRecords} (called directly, not through the panel,
- * and with no tick before the check);</li>
+ * <li>a chat line waiting for the records: the model's own {@code setRecords} (called directly, not through the
+ * panel, and with no tick before the check);</li>
  * <li>the overlay's pace at Play, Stop and Play: the plugin's {@code refreshLive} after the panel action; after a
  * kill: the settled tick whose live inputs changed; when the history empties: the model's {@code setRecords};</li>
  * <li>records arriving during a session: the model's {@code setRecords} (written by the plugin);</li>
  * <li>the player moving to a region with other history: the settled tick whose live inputs changed
  * ({@code refreshLive});</li>
  * <li>a region name arriving or being forgotten: the model's {@code addLocationNames} and
- * {@code clearLocationNames} (written by the plugin).</li>
+ * {@code clearLocationNames} (written by the plugin), which leave the pace as it is: tasks match by
+ * spot, not by name.</li>
  * </ul>
  */
 public class HarnessHistoryModelTest
@@ -47,11 +50,12 @@ public class HarnessHistoryModelTest
 	private static final long ACCOUNT = PluginHarness.ACCOUNT;
 	private static final long MINUTE = 60_000L;
 	private static final int DEMONS = 42;
-	private static final int UNNAMED = 13_623;
+	/** A region the spot table doesn't list, so it has no name until the player gives it one. */
+	private static final int UNNAMED = TestSpots.UNLISTED;
 	private static final int SMOKE = 12_946;
 	private static final int CATACOMBS = 6_557;
-	/** The line for 20 Abyssal demons from the three saved tasks anywhere, as in HarnessAssignmentPreviewTest. */
-	private static final String LINE = "Abyssal demons (20): ~0:20:00 · +180K (GE) · ~2 bank trips (from 3 tasks)";
+	/** The advisor's line for 20 Abyssal demons from the three saved tasks, which have no spot or style. */
+	private static final String LINE = "<colHIGHLIGHT>Abyssal demons x20:<colNORMAL> ~20 min (3 tasks, setup unknown).";
 
 	@Rule
 	public final PluginHarness harness = new PluginHarness();
@@ -87,8 +91,8 @@ public class HarnessHistoryModelTest
 		return task(10, null);
 	}
 
-	/** As {@link #task()}, but taking {@code minutes} minutes, at {@code location} ({@code null} for none). */
-	private static LedgerRecord task(int minutes, String location)
+	/** As {@link #task()}, but taking {@code minutes} minutes, at the spot {@code spotId} ({@code null}: Unknown). */
+	private static LedgerRecord task(int minutes, String spotId)
 	{
 		LedgerRecord record = new LedgerRecord();
 		record.setId("task-" + System.nanoTime());
@@ -101,7 +105,7 @@ public class HarnessHistoryModelTest
 		record.setLootHaValue(200_000L);
 		record.setSuppliesGeValue(10_000L);
 		record.setBankTrips(1);
-		record.setLocation(location);
+		record.setSpotId(spotId);
 		return SavedItems.withItems(record);
 	}
 
@@ -122,12 +126,6 @@ public class HarnessHistoryModelTest
 		record.setSuppliesGeValue(0L);
 		record.setSuppliesHaValue(0L);
 		return record;
-	}
-
-	/** Names {@code region} as if the player had in an earlier run (the plugin reads it when asked). */
-	private void name(int region, String name)
-	{
-		harness.setRsProfileConfig(SlayerLedgerConfig.GROUP, SlayerLedgerPlugin.LOCATION_NAME_KEY_PREFIX + region, name);
 	}
 
 	/**
@@ -173,21 +171,21 @@ public class HarnessHistoryModelTest
 			.collect(Collectors.toList());
 	}
 
-	/** The overlay's "Time left" value now, with every row on. */
+	/** The overlay's time left now ({@code ~12 min}), with every group on; {@code null} without a session. */
 	private String overlayTimeLeft()
 	{
-		for (OverlayRows.Row row : OverlayRows.rows(harness.overlayData(), true, true, true, true))
+		for (OverlayRows.Row row : OverlayRows.rows(harness.overlayData(), OverlayRows.Groups.ALL))
 		{
-			if (row.getLabel().equals("Time left"))
+			if (row.getKind() == OverlayRows.Kind.PROGRESS)
 			{
-				return row.getValue();
+				return row.getRight();
 			}
 		}
 		return null;
 	}
 
 	@Test
-	public void aNewAssignmentIsPreviewedOnceWithoutThePanelTimer()
+	public void aNewAssignmentsChatLineIsPostedOnceWithoutThePanelTimer()
 	{
 		harness.setRemaining(0);
 		harness.loginAndSettle(ACCOUNT);
@@ -201,7 +199,7 @@ public class HarnessHistoryModelTest
 	}
 
 	@Test
-	public void aPreviewWaitingForTodaysPricesIsPostedWhenTheWaitRunsOutWithoutThePanelTimer()
+	public void aChatLineWaitingForTodaysPricesIsPostedWhenTheWaitRunsOutWithoutThePanelTimer()
 	{
 		harness.setRemaining(0);
 		harness.loginAndSettle(ACCOUNT);
@@ -224,7 +222,7 @@ public class HarnessHistoryModelTest
 		harness.tick();
 		assertEquals("waits for today's prices", Collections.emptyList(), lines());
 		final AtomicBoolean pending = new AtomicBoolean();
-		harness.onEdt(() -> pending.set(harness.historyModel().isAssignmentPreviewPending()));
+		harness.onEdt(() -> pending.set(harness.historyModel().isAssignmentLinePending()));
 		assertTrue(pending.get());
 
 		// The 3 seconds pass with nothing else changing; the next settled tick ends the wait.
@@ -234,7 +232,7 @@ public class HarnessHistoryModelTest
 		harness.onEdt(() ->
 		{
 			waiting.set(harness.historyModel().isWaitingForCurrentPrices());
-			pending.set(harness.historyModel().isAssignmentPreviewPending());
+			pending.set(harness.historyModel().isAssignmentLinePending());
 		});
 		assertFalse(waiting.get());
 		assertFalse(pending.get());
@@ -243,7 +241,7 @@ public class HarnessHistoryModelTest
 	}
 
 	@Test
-	public void aPreviewWaitingForTheRecordsIsPostedWhenTheyArriveWithoutThePanelTimer()
+	public void aChatLineWaitingForTheRecordsIsPostedWhenTheyArriveWithoutThePanelTimer()
 	{
 		harness.setRemaining(0);
 		harness.loginAndSettle(ACCOUNT);
@@ -254,7 +252,7 @@ public class HarnessHistoryModelTest
 		harness.ticks(3);
 		verify(harness.chatMessageManager, never()).queue(any(QueuedMessage.class));
 		final AtomicBoolean pending = new AtomicBoolean();
-		harness.onEdt(() -> pending.set(harness.historyModel().isAssignmentPreviewPending()));
+		harness.onEdt(() -> pending.set(harness.historyModel().isAssignmentLinePending()));
 		assertTrue("waits for the records", pending.get());
 
 		// Straight to the model, not through the panel: the model posts on its own. No tick runs before the check.
@@ -262,7 +260,7 @@ public class HarnessHistoryModelTest
 		harness.onEdt(() -> harness.historyModel().setRecords(ACCOUNT, records));
 		harness.drain();
 		assertEquals(Collections.singletonList(LINE), lines());
-		harness.onEdt(() -> pending.set(harness.historyModel().isAssignmentPreviewPending()));
+		harness.onEdt(() -> pending.set(harness.historyModel().isAssignmentLinePending()));
 		assertFalse(pending.get());
 	}
 
@@ -273,23 +271,24 @@ public class HarnessHistoryModelTest
 		harness.loginAndSettle(ACCOUNT);
 		assertEquals("no session yet", null, overlayTimeLeft());
 
-		assertTrue(harness.play());
-		assertEquals("12 kills at the history's minute a kill", "~12m", overlayTimeLeft());
+		assertTrue(harness.startNow());
+		assertEquals("12 kills at the history's minute a kill", "~12 min", overlayTimeLeft());
 
 		// 1 kill in 30 seconds: too little for the live pace, so still the history, for the 11 left.
 		now.addAndGet(MINUTE / 2);
 		harness.setRemaining(11);
 		harness.tick();
-		assertEquals("~11m", overlayTimeLeft());
+		assertEquals("~11 min", overlayTimeLeft());
 
 		// A new session gets the pace for its own id at once.
-		harness.stop();
-		assertTrue(harness.play());
-		assertEquals("~11m", overlayTimeLeft());
+		harness.endTask();
+		harness.trackAgain();
+		assertTrue(harness.startNow());
+		assertEquals("~11 min", overlayTimeLeft());
 
 		// The history emptied: cleared at once, not on the next refresh.
 		harness.onEdt(() -> harness.historyModel().setRecords(ACCOUNT, Collections.emptyList()));
-		assertEquals(LedgerHistory.TIME_LEFT_ESTIMATING, overlayTimeLeft());
+		assertEquals(LedgerFormat.UNKNOWN, overlayTimeLeft());
 	}
 
 	@Test
@@ -298,54 +297,52 @@ public class HarnessHistoryModelTest
 		harness.setTask(DEMONS, "Abyssal demons", 12, 12);
 		harness.loginAndSettle(ACCOUNT);
 		harness.onEdt(() -> harness.historyModel().clearRecords(ACCOUNT, SlayerLedgerPanel.LOADING_MESSAGE));
-		assertTrue(harness.play());
-		assertEquals(LedgerHistory.TIME_LEFT_ESTIMATING, overlayTimeLeft());
+		assertTrue(harness.startNow());
+		assertEquals(LedgerFormat.UNKNOWN, overlayTimeLeft());
 
 		final List<LedgerRecord> records = harness.records(ACCOUNT);
 		harness.onEdt(() -> harness.historyModel().setRecords(ACCOUNT, records));
-		assertEquals("~12m", overlayTimeLeft());
+		assertEquals("~12 min", overlayTimeLeft());
 	}
 
 	@Test
 	public void aTickMovingToARegionWithOtherHistoryChangesTheOverlay()
 	{
-		name(SMOKE, "Smoke Dungeon");
-		name(CATACOMBS, "Catacombs of Kourend");
 		harness.setPlayerRegion(SMOKE);
 		harness.setTask(DEMONS, "Abyssal demons", 12, 12);
 		harness.loginAndSettle(ACCOUNT);
 		harness.onEdt(() -> harness.historyModel().setRecords(ACCOUNT,
-			Arrays.asList(task(10, "Smoke Dungeon"), task(30, "Catacombs of Kourend"))));
+			Arrays.asList(task(10, TestSpots.SMOKE_ID), task(30, TestSpots.CATACOMBS_ID))));
 		harness.drain();
-		assertTrue(harness.play());
-		assertEquals("a minute a kill at Smoke Dungeon", "~12m", overlayTimeLeft());
+		assertTrue(harness.startNow());
+		assertEquals("a minute a kill at Smoke Dungeon", "~12 min", overlayTimeLeft());
 
 		// No kill yet, so the session's location is where the player stands.
 		harness.setPlayerRegion(CATACOMBS);
 		harness.tick();
-		assertEquals("three minutes a kill in the Catacombs", "~36m", overlayTimeLeft());
+		assertEquals("three minutes a kill in the Catacombs", "~36 min", overlayTimeLeft());
 	}
 
 	@Test
-	public void aRegionNameArrivingOrForgottenChangesTheOverlay()
+	public void aRegionNameArrivingOrForgottenLeavesTheOverlayAtTheSpot()
 	{
 		harness.setTask(DEMONS, "Abyssal demons", 12, 12);
 		harness.loginAndSettle(ACCOUNT);
 		final List<LedgerRecord> records = new ArrayList<>(harness.records(ACCOUNT));
-		records.add(task(30, "Slayer Tower"));
+		records.add(task(30, SlayerSpots.regionKey(UNNAMED)));
 		harness.onEdt(() -> harness.historyModel().setRecords(ACCOUNT, records));
 		harness.drain();
-		assertTrue(harness.play());
-		assertEquals("the region has no name: all four tasks", "~18m", overlayTimeLeft());
+		assertTrue(harness.startNow());
+		assertEquals("the region has no name, but its spot matches: that task only", "~36 min", overlayTimeLeft());
 
 		harness.onEdt(() -> harness.historyModel().addLocationNames(Collections.singleton(UNNAMED),
-			Collections.singletonMap(UNNAMED, "Slayer Tower")));
-		assertEquals("named: the Slayer Tower task only", "~36m", overlayTimeLeft());
+			Collections.singletonMap(UNNAMED, "Edgeville")));
+		assertEquals("named: still that task", "~36 min", overlayTimeLeft());
 
 		// Another RuneScape profile: the name is forgotten. The names asked for again are lost, so only the model's
 		// clearLocationNames can have told the overlay.
 		harness.onEdt(() -> harness.historyModel().clearLocationNames());
 		loseClientThreadAnswers();
-		assertEquals("~18m", overlayTimeLeft());
+		assertEquals("~36 min", overlayTimeLeft());
 	}
 }

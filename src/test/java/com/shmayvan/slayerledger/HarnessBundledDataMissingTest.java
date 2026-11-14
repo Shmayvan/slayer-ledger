@@ -1,6 +1,7 @@
 package com.shmayvan.slayerledger;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import java.util.Collections;
 import java.util.List;
@@ -9,9 +10,11 @@ import org.junit.Rule;
 import org.junit.Test;
 
 /**
- * The plugin started with neither bundled Wiki resource (the drop snapshot and the task location list), as it would
- * ship if the CC BY-NC-SA data had to be left out: the luck meter says its data is unavailable, the "Name this
- * location" prompt suggests nothing, and nothing fails ({@link PluginHarness} fails the test on any swallowed error).
+ * The plugin started without its bundled Slayer spot table, as it would ship if the CC BY-NC-SA data had to be left
+ * out: a task is saved with its region but no spot (a later build with the table works its spot out from the region)
+ * and named only by the player's own region names, and nothing fails ({@link PluginHarness} fails the test on any
+ * swallowed error). The Slayer boss table is in code ({@link SlayerBosses}); the luck meter's drop snapshot was removed
+ * with the Luck meter.
  */
 public class HarnessBundledDataMissingTest
 {
@@ -22,45 +25,38 @@ public class HarnessBundledDataMissingTest
 	public final PluginHarness harness = new PluginHarness();
 
 	@Test
-	public void thePluginWorksWithoutEitherBundledResource()
+	public void thePluginWorksWithoutTheBundledSpotTable()
 	{
-		harness.plugin.setLuckSnapshotResource("missing-drop-snapshot.json");
+		harness.plugin.setSpotsResource("missing-slayer-spots.json");
 		harness.startUp();
-		harness.onEdt(() -> harness.ui().getLocationPrompt().setTaskLocationsResource("missing-task-locations.json"));
 		harness.setInventory();
 		harness.setTask(TASK, "Dust devils", 20, 20);
 		harness.setPlayerRegion(SMOKE);
 		harness.loginAndSettle(PluginHarness.ACCOUNT);
 
-		// The location prompt still appears for a new place, with no suggestions, and still saves a typed name.
-		assertTrue(harness.play());
+		// Kills still count and are tallied in their region, with no spot.
+		assertTrue(harness.startNow());
 		harness.setRemaining(harness.tracker().getCurrentRemaining() - 1);
 		harness.tick();
-		final int[] region = new int[1];
-		harness.onEdt(() -> region[0] = harness.ui().getLocationPrompt().getRegion());
-		assertEquals(SMOKE, region[0]);
-		final AtomicReference<List<String>> suggestions = new AtomicReference<>();
-		harness.onEdt(() -> suggestions.set(harness.ui().getLocationPrompt().getSuggestions()));
-		assertEquals(Collections.emptyList(), suggestions.get());
-		harness.onEdt(() -> harness.ui().getLocationPrompt().save("Smoke Dungeon"));
+		assertEquals(Collections.singletonList(new LocationKills(SMOKE, 1)), harness.tracker().getLocationKills());
+		assertEquals(new TaskSpot(null, SMOKE), harness.tracker().getTaskSpot());
+		harness.endTask();
+		LedgerRecord saved = harness.onlyRecord(PluginHarness.ACCOUNT);
+		assertEquals(Integer.valueOf(SMOKE), saved.getLocationRegion());
+		assertNull(saved.getSpotId());
+		assertNull(saved.getLocation());
+		assertEquals("a later build with the table works it out", TestSpots.SMOKE_ID,
+			TestSpots.TABLE.recordSpot(saved));
 		harness.drain();
-		assertEquals("Smoke Dungeon", harness.rsProfileConfig(SlayerLedgerConfig.GROUP,
-			SlayerLedgerPlugin.LOCATION_NAME_KEY_PREFIX + SMOKE));
+		final AtomicReference<List<String>> tooltips = new AtomicReference<>();
+		harness.onEdt(() -> tooltips.set(harness.ui().getHistory().getTooltips()));
+		assertTrue(tooltips.get().get(0), tooltips.get().get(0).contains("<br>Location: Unknown<br>"));
 
-		// The luck meter shows only that its data is unavailable, even with loot history to compare.
-		LedgerRecord record = new LedgerRecord();
-		record.setMonster("Abyssal demons");
-		record.setKills(512);
-		record.setCompleted(true);
-		record.setPartial(false);
-		record.setLoot(Collections.singletonMap(1001, 1L));
-		harness.onEdt(() -> harness.historyModel().setRecords(PluginHarness.ACCOUNT,
-			Collections.singletonList(record)));
-		harness.onEdt(() -> harness.ui().getLuckMeter().clickTitle());
+		// The player's own name for the region still names it.
+		harness.onEdt(() -> harness.plugin.saveLocationName(SMOKE, "Smoke Dungeon"));
 		harness.drain();
-		final AtomicReference<List<String>> rows = new AtomicReference<>();
-		harness.onEdt(() -> rows.set(harness.ui().getLuckMeter().getRows()));
-		assertEquals(Collections.singletonList("Luck meter data unavailable"), rows.get());
+		harness.onEdt(() -> tooltips.set(harness.ui().getHistory().getTooltips()));
+		assertTrue(tooltips.get().get(0), tooltips.get().get(0).contains("<br>Location: Smoke Dungeon<br>"));
 
 		harness.shutDown();
 	}

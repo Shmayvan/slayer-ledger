@@ -9,21 +9,21 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.client.util.Text;
 
 /**
- * Keeps charging and emptying the blowpipe or a trident out of the supplies diff, so materials aren't counted twice
- * ({@link ChargedWeaponUsage} already counts them per attack). Pure (RuneLite's static {@link Text} only): the plugin
- * passes in menu clicks and messages with the tick it saw them on, and asks before each supplies diff. Not
- * thread-safe.
+ * Keeps charging and emptying the blowpipe, a trident or a powered staff (Sanguinesti staff, Tumeken's shadow) out of
+ * the supplies diff, so materials aren't counted twice ({@link ChargedWeaponUsage} already counts them per attack).
+ * Pure (RuneLite's static {@link Text} only): the plugin passes in menu clicks and messages with the tick it saw them
+ * on, and asks before each supplies diff. Not thread-safe.
  *
  * <p>Without it, the inventory diff would count darts loaded into the blowpipe and runes, coins or scales used to
- * charge a trident as used, and darts or runes coming back out (unloading, uncharging, swapping the dart type) would
- * reduce what was counted.</p>
+ * charge a trident or staff as used, and darts or runes coming back out (unloading, uncharging, swapping the dart type)
+ * would reduce what was counted.</p>
  *
  * <p>Rules:</p>
  * <ul>
  *     <li>A window opens on the tick the player clicks "Use" with one of the {@link #WEAPONS} involved (a material
- *     used on a weapon, or a weapon on a material), or "Unload" or "Uncharge" on a weapon.</li>
- *     <li>Only the {@link #MATERIALS} (darts, Zulrah's scales, death, chaos and fire runes, coins) are excluded while
- *     it is open; other items count as usual.</li>
+ *     used on a weapon, or a weapon on a material), or "Charge", "Unload" or "Uncharge" on a weapon.</li>
+ *     <li>Only the {@link #MATERIALS} (darts, Zulrah's scales, death, chaos, fire, blood, soul and aether runes, coins)
+ *     are excluded while it is open; other items count as usual.</li>
  *     <li>It closes {@link #CONFIRM_GRACE_TICKS} ticks after a confirming message or dialog text
  *     ({@link #isConfirmation}), so items that only move on the next tick are still excluded, or
  *     {@link #TIMEOUT_TICKS} ticks after it opened, whichever is first. The timeout is long because charging a trident
@@ -40,7 +40,10 @@ final class ChargeExclusions
 	/** Far enough in the past that no window includes it, without overflowing tick arithmetic. */
 	static final int NEVER_TICK = Integer.MIN_VALUE / 2;
 
-	/** Blowpipes (empty and loaded) and tridents (charged and uncharged), with their ornament and (e) versions. */
+	/**
+	 * Blowpipes (empty and loaded) and tridents (charged and uncharged), with their ornament and (e) versions; the
+	 * Sanguinesti staff and holy Sanguinesti staff and Tumeken's shadow, charged and uncharged.
+	 */
 	static final Set<Integer> WEAPONS = ids(
 		ItemID.TOXIC_BLOWPIPE, ItemID.TOXIC_BLOWPIPE_LOADED, ItemID.TOXIC_BLOWPIPE_ORNAMENT,
 		ItemID.TOXIC_BLOWPIPE_LOADED_ORNAMENT,
@@ -49,18 +52,23 @@ final class ChargeExclusions
 		ItemID.TOTS_I_UNCHARGED_ORN,
 		ItemID.TOXIC_TOTS_CHARGED, ItemID.TOXIC_TOTS_UNCHARGED, ItemID.TOXIC_TOTS_I_CHARGED,
 		ItemID.TOXIC_TOTS_I_UNCHARGED, ItemID.TOXIC_TOTS_CHARGED_ORN, ItemID.TOXIC_TOTS_UNCHARGED_ORN,
-		ItemID.TOXIC_TOTS_I_CHARGED_ORN, ItemID.TOXIC_TOTS_I_UNCHARGED_ORN);
+		ItemID.TOXIC_TOTS_I_CHARGED_ORN, ItemID.TOXIC_TOTS_I_UNCHARGED_ORN,
+		ItemID.SANGUINESTI_STAFF, ItemID.SANGUINESTI_STAFF_UNCHARGED, ItemID.SANGUINESTI_STAFF_OR,
+		ItemID.SANGUINESTI_STAFF_UNCHARGED_OR, ItemID.TUMEKENS_SHADOW, ItemID.TUMEKENS_SHADOW_UNCHARGED);
 
-	/** What the weapons are charged or loaded with. */
+	/** What the weapons are charged or loaded with (aether runes can charge Tumeken's shadow in place of soul runes). */
 	static final Set<Integer> MATERIALS = ids(
 		ItemID.BRONZE_DART, ItemID.IRON_DART, ItemID.STEEL_DART, ItemID.BLACK_DART, ItemID.MITHRIL_DART,
 		ItemID.ADAMANT_DART, ItemID.RUNE_DART, ItemID.AMETHYST_DART, ItemID.DRAGON_DART,
-		ItemID.SNAKEBOSS_SCALE, ItemID.DEATHRUNE, ItemID.CHAOSRUNE, ItemID.FIRERUNE, ItemID.COINS);
+		ItemID.SNAKEBOSS_SCALE, ItemID.DEATHRUNE, ItemID.CHAOSRUNE, ItemID.FIRERUNE, ItemID.COINS,
+		ItemID.BLOODRUNE, ItemID.SOULRUNE, ItemID.AETHERRUNE);
 
 	/**
 	 * Messages and dialog texts (tags removed) that end a charge, load, unload or uncharge, as recorded by
 	 * geheur/weapon-charges: the blowpipe check message (shown after adding darts or scales), a full or empty
-	 * blowpipe, and the trident's charge dialogs.
+	 * blowpipe, the trident's charge dialogs, and the powered staves' "You apply (an additional) N charges to your ..."
+	 * and "You uncharge your ..., regaining ..." dialogs. Removing the tags also removes a {@code <br>}, joining the
+	 * words either side of it, so the staves' patterns stop before the staff's name.
 	 */
 	private static final Pattern[] CONFIRMATIONS = {
 		Pattern.compile("^Darts: .*\\. Scales: .*\\.$"),
@@ -68,7 +76,11 @@ final class ChargeExclusions
 		Pattern.compile("^The blowpipe has no darts in it\\.$"),
 		Pattern.compile("^You add (?:a charge|[\\d,]+ charges) to the weapon\\..*$"),
 		Pattern.compile("^Your weapon is already fully charged\\.$"),
+		// The Sanguinesti staff (regular or holy) refusing more runes, as geheur/weapon-charges records it.
+		Pattern.compile("^Your (?:[Hh]oly s|S)anguinesti staff is already fully charged\\.$"),
 		Pattern.compile("^You uncharge your weapon\\.$"),
+		Pattern.compile("^You apply (?:an additional )?[\\d,]+ charges? to your.*$"),
+		Pattern.compile("^You uncharge your .+, regaining .*$"),
 	};
 
 	/** Tick the window opened. */
@@ -89,7 +101,7 @@ final class ChargeExclusions
 	/**
 	 * A menu option was clicked on {@code tick}.
 	 *
-	 * @param option  the option text, possibly with tags ("Use", "Unload", "Uncharge")
+	 * @param option  the option text, possibly with tags ("Use", "Charge", "Unload", "Uncharge")
 	 * @param itemIds the items involved: the clicked item and, for "Use", the item used on it
 	 */
 	void menuOptionClicked(String option, int[] itemIds, int tick)
@@ -101,6 +113,7 @@ final class ChargeExclusions
 		switch (Text.removeTags(option).trim().toLowerCase(Locale.ROOT))
 		{
 			case "use":
+			case "charge":
 			case "unload":
 			case "uncharge":
 				openTick = tick;
@@ -130,7 +143,7 @@ final class ChargeExclusions
 		{
 			return false;
 		}
-		final String plain = Text.removeTags(text).trim();
+		final String plain = GameMessageText.plain(text);
 		for (Pattern confirmation : CONFIRMATIONS)
 		{
 			if (confirmation.matcher(plain).matches())
@@ -170,7 +183,10 @@ final class ChargeExclusions
 		return isOpen(tick) ? MATERIALS : Collections.emptySet();
 	}
 
-	/** Forgets the window (login, hop, plugin start): the tick count is re-sent and may restart. */
+	/**
+	 * Forgets the window (login, hop, lost connection, plugin start). A tick before the window opened (the tick count
+	 * restarted) is outside it anyway ({@link #isOpen}), so a window never outlasts {@link #TIMEOUT_TICKS}.
+	 */
 	void reset()
 	{
 		openTick = NEVER_TICK;

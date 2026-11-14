@@ -1,17 +1,19 @@
 package com.shmayvan.slayerledger;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.Value;
 import net.runelite.api.gameval.ItemID;
-import net.runelite.client.util.Text;
 
 /**
- * Reads the toxic blowpipe's dart type from game messages. Pure (RuneLite's static {@link Text} only).
+ * Reads the toxic blowpipe's dart type from game messages. Pure; tags and markup are stripped by
+ * {@link GameMessageText}.
  *
  * <p>Checking the blowpipe (and, reportedly, adding darts or scales) sends
  * {@code Darts: <name> x <n>. Scales: <n> (<pct>%).} or {@code Darts: None. Scales: ...}, with the values coloured.
@@ -24,6 +26,8 @@ import net.runelite.client.util.Text;
  *     <li>{@code Your blowpipe needs to be charged with Zulrah's scales and loaded with darts.}</li>
  *     <li>{@code The blowpipe has no darts in it.} (unloading an empty blowpipe)</li>
  * </ul>
+ * The second and fourth also mean it has no Zulrah's scales, and {@code Your blowpipe needs to be charged with Zulrah's
+ * scales.} means it has none, saying nothing about its darts ({@link #isOutOfScales}).
  */
 final class BlowpipeMessage
 {
@@ -37,6 +41,14 @@ final class BlowpipeMessage
 		"Your blowpipe needs to be charged with Zulrah's scales and loaded with darts.",
 		"The blowpipe has no darts in it.",
 	};
+
+	/** The {@link #NO_DARTS} messages that also mean the blowpipe has no Zulrah's scales. */
+	private static final List<String> NO_DARTS_OR_SCALES = Arrays.asList(
+		"Your blowpipe has run out of scales and darts.",
+		"Your blowpipe needs to be charged with Zulrah's scales and loaded with darts.");
+
+	/** The blowpipe has no Zulrah's scales; its darts are not mentioned. */
+	private static final String NO_SCALES = "Your blowpipe needs to be charged with Zulrah's scales.";
 
 	/** Dart names as the check message shows them (lower case), to item ids. */
 	private static final Map<String, Integer> DARTS = darts();
@@ -69,12 +81,18 @@ final class BlowpipeMessage
 		int dartId;
 		/** Darts inside, if the message says (a check message), else -1. */
 		int dartCount;
-		/** Zulrah's scales inside, if the message says (a check message), else -1. */
+		/** Zulrah's scales inside, if the message says (a check message, or 0 for none), else -1. */
 		int scales;
 	}
 
 	private BlowpipeMessage()
 	{
+	}
+
+	/** Whether {@code itemId} is one of the darts the blowpipe takes (the ones its check message names). */
+	static boolean isDart(int itemId)
+	{
+		return DARTS.containsValue(itemId);
 	}
 
 	/** The dart item id for a dart name as the check message shows it ("Rune dart"), or {@code NO_ITEM}. */
@@ -94,7 +112,7 @@ final class BlowpipeMessage
 		{
 			return null;
 		}
-		final String text = Text.removeTags(message).trim();
+		final String text = GameMessageText.plain(message);
 		final Matcher matcher = CHECK.matcher(text);
 		if (matcher.matches())
 		{
@@ -109,10 +127,20 @@ final class BlowpipeMessage
 		{
 			if (noDarts.equals(text))
 			{
-				return new Darts(false, ChargedWeaponUsage.NO_ITEM, 0, -1);
+				return new Darts(false, ChargedWeaponUsage.NO_ITEM, 0, NO_DARTS_OR_SCALES.contains(text) ? 0 : -1);
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Whether a game message, possibly with tags, says the blowpipe has no Zulrah's scales without saying anything
+	 * about its darts ({@code Your blowpipe needs to be charged with Zulrah's scales.}). The messages that say it has
+	 * neither are {@link #parse}'s.
+	 */
+	static boolean isOutOfScales(String message)
+	{
+		return message != null && NO_SCALES.equals(GameMessageText.plain(message));
 	}
 
 	private static int number(String digits)

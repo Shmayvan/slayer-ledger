@@ -1,9 +1,11 @@
 package com.shmayvan.slayerledger;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -34,6 +36,7 @@ import net.runelite.api.gameval.ItemID;
  *     used.</li>
  *     <li>{@link Category#TELEPORT_TABLET}: items with a "Break" inventory action whose name contains "teleport" (for
  *     example "Varrock teleport", "Teleport to house" or "Salve graveyard teleport"), one per tablet broken.</li>
+ *     <li>{@link Category#TELEPORT_SCROLL}: teleport scrolls ({@link #TELEPORT_SCROLLS}, by id), one per scroll read.</li>
  *     <li>{@link Category#CHARGES}: teleport jewellery and the fungicide spray ({@link #CHARGED_ITEMS}), tracked in
  *     charges per item type like potion doses and recorded under the item's highest-charge variant. Using a charge (8
  *     to 7) uses one charge, and so does the last one, whether the item then crumbles (ring of dueling, games
@@ -166,6 +169,22 @@ final class SupplyTracker
 	static final Set<Integer> SLAYER_CONSUMABLES = Collections.unmodifiableSet(
 		new HashSet<>(Arrays.asList(ItemID.SLAYER_BAG_OF_SALT, ItemID.SLAYER_ICY_WATER)));
 
+	/**
+	 * Teleport scrolls, used up one per teleport: the scrolls core ItemIdentification lists as
+	 * {@code Type.SCROLL}, by their RuneLite 1.13.4 {@code net.runelite.api.gameval.ItemID} constants. They are stackable
+	 * and read with a "Teleport" inventory action (OSRS Wiki item infoboxes, for example Zul-andra teleport and Revenant
+	 * cave teleport), which other items that are not used up share, so they are classified by id. The scrolls stored in
+	 * a master scroll book are not read; storing them is not a use ({@link SupplyExclusions#useClicked}).
+	 */
+	static final Set<Integer> TELEPORT_SCROLLS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+		ItemID.TELEPORTSCROLL_NARDAH, ItemID.TELEPORTSCROLL_DIGSITE, ItemID.TELEPORTSCROLL_FELDIP,
+		ItemID.TELEPORTSCROLL_LUNARISLE, ItemID.TELEPORTSCROLL_MORTTON, ItemID.TELEPORTSCROLL_PESTCONTROL,
+		ItemID.TELEPORTSCROLL_PISCATORIS, ItemID.TELEPORTSCROLL_TAIBWO, ItemID.TELEPORTSCROLL_ELF,
+		ItemID.TELEPORTSCROLL_MOSLES, ItemID.TELEPORTSCROLL_LUMBERYARD, ItemID.TELEPORTSCROLL_ZULANDRA,
+		ItemID.TELEPORTSCROLL_CERBERUS, ItemID.TELEPORTSCROLL_REVENANTS, ItemID.TELEPORTSCROLL_WATSON,
+		ItemID.TELEPORTSCROLL_ARDEAGLAIS, ItemID.TELEPORTSCROLL_CHASMOFFIRE, ItemID.TELEPORTSCROLL_COLOSSAL_WYRM,
+		ItemID.TELEPORTSCROLL_GUTHIXIAN_TEMPLE, ItemID.TELEPORTSCROLL_SPIDERCAVE)));
+
 	/** Adds an item's stages, from the full item down to the last bite (or charge). */
 	private static void addStages(Map<Integer, int[]> food, int... stages)
 	{
@@ -187,6 +206,8 @@ final class SupplyTracker
 		SLAYER_CONSUMABLE,
 		/** Teleport tablets: a "Break" action and "teleport" in the name. */
 		TELEPORT_TABLET,
+		/** Teleport scrolls; see {@link #TELEPORT_SCROLLS}. */
+		TELEPORT_SCROLL,
 		/** Teleport jewellery and the fungicide spray, in charges; see {@link #CHARGED_ITEMS}. */
 		CHARGES,
 		/** Not a supply; ignored. */
@@ -308,7 +329,8 @@ final class SupplyTracker
 	 * Like {@link #classify(String, String[], boolean, boolean, boolean)}, except that some items are classified by
 	 * their id first (see {@link #classifiesById}): a stage of a food eaten in parts ({@link #MULTI_BITE_FOOD}) as
 	 * {@link ItemInfo#multiBiteFood multi-bite food}, a charged item ({@link #CHARGED_ITEMS}) as
-	 * {@link ItemInfo#charged charges}, and a {@link #SLAYER_CONSUMABLES Slayer consumable}.
+	 * {@link ItemInfo#charged charges}, a {@link #SLAYER_CONSUMABLES Slayer consumable}, and a
+	 * {@link #TELEPORT_SCROLLS teleport scroll}.
 	 */
 	static ItemInfo classify(int itemId, String name, String[] inventoryActions, boolean rune, boolean ammo,
 		boolean cannonball)
@@ -326,6 +348,10 @@ final class SupplyTracker
 		if (SLAYER_CONSUMABLES.contains(itemId))
 		{
 			return ItemInfo.of(Category.SLAYER_CONSUMABLE);
+		}
+		if (TELEPORT_SCROLLS.contains(itemId))
+		{
+			return ItemInfo.of(Category.TELEPORT_SCROLL);
 		}
 		if (cannonball)
 		{
@@ -362,12 +388,13 @@ final class SupplyTracker
 
 	/**
 	 * Whether {@link #classify(int, String, String[], boolean, boolean, boolean)} decides this id from its tables alone
-	 * (multi-bite food, charged items and Slayer consumables), so the caller needs no other lookups for it.
+	 * (multi-bite food, charged items, Slayer consumables and teleport scrolls), so the caller needs no other lookups for
+	 * it.
 	 */
 	static boolean classifiesById(int itemId)
 	{
 		return MULTI_BITE_FOOD.containsKey(itemId) || CHARGED_ITEMS.containsKey(itemId)
-			|| SLAYER_CONSUMABLES.contains(itemId);
+			|| SLAYER_CONSUMABLES.contains(itemId) || TELEPORT_SCROLLS.contains(itemId);
 	}
 
 	private static boolean hasAction(String[] actions, String action)
@@ -495,9 +522,18 @@ final class SupplyTracker
 	}
 
 	private final Classifier classifier;
-	/** Classifications by item id; item definitions do not change while the client runs. */
+	/**
+	 * Classifications by item id, kept for the tracker's life. Only answers are kept: the classifier returns
+	 * {@code null} (asked again on a later update) while an item's definition may still change, that is while a
+	 * wieldable item's stats are not loaded or while a members item is seen on a free world, where the game shows a
+	 * changed name (see {@link SupplyReader#classifyItem}). A definition read on a members world does not change
+	 * while the client runs.
+	 */
 	private final Map<Integer, ItemInfo> infoCache = new HashMap<>();
-	/** Category of every key seen. */
+	/**
+	 * Category of every key seen as a supply. A key not (yet) classified as one has none, so its category is the one it
+	 * gets once its data is loaded, even if it was dropped or excluded before.
+	 */
 	private final Map<Key, Category> keyCategories = new HashMap<>();
 	/**
 	 * Item each family's use is recorded under, with its doses per item: {doses, item id}. For a potion, the
@@ -721,6 +757,116 @@ final class SupplyTracker
 		return used.isEmpty() && returned.isEmpty() ? Usage.NONE : new Usage(used, returned, doses);
 	}
 
+	/** One supply the last {@link #update} saw carried ({@link #carried}). Immutable. */
+	static final class Carried
+	{
+		private final String key;
+		private final int itemId;
+		private final Category category;
+		private final String family;
+		private final long amount;
+
+		Carried(String key, int itemId, Category category, String family, long amount)
+		{
+			this.key = key;
+			this.itemId = itemId;
+			this.category = category;
+			this.family = family;
+			this.amount = amount;
+		}
+
+		/** Its key ({@link #supplyKey}): one per item, or one per potion, multi-bite food or charged item family. */
+		String getKey()
+		{
+			return key;
+		}
+
+		/** The item its use is recorded under: the item, or a family's largest size seen (its full item). */
+		int getItemId()
+		{
+			return itemId;
+		}
+
+		Category getCategory()
+		{
+			return category;
+		}
+
+		/** A potion's family (its name without the dose), or {@code null}; internal keys for food and charges. */
+		String getFamily()
+		{
+			return family;
+		}
+
+		/** How much is carried: doses, bites or charges for a family, else items. */
+		long getAmount()
+		{
+			return amount;
+		}
+	}
+
+	/** The key of an item tracked on its own ({@link #supplyKey}). */
+	static String itemKey(int itemId)
+	{
+		return "item:" + itemId;
+	}
+
+	/** The key of a potion, multi-bite food or charged item family ({@link #supplyKey}). */
+	static String familyKey(String family)
+	{
+		return "family:" + family;
+	}
+
+	/**
+	 * The key {@code itemId}'s use and carried amount are summed under: its family's for a potion (every dose size),
+	 * food eaten in parts or charged item, else the item's own ({@link #itemKey}), also for an item that is no supply
+	 * (the blowpipe's Zulrah's scales). Classifies the item when it hasn't been yet, through the plugin's
+	 * {@link Classifier} (so on the client thread).
+	 */
+	String supplyKey(int itemId)
+	{
+		final ItemInfo info = info(itemId);
+		return info.getFamily() != null ? familyKey(info.getFamily()) : itemKey(itemId);
+	}
+
+	/**
+	 * What the last {@link #update} saw carried in the tracked containers (the inventory, the worn ammo, weapon and
+	 * jewellery slots, Dizana's quiver, the rune pouch and the cannon's loaded cannonballs), per supply: potions in
+	 * doses, food eaten in parts in bites and charged items in charges, under their family's recorded item. Empty while
+	 * there is no baseline (no task assigned, or the inventory not loaded). For the overlay's supply runway
+	 * ({@link SupplyRunway}).
+	 */
+	List<Carried> carried()
+	{
+		if (baseline == null || baseline.isEmpty())
+		{
+			return Collections.emptyList();
+		}
+		final List<Carried> carried = new ArrayList<>(baseline.size());
+		for (Map.Entry<Key, Long> e : baseline.entrySet())
+		{
+			final Key key = e.getKey();
+			final Category category = keyCategories.get(key);
+			if (category == null || category == Category.OTHER || e.getValue() <= 0)
+			{
+				continue;
+			}
+			if (key.family != null)
+			{
+				final int[] variant = potionVariants.get(key.family);
+				if (variant != null)
+				{
+					carried.add(new Carried(familyKey(key.family), variant[1], category, key.family, e.getValue()));
+				}
+			}
+			else
+			{
+				carried.add(new Carried(itemKey(key.itemId), key.itemId, category, null, e.getValue()));
+			}
+		}
+		return carried;
+	}
+
 	/**
 	 * Classifies the observation's items and notes each potion family's highest-dose variant seen, as {@link #update}
 	 * does for every item it sees, without touching the baseline or counting anything. Lets the plugin keep noting the
@@ -850,7 +996,12 @@ final class SupplyTracker
 		{
 			key = new Key(itemId, null);
 		}
-		keyCategories.putIfAbsent(key, info.getCategory());
+		if (info.getCategory() != Category.OTHER)
+		{
+			// An item still waiting for its data reads OTHER (not cached, see info), for example when dropped or
+			// excluded first: recording that would keep picked-up ammo from ever offsetting it.
+			keyCategories.putIfAbsent(key, info.getCategory());
+		}
 		return key;
 	}
 

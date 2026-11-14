@@ -174,9 +174,11 @@ public class ItemGridViewTest
 			}
 			grid.setRows(rows);
 			Container cells = (Container) SwingLookup.find(grid, "itemGrid.grid");
-			// Five columns take the list's width; the grid itself asks for less than one 36 px sprite.
-			assertTrue(cells.getPreferredSize().toString(), cells.getPreferredSize().width < 36);
+			// Five 36 by 32 sprites with 1 px between them (DESIGN_PRINCIPLES.md 3.6): 184 px, inside a card's 199.
+			assertEquals(5 * ItemGridView.CELL_WIDTH + 4, cells.getPreferredSize().width);
+			assertEquals(184, cells.getPreferredSize().width);
 			assertEquals(3 * ItemGridView.CELL_HEIGHT + 2, cells.getPreferredSize().height);
+			assertEquals("the cells keep their size", cells.getPreferredSize(), cells.getMaximumSize());
 		});
 	}
 

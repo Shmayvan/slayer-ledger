@@ -41,13 +41,13 @@ public class HarnessKeepDiscardPromptTest
 		harness.loginAndSettle(ACCOUNT);
 
 		// Two kills, then a logout and login, so the session has an active-session file when Stop is pressed.
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.setRemaining(8);
 		harness.lootOnNextTick(ItemID.BONES, 1);
 		harness.tick();
 		harness.logout();
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.tick();
 
 		final SessionSnapshot active = harness.activeSession(ACCOUNT);
@@ -72,7 +72,7 @@ public class HarnessKeepDiscardPromptTest
 	public void keepSavesOnePartialRecord()
 	{
 		harness.scriptKeepDiscardPrompt(PluginHarness.PromptAnswer.KEEP);
-		harness.stop();
+		harness.endTask();
 
 		assertEquals(1, harness.promptsShown());
 		assertOnePartialRecord();
@@ -82,14 +82,14 @@ public class HarnessKeepDiscardPromptTest
 		harness.clientShutdown();
 		harness.shutDown();
 		assertOnePartialRecord();
-		assertNull(harness.activeSession(ACCOUNT));
+		assertNull(harness.persistedSession(ACCOUNT));
 	}
 
 	@Test
 	public void discardSavesNothingAndRemovesTheActiveFile()
 	{
 		harness.scriptKeepDiscardPrompt(PluginHarness.PromptAnswer.DISCARD);
-		harness.stop();
+		harness.endTask();
 
 		assertEquals(1, harness.promptsShown());
 		assertTrue(harness.records(ACCOUNT).isEmpty());
@@ -102,14 +102,14 @@ public class HarnessKeepDiscardPromptTest
 		harness.ticks(PluginHarness.SETTLE_TICKS);
 		assertEquals("nothing restored", SessionTracker.State.IDLE, harness.sessionState());
 		assertTrue(harness.records(ACCOUNT).isEmpty());
-		assertNull(harness.activeSession(ACCOUNT));
+		assertNull(harness.persistedSession(ACCOUNT));
 	}
 
 	@Test
 	public void keepAnsweredAfterTheDialogWasOpenSavesOnce()
 	{
 		harness.scriptKeepDiscardPrompt(PluginHarness.PromptAnswer.LEAVE_OPEN);
-		harness.stop();
+		harness.endTask();
 		assertTrue(harness.isPromptOpen());
 		assertTrue("nothing saved while the dialog is open", harness.records(ACCOUNT).isEmpty());
 		assertNotNull(harness.activeSession(ACCOUNT));
@@ -117,7 +117,7 @@ public class HarnessKeepDiscardPromptTest
 		assertTrue("Keep queues the save", harness.answerOpenPrompt(true) > 0);
 		assertFalse(harness.isPromptOpen());
 		assertOnePartialRecord();
-		assertNull(harness.activeSession(ACCOUNT));
+		assertNull(harness.persistedSession(ACCOUNT));
 
 		harness.clientShutdown();
 		harness.shutDown();
@@ -129,18 +129,18 @@ public class HarnessKeepDiscardPromptTest
 	public void pluginShutDownWhileTheDialogIsOpenSavesThePartialOnce()
 	{
 		harness.scriptKeepDiscardPrompt(PluginHarness.PromptAnswer.LEAVE_OPEN);
-		harness.stop();
+		harness.endTask();
 		assertTrue(harness.isPromptOpen());
 
 		harness.shutDown();
 		assertOnePartialRecord();
-		assertNull(harness.activeSession(ACCOUNT));
+		assertNull(harness.persistedSession(ACCOUNT));
 
 		// The dialog outlives the plugin; its late answer saves nothing more.
 		assertTrue(harness.isPromptOpen());
 		assertEquals("the late Keep queues no second save", 0, harness.answerOpenPrompt(true));
 		assertOnePartialRecord();
-		assertNull(harness.activeSession(ACCOUNT));
+		assertNull(harness.persistedSession(ACCOUNT));
 		assertEquals(1, harness.promptsShown());
 	}
 
@@ -148,32 +148,37 @@ public class HarnessKeepDiscardPromptTest
 	public void pluginShutDownWhileTheDialogIsOpenKeepsThePartialWhenDiscardIsAnsweredLate()
 	{
 		harness.scriptKeepDiscardPrompt(PluginHarness.PromptAnswer.LEAVE_OPEN);
-		harness.stop();
+		harness.endTask();
 
 		harness.shutDown();
 		assertEquals("the late Discard queues no delete", 0, harness.answerOpenPrompt(false));
 		assertOnePartialRecord();
-		assertNull(harness.activeSession(ACCOUNT));
+		assertNull(harness.persistedSession(ACCOUNT));
 	}
 
 	@Test
 	public void clientExitWhileTheDialogIsOpenSavesThePartialOnceAndWaitsForIt()
 	{
 		harness.scriptKeepDiscardPrompt(PluginHarness.PromptAnswer.LEAVE_OPEN);
-		harness.stop();
+		harness.endTask();
 		assertTrue(harness.isPromptOpen());
 
 		final List<Future<?>> waitedFor = harness.clientShutdown();
-		assertEquals("the client waits for the partial's save", 1, waitedFor.size());
-		assertTrue(waitedFor.get(0).isDone());
+		assertEquals("the client waits for the partial's save and the Ended assignment's marker", 2,
+			waitedFor.size());
+		for (Future<?> write : waitedFor)
+		{
+			assertTrue(write.isDone());
+		}
 		assertOnePartialRecord();
-		assertNull(harness.activeSession(ACCOUNT));
+		assertNull(harness.persistedSession(ACCOUNT));
+		assertTrue("End task keeps the assignment Ended", harness.activeSession(ACCOUNT).isEndedMarker());
 
 		// The plugin is stopped as the client closes, then the dialog's late answer comes; neither saves again.
 		harness.shutDown();
 		assertEquals("the late Keep queues no second save", 0, harness.answerOpenPrompt(true));
 		assertOnePartialRecord();
-		assertNull(harness.activeSession(ACCOUNT));
+		assertNull(harness.persistedSession(ACCOUNT));
 		assertEquals(1, harness.promptsShown());
 	}
 }

@@ -25,6 +25,10 @@ final class LedgerHistory
 	static final String UNKNOWN_MONSTER = "Unknown task";
 	/** Shown instead of a value that was never recorded (tasks saved before values were tracked). */
 	static final String NO_VALUE = "-";
+	/** The status word of a task saved before it was finished; the only status a Task history row names. */
+	static final String PARTIAL = "Partial";
+	/** The tooltip line that explains {@link #PARTIAL}. */
+	static final String PARTIAL_NOTE = "Partial: saved before the task was finished";
 	/** Prefix of a total that leaves out items whose GE price was unavailable. */
 	static final String APPROXIMATE = "~";
 	/** Time left until a session has enough kills and active time for an estimate ({@link #formatTimeLeft}). */
@@ -201,10 +205,7 @@ final class LedgerHistory
 			&& !TaskTimeEstimate.remainingMillis(activeMillis, kills, remaining).isPresent();
 	}
 
-	/**
-	 * The historical time left: {@code millisPerKill * remaining}, saturated at {@link Long#MAX_VALUE} as
-	 * {@link TaskStatistics#estimate} does.
-	 */
+	/** The historical time left: {@code millisPerKill * remaining}, saturated at {@link Long#MAX_VALUE}. */
 	static long historicalTimeLeftMillis(long millisPerKill, int remaining)
 	{
 		try
@@ -217,15 +218,19 @@ final class LedgerHistory
 		}
 	}
 
-	static String status(LedgerRecord record)
-	{
-		return record.isCompleted() ? "Completed" : "Partial";
-	}
-
 	/** Short, locale-style date/time formatter in the given zone (the system zone in the panel). */
 	static DateTimeFormatter shortDateTime(ZoneId zone)
 	{
 		return DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withZone(zone);
+	}
+
+	/**
+	 * Short, locale-style date formatter (no time) in the given zone: the date on a Task history row,
+	 * whose tooltip has the time too ({@link #shortDateTime}).
+	 */
+	static DateTimeFormatter shortDate(ZoneId zone)
+	{
+		return DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).withZone(zone);
 	}
 
 	/** End time formatted with {@code formatter}, or "-" when the record has no end time. */
@@ -250,7 +255,7 @@ final class LedgerHistory
 	/** Compact gp amount as in core Loot Tracker ({@code QuantityFormatter}, e.g. "9,450 gp", "350K gp", "1.23M gp"). */
 	static String formatGp(long value)
 	{
-		return QuantityFormatter.quantityToStackSize(value) + " gp";
+		return LedgerFormat.amount(value) + " gp";
 	}
 
 	/**
@@ -276,7 +281,7 @@ final class LedgerHistory
 		{
 			return NO_VALUE;
 		}
-		return (approximate ? APPROXIMATE : "") + QuantityFormatter.quantityToStackSize(value);
+		return (approximate ? APPROXIMATE : "") + LedgerFormat.amount(value);
 	}
 
 	/** Full gp amount with thousands separators, for tooltips. */
@@ -367,12 +372,6 @@ final class LedgerHistory
 		return mode == LootPriceMode.HIGH_ALCH ? "HA" : "GE";
 	}
 
-	/** "Loot (GE): " or "Loot (HA): ", the label of a loot value in {@code mode} ({@code null} counts as GE). */
-	static String lootLabel(LootPriceMode mode)
-	{
-		return "Loot (" + priceLabel(mode) + "): ";
-	}
-
 	/** "Profit (GE): " or "Profit (HA): ", the label of a profit with the loot in {@code mode}. */
 	static String profitLabel(LootPriceMode mode)
 	{
@@ -395,69 +394,112 @@ final class LedgerHistory
 		return formatGp(values.getProfit(), unpriced > 0);
 	}
 
-	/** "Loot (GE): ..." or "Loot (HA): ..." text of a history row: the loot value in the values' price mode. */
-	static String formatLoot(HistoryPricing.Values values)
-	{
-		return lootLabel(values.getMode()) + formatAmount(values.getLootValue(), values.isLootApproximate());
-	}
-
-	/** "Supplies: ..." text of a history row (always at GE prices). */
-	static String formatSupplies(HistoryPricing.Values values)
-	{
-		return "Supplies: " + formatAmount(values.getSuppliesGe(), values.isSuppliesApproximate());
-	}
-
 	/**
-	 * "Profit (GE): ..." or "Profit (HA): ..." text of a history row: loot in the values' price mode minus supplies;
-	 * approximate when either is.
-	 */
-	static String formatProfit(HistoryPricing.Values values)
-	{
-		return profitLabel(values.getMode()) + formatAmount(values.getProfit(), values.isProfitApproximate());
-	}
-
-	/**
-	 * HTML tooltip of a history row: the exact values ({@code values}, which also say which prices and price mode are
-	 * shown), followed by the superior spawns, bank trips and deaths ({@link #NO_VALUE} when the task was saved before
-	 * they were counted), the task context, the boss kill counts, keys, clue scrolls and notable drops (when there are
-	 * any) and the note, if any.
-	 */
-	static String rowTooltip(LedgerRecord record, HistoryPricing.Values values)
-	{
-		return rowTooltip(record, values, null);
-	}
-
-	/**
-	 * HTML tooltip of a history row ({@link #rowTooltip(LedgerRecord, HistoryPricing.Values)}) with its location line
-	 * ({@link TaskLocation#format}) after the values.
+	 * HTML tooltip of a Task history row in look A. It starts with what the two-line row has no room
+	 * for: the name in full (a long one is cut short on the row), {@link #PARTIAL_NOTE} for a partial task, when the task
+	 * ended ({@code endedAt}, with the time), the exact active time ({@code Active: 1:01:05}, {@link #formatDuration}; the
+	 * row shows it in whole minutes), the kills ({@link #formatKills}) and the XP with XP per hour of active time
+	 * ({@link #formatXpLine}). Then the exact values ({@code values}, which also say which prices and price mode are
+	 * shown), the variant, the location line ({@link TaskLocation#format}), the setup tags, the superior spawns, bank
+	 * trips and deaths ({@link #NO_VALUE} when the task was saved before they were counted), the task context, the boss
+	 * kill counts, keys, clue scrolls and notable drops (when there are any) and the note, if any.
 	 *
 	 * @param location the location to show ({@link TaskLocation#displayName}), or {@code null} for no location line
+	 * @param endedAt  when the task ended, as {@link #formatEndedAt} gives it
 	 */
-	static String rowTooltip(LedgerRecord record, HistoryPricing.Values values, String location)
+	static String historyRowTooltip(LedgerRecord record, HistoryPricing.Values values, String location, String endedAt)
+	{
+		StringBuilder head = new StringBuilder(escapeHtml(monster(record)));
+		if (!record.isCompleted())
+		{
+			head.append("<br>").append(PARTIAL_NOTE);
+		}
+		head.append("<br>").append(escapeHtml(endedAt))
+			.append("<br>Active: ").append(formatDuration(record.getActiveMillis()))
+			.append("<br>Kills: ").append(formatKills(record))
+			.append("<br>").append(formatXpLine(record));
+		return "<html>" + head + "<br>" + rowTooltipBody(record, values, location) + "</html>";
+	}
+
+	/**
+	 * A saved task's XP with its XP per hour of active time, for a tooltip: {@code XP: 12,345 (40.1K/h)}; without the
+	 * rate when the task had too little active time for one; {@code XP: -} for a task saved before XP was tracked
+	 * ({@link SkillXp#totalText}).
+	 */
+	static String formatXpLine(LedgerRecord record)
+	{
+		return SkillXp.totalText(record.getXpGained(), record.getActiveMillis());
+	}
+
+	/**
+	 * The values tooltip of a saved task's item lists (their sub-header values): the exact values and
+	 * which prices are shown, as its row's tooltip gives them after its head, or {@link #NOT_VALUED}.
+	 */
+	static String valuesTooltip(HistoryPricing.Values values)
+	{
+		return "<html>" + (values.isValued() ? valuesTooltipBody(values) : NOT_VALUED) + "</html>";
+	}
+
+	/** {@link #historyRowTooltip}'s lines after its head, without {@code <html>} tags. */
+	private static String rowTooltipBody(LedgerRecord record, HistoryPricing.Values values, String location)
 	{
 		String valuesText = values.isValued() ? valuesTooltipBody(values) : NOT_VALUED;
 		String note = record.getNote() == null ? "" : "<br>" + formatNote(record.getNote());
 		String locationText = location == null ? "" : "<br>" + escapeHtml(TaskLocation.format(location));
 		String variantText = variantTooltip(record);
-		return "<html>" + valuesText + variantText + locationText + "<br>"
+		return valuesText + variantText + locationText + setupTooltip(record) + "<br>"
 			+ formatSuperiors(record.getSuperiorsSpawned()) + "<br>"
 			+ formatBankTrips(record.getBankTrips()) + "<br>" + formatDeaths(record.getDeaths())
 			+ taskContextTooltip(record) + bossKillCountTooltip(record.getBossKillCounts(), record.getMonster())
-			+ taskLootTooltip(record, values.getMode()) + note + "</html>";
+			+ taskLootTooltip(record, values.getMode()) + note;
 	}
 
 	/**
-	 * The tooltip line of a task done on its Catacombs variant, {@code <br>Catacombs variant of Aberrant
-	 * spectres}, or "" for the standard monster.
+	 * The tooltip lines of a task's variant and boss flag ({@link TaskVariants}): {@code <br>Catacombs
+	 * variant of Aberrant spectres} for a task done on its Catacombs variant, {@code <br>Slayer boss of Gargoyles} for
+	 * one done on its Slayer boss, then, for a task with boss kills whose variant isn't the boss,
+	 * {@code <br>Boss kills: Kraken}; "" for none.
 	 */
 	static String variantTooltip(LedgerRecord record)
 	{
-		String variant = record.getVariant();
-		if (variant == null || variant.trim().isEmpty() || record.getMonster() == null)
+		String monster = record.getMonster();
+		String variant = record.getVariant() == null ? null : record.getVariant().trim();
+		if (monster == null)
 		{
 			return "";
 		}
-		return "<br>" + escapeHtml("Catacombs variant of " + record.getMonster());
+		String boss = TaskVariants.bossName(monster);
+		boolean variantIsBoss = variant != null && boss != null && BossKillCounts.sameName(variant, boss);
+		StringBuilder sb = new StringBuilder();
+		if (variant != null && !variant.isEmpty())
+		{
+			sb.append("<br>").append(escapeHtml((variantIsBoss ? "Slayer boss of " : "Catacombs variant of ") + monster));
+		}
+		if (Boolean.TRUE.equals(record.getBossKills()) && boss != null && !variantIsBoss)
+		{
+			sb.append("<br>").append(escapeHtml("Boss kills: " + boss));
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * The setup tag lines of a history row's tooltip ({@link SetupTags#lines}), each starting with {@code <br>}:
+	 * {@code Cannon: ~Yes}, {@code Style: ~Barrage}, {@code Gear: Unknown} and so on. "" for a record without stored
+	 * tags (only one built without them; every record read from the ledger has them).
+	 */
+	static String setupTooltip(LedgerRecord record)
+	{
+		final SetupTags tags = SetupTags.of(record);
+		if (!tags.isRecorded())
+		{
+			return "";
+		}
+		StringBuilder sb = new StringBuilder();
+		for (String line : tags.lines())
+		{
+			sb.append("<br>").append(escapeHtml(line));
+		}
+		return sb.toString();
 	}
 
 	/**
@@ -570,7 +612,7 @@ final class LedgerHistory
 		String quantity = drop.getQuantity() > 1 ? " x " + QuantityFormatter.formatNumber(drop.getQuantity()) : "";
 		Long value = drop.value(mode);
 		String valueText = value == null ? NO_VALUE
-			: exact ? formatGpExact(value) : QuantityFormatter.quantityToStackSize(value);
+			: exact ? formatGpExact(value) : LedgerFormat.amount(value);
 		return name + quantity + ": " + valueText;
 	}
 
@@ -677,29 +719,6 @@ final class LedgerHistory
 	static String formatDeaths(Integer deaths)
 	{
 		return "Deaths: " + formatCount(deaths);
-	}
-
-	/**
-	 * A history row's XP: {@code XP: 12,345}, or {@code XP: -} for a task saved before XP was tracked (see
-	 * {@link SkillXp#totalText}).
-	 */
-	static String formatXp(LedgerRecord record)
-	{
-		return SkillXp.totalText(record.getXpGained(), 0);
-	}
-
-	/**
-	 * A history row's XP per hour of active time, labelled so it doesn't read as gp: {@code XP/h: 40.1K}; ""
-	 * when the XP was not recorded or the task had too little active time for a rate.
-	 */
-	static String formatXpRate(LedgerRecord record)
-	{
-		if (record.getXpGained() == null)
-		{
-			return "";
-		}
-		Long rate = SkillXp.perHour(SkillXp.total(record.getXpGained()), record.getActiveMillis());
-		return rate == null ? "" : "XP/h: " + formatAmount(rate, false);
 	}
 
 	/** A count, or {@link #NO_VALUE} when it is unknown ({@code null}). Never shows an unknown count as 0. */

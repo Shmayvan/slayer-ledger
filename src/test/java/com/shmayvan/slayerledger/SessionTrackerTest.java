@@ -43,12 +43,15 @@ public class SessionTrackerTest
 	public void transitions()
 	{
 		assertEquals(State.IDLE, tracker.getState());
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		assertEquals(State.RUNNING, tracker.getState());
 		assertTrue(tracker.pause());
 		assertEquals(State.PAUSED, tracker.getState());
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.resume(ACCOUNT));
 		assertEquals(State.RUNNING, tracker.getState());
+		assertTrue(tracker.loggedOut());
+		assertEquals(State.LOGGED_OUT, tracker.getState());
+		assertFalse("Resume is only for Paused", tracker.resume(ACCOUNT));
 		assertTrue(tracker.stop());
 		assertEquals(State.STOPPED, tracker.getState());
 		assertTrue(tracker.reset());
@@ -58,7 +61,7 @@ public class SessionTrackerTest
 	@Test
 	public void stopFromPaused()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		tracker.pause();
 		assertTrue(tracker.stop());
 		assertEquals(State.STOPPED, tracker.getState());
@@ -69,23 +72,29 @@ public class SessionTrackerTest
 	{
 		assertFalse(tracker.pause());
 		assertFalse(tracker.stop());
-		assertFalse(tracker.autoPause());
+		assertFalse(tracker.loggedOut());
 		assertFalse(tracker.reset());
 		assertNull(tracker.stopAndReset());
 		assertEquals(State.IDLE, tracker.getState());
 
-		tracker.play(ACCOUNT);
-		assertFalse(tracker.play(ACCOUNT));
+		tracker.startNow(ACCOUNT);
+		assertFalse(tracker.startNow(ACCOUNT));
 		assertFalse(tracker.reset());
 		assertEquals(State.RUNNING, tracker.getState());
 
 		tracker.pause();
 		assertFalse(tracker.pause());
-		assertFalse(tracker.autoPause());
+		assertFalse(tracker.resume(OTHER_ACCOUNT));
+		assertFalse(tracker.checkAway());
 		assertEquals(State.PAUSED, tracker.getState());
 
+		tracker.loggedOut();
+		assertFalse(tracker.loggedOut());
+		assertFalse(tracker.pause());
+		assertEquals(State.LOGGED_OUT, tracker.getState());
+
 		tracker.stop();
-		assertFalse(tracker.play(ACCOUNT));
+		assertFalse(tracker.startNow(ACCOUNT));
 		assertFalse(tracker.pause());
 		assertFalse(tracker.stop());
 		assertEquals(State.STOPPED, tracker.getState());
@@ -95,13 +104,13 @@ public class SessionTrackerTest
 	public void elapsedOnlyAccumulatesWhileRunning()
 	{
 		now += 5_000; // idle time is not counted
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		now += 10_000;
 		assertEquals(10_000, tracker.getActiveMillis());
 		tracker.pause();
 		now += 60_000;
 		assertEquals(10_000, tracker.getActiveMillis());
-		tracker.play(ACCOUNT);
+		tracker.resume(ACCOUNT);
 		now += 2_500;
 		assertEquals(12_500, tracker.getActiveMillis());
 		tracker.stop();
@@ -111,24 +120,25 @@ public class SessionTrackerTest
 	}
 
 	@Test
-	public void countsDecreasesOnlyWhileRunning()
+	public void countsDecreasesAndAKillRestartsAPausedSession()
 	{
 		demons(100);
-		demons(99); // before session start: ignored
-		tracker.play(ACCOUNT);
+		demons(99); // no account known: no session starts, and the kill is not counted
+		assertEquals(State.IDLE, tracker.getState());
+		tracker.startNow(ACCOUNT);
 		assertEquals(0, tracker.getKills());
 		demons(97);
 		assertEquals(2, tracker.getKills());
 		tracker.pause();
-		demons(90); // paused: ignored, but baseline moves
-		assertEquals(2, tracker.getKills());
-		tracker.play(ACCOUNT);
+		demons(90); // a task kill while paused restarts the session and counts
+		assertEquals(State.RUNNING, tracker.getState());
+		assertEquals(9, tracker.getKills());
 		demons(89);
-		assertEquals(3, tracker.getKills());
+		assertEquals(10, tracker.getKills());
 		SessionTracker.Summary summary = tracker.stopAndReset();
 		assertNotNull(summary);
 		assertEquals(99, summary.getInitialAmount());
-		assertEquals(3, summary.getKills());
+		assertEquals(10, summary.getKills());
 		assertEquals("Abyssal demons", summary.getMonster());
 		assertEquals(DEMON_ID, summary.getCreatureId());
 		assertFalse(summary.isCompleted());
@@ -139,7 +149,7 @@ public class SessionTrackerTest
 	@Test
 	public void increasesAreNotKills()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		demons(50); // first observation: baseline only
 		assertEquals(0, tracker.getKills());
 		demons(60); // e.g. extended task
@@ -151,7 +161,7 @@ public class SessionTrackerTest
 	@Test
 	public void sessionStartedWithoutTaskAdoptsFirstTask()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		tracker.observe(null, SessionTracker.NO_CREATURE, 0, false);
 		assertFalse(tracker.hasSessionTask());
 		demons(120);
@@ -162,25 +172,30 @@ public class SessionTrackerTest
 	}
 
 	@Test
-	public void autoPause()
+	public void logoutStopsTheClockUntilTheNextKill()
 	{
 		demons(10);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		now += 1_000;
-		assertTrue(tracker.autoPause());
-		assertEquals(State.PAUSED, tracker.getState());
+		assertTrue(tracker.loggedOut());
+		assertEquals(State.LOGGED_OUT, tracker.getState());
 		now += 5_000;
 		assertEquals(1_000, tracker.getActiveMillis());
-		// resume is manual: further observations do not resume
+		// A reading without a kill (a login) is not a restart.
 		demons(10);
-		assertEquals(State.PAUSED, tracker.getState());
+		assertEquals(State.LOGGED_OUT, tracker.getState());
+		now += 1_000;
+		demons(9);
+		assertEquals(State.RUNNING, tracker.getState());
+		assertEquals(1, tracker.getKills());
+		assertEquals("a kill with nothing paired restarts at the kill", 1_000, tracker.getActiveMillis());
 	}
 
 	@Test
 	public void completionWithSignal()
 	{
 		demons(3);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		demons(1);
 		assertEquals(ObserveResult.COMPLETED, tracker.observe(null, SessionTracker.NO_CREATURE, 0, true));
 		assertTrue(tracker.isCompleted());
@@ -194,7 +209,7 @@ public class SessionTrackerTest
 	public void completionSignalOnLaterObservation()
 	{
 		demons(2);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		assertEquals(ObserveResult.TASK_CLEARED, tracker.observe(null, SessionTracker.NO_CREATURE, 0, false));
 		assertFalse(tracker.isCompleted());
 		assertEquals(ObserveResult.COMPLETED, tracker.observe(null, SessionTracker.NO_CREATURE, 0, true));
@@ -206,7 +221,7 @@ public class SessionTrackerTest
 	public void clearedWithoutCompletionIsNotCompleted()
 	{
 		demons(80);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		demons(75);
 		// cancelled task: count drops to zero without a completion signal
 		assertEquals(ObserveResult.TASK_CLEARED, tracker.observe(null, SessionTracker.NO_CREATURE, 0, false));
@@ -227,34 +242,36 @@ public class SessionTrackerTest
 	public void taskChangeDuringSession()
 	{
 		demons(50);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		demons(45);
 		assertEquals(ObserveResult.TASK_CHANGED, tracker.observe("Black dragons", DRAGON_ID, 30, false));
 		// change of task does not count as kills
 		assertEquals(5, tracker.getKills());
 		SessionTracker.Summary summary = tracker.stopAndReset();
 		assertEquals("Abyssal demons", summary.getMonster());
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		assertEquals("Black dragons", tracker.summary().getMonster());
 		assertEquals(30, tracker.summary().getInitialAmount());
 	}
 
 	@Test
-	public void completionWhilePausedDoesNotAddKills()
+	public void finalKillWhilePausedRestartsBeforeItCompletes()
 	{
 		demons(1);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		tracker.pause();
 		assertEquals(ObserveResult.COMPLETED, tracker.observe(null, SessionTracker.NO_CREATURE, 0, true));
 		assertTrue(tracker.isCompleted());
-		assertEquals(0, tracker.getKills());
+		assertEquals(1, tracker.getKills());
+		assertEquals("restarted first, so the completion can be held", State.RUNNING, tracker.getState());
+		assertTrue(tracker.holdCompletion());
 	}
 
 	@Test
 	public void partialFlagOnRecord()
 	{
 		demons(10);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		now += 3_000;
 		demons(8);
 		SessionTracker.Summary summary = tracker.stopAndReset();
@@ -273,33 +290,29 @@ public class SessionTrackerTest
 	}
 
 	@Test
-	public void playRefusedUntilTaskObserved()
+	public void startNowRefusedUntilTaskObserved()
 	{
 		SessionTracker fresh = new SessionTracker(() -> now);
-		assertFalse(fresh.canPlay(ACCOUNT));
-		assertFalse(fresh.play(ACCOUNT));
+		assertFalse(fresh.startNow(ACCOUNT));
 		assertEquals(State.IDLE, fresh.getState());
 		fresh.observe("Abyssal demons", DEMON_ID, 10, false);
-		assertTrue(fresh.canPlay(ACCOUNT));
-		assertFalse(fresh.canPlay(SessionTracker.NO_ACCOUNT));
-		assertFalse(fresh.play(SessionTracker.NO_ACCOUNT));
-		assertTrue(fresh.play(ACCOUNT));
+		assertFalse(fresh.startNow(SessionTracker.NO_ACCOUNT));
+		assertTrue(fresh.startNow(ACCOUNT));
 	}
 
 	@Test
-	public void clearCurrentTaskForgetsStaleTaskAndBlocksPlay()
+	public void clearCurrentTaskForgetsStaleTask()
 	{
 		demons(50);
 		tracker.clearCurrentTask();
 		assertNull(tracker.getCurrentMonster());
 		assertEquals(0, tracker.getCurrentRemaining());
 		assertFalse(tracker.isTaskObserved());
-		assertFalse(tracker.canPlay(ACCOUNT));
-		assertFalse(tracker.play(ACCOUNT));
+		assertFalse(tracker.startNow(ACCOUNT));
 
-		// first observation on the new login enables Play with the fresh task
+		// the first observation on the new login takes the fresh task
 		tracker.observe("Black dragons", DRAGON_ID, 12, false);
-		assertTrue(tracker.play(OTHER_ACCOUNT));
+		assertTrue(tracker.startNow(OTHER_ACCOUNT));
 		assertEquals("Black dragons", tracker.summary().getMonster());
 		assertEquals(12, tracker.summary().getInitialAmount());
 	}
@@ -308,24 +321,28 @@ public class SessionTrackerTest
 	public void clearCurrentTaskBlocksResumeUntilObserved()
 	{
 		demons(50);
-		tracker.play(ACCOUNT);
-		tracker.autoPause();
+		tracker.startNow(ACCOUNT);
+		tracker.pause();
+		assertTrue(tracker.canResume(ACCOUNT));
 		tracker.clearCurrentTask();
-		assertFalse(tracker.play(ACCOUNT));
+		assertFalse(tracker.canResume(ACCOUNT));
+		assertFalse(tracker.resume(ACCOUNT));
 		demons(50);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.resume(ACCOUNT));
 	}
 
 	@Test
 	public void sessionAccountIsCapturedAtomically()
 	{
 		demons(50);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		assertEquals(ACCOUNT, tracker.getSessionAccountHash());
 		tracker.pause();
 		// resuming with another account is refused
-		assertFalse(tracker.canPlay(OTHER_ACCOUNT));
-		assertFalse(tracker.play(OTHER_ACCOUNT));
+		assertFalse(tracker.canResume(OTHER_ACCOUNT));
+		assertFalse(tracker.resume(OTHER_ACCOUNT));
+		assertFalse(tracker.startNow(OTHER_ACCOUNT));
+		assertTrue(tracker.canResume(ACCOUNT));
 		assertNull(tracker.stopAndResetIfOtherAccount(ACCOUNT));
 		assertEquals(State.PAUSED, tracker.getState());
 
@@ -341,7 +358,7 @@ public class SessionTrackerTest
 	public void sameTaskReturningAfterTransientZeroResumes()
 	{
 		demons(10);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		demons(8);
 		assertEquals(ObserveResult.TASK_CLEARED, noTask());
 		// the same task comes back: not a change, and the drop is not counted
@@ -360,7 +377,7 @@ public class SessionTrackerTest
 	public void lateCounterSyncWhileClearedIsNotCompletionAfterTaskReturns()
 	{
 		demons(10);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		noTask();
 		demons(10);
 		// even if a signal arrives now, the task is active again so it is not a completion
@@ -372,7 +389,7 @@ public class SessionTrackerTest
 	public void originalAmountIsTracked()
 	{
 		tracker.observe("Abyssal demons", DEMON_ID, 120, 150, false);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		assertEquals(150, tracker.summary().getOriginalAmount());
 		// extension changes the assigned size
 		tracker.observe("Abyssal demons", DEMON_ID, 119, 200, false);
@@ -385,7 +402,7 @@ public class SessionTrackerTest
 	public void unknownOriginalAmountIsNullOnRecord()
 	{
 		demons(20);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		SessionTracker.Summary summary = tracker.stopAndReset();
 		assertEquals(SessionTracker.UNKNOWN_AMOUNT, summary.getOriginalAmount());
 		assertNull(LedgerRecord.fromSummary(summary, true).getOriginalAmount());
@@ -395,7 +412,7 @@ public class SessionTrackerTest
 	public void unknownNameDoesNotLookLikeTaskChange()
 	{
 		tracker.observe(null, DEMON_ID, 30, false);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		// lookup succeeds later: same creature id, so same task, and the name is filled in
 		assertEquals(ObserveResult.NONE, demons(29));
 		assertEquals(1, tracker.getKills());
@@ -407,7 +424,7 @@ public class SessionTrackerTest
 	public void unknownNameFallbackOnRecord()
 	{
 		tracker.observe(null, DEMON_ID, 30, false);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		LedgerRecord record = LedgerRecord.fromSummary(tracker.stopAndReset(), true);
 		assertEquals("Unknown task (" + DEMON_ID + ")", record.getMonster());
 	}
@@ -416,7 +433,7 @@ public class SessionTrackerTest
 	public void shortZeroGapResumesSameTask()
 	{
 		demons(10);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		demons(8);
 		for (int i = 0; i < SessionTracker.MAX_TRANSIENT_ZERO_OBSERVATIONS; i++)
 		{
@@ -431,7 +448,7 @@ public class SessionTrackerTest
 	public void longZeroGapWithSameCreatureIsTaskChange()
 	{
 		tracker.observe("Abyssal demons", DEMON_ID, 10, 150, false);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		tracker.observe("Abyssal demons", DEMON_ID, 8, 150, false);
 		for (int i = 0; i <= SessionTracker.MAX_TRANSIENT_ZERO_OBSERVATIONS; i++)
 		{
@@ -448,7 +465,7 @@ public class SessionTrackerTest
 	public void longZeroGapWithHigherRemainingIsTaskChangeEvenWithSameSize()
 	{
 		tracker.observe("Abyssal demons", DEMON_ID, 10, 150, false);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		for (int i = 0; i <= SessionTracker.MAX_TRANSIENT_ZERO_OBSERVATIONS; i++)
 		{
 			noTask();
@@ -460,7 +477,7 @@ public class SessionTrackerTest
 	public void longZeroGapWithUnchangedSizeAndNoIncreaseResumes()
 	{
 		tracker.observe("Abyssal demons", DEMON_ID, 10, 150, false);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		tracker.observe("Abyssal demons", DEMON_ID, 8, 150, false);
 		for (int i = 0; i < 10; i++)
 		{
@@ -475,7 +492,7 @@ public class SessionTrackerTest
 	public void longZeroGapWithUnknownSizeIsTaskChange()
 	{
 		demons(10);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		for (int i = 0; i <= SessionTracker.MAX_TRANSIENT_ZERO_OBSERVATIONS; i++)
 		{
 			noTask();
@@ -495,7 +512,7 @@ public class SessionTrackerTest
 
 		// boss-to-boss change with failed name lookups is still a task change
 		tracker.observe(null, zulrah, 5, false);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		assertEquals(ObserveResult.NONE, tracker.observe(null, zulrah, 4, false));
 		assertEquals(ObserveResult.TASK_CHANGED, tracker.observe(null, vorkath, 5, false));
 
@@ -509,14 +526,14 @@ public class SessionTrackerTest
 	public void liveTaskKnowsTheKillsLeftOnlyWhileTheSessionsTaskIsObserved()
 	{
 		assertNull("idle", tracker.liveTask());
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		assertNull("a session without a task", tracker.liveTask());
 
 		demons(20);
 		now += 60_000;
 		demons(17);
 		SessionTracker.LiveTask live = tracker.liveTask();
-		assertEquals(State.RUNNING, live.getState());
+		assertEquals(SessionTracker.Status.RUNNING, live.getStatus());
 		assertEquals(tracker.getSessionId(), live.getSessionId());
 		assertEquals("Abyssal demons", live.getMonster());
 		assertEquals(DEMON_ID, live.getCreatureId());
@@ -524,21 +541,22 @@ public class SessionTrackerTest
 		assertEquals(60_000, live.getActiveMillis());
 		assertEquals(17, live.getRemaining());
 
-		// Logout: paused, and the task is not read again until the next observation.
-		assertTrue(tracker.autoPause());
+		// Logout: logged out, and the task is not read again until the next observation.
+		assertTrue(tracker.loggedOut());
 		tracker.clearCurrentTask();
-		assertEquals(State.PAUSED, tracker.liveTask().getState());
+		assertEquals(SessionTracker.Status.LOGGED_OUT, tracker.liveTask().getStatus());
 		assertEquals(SessionTracker.LiveTask.UNKNOWN_REMAINING, tracker.liveTask().getRemaining());
 		demons(17);
 		assertEquals(17, tracker.liveTask().getRemaining());
+		assertEquals(SessionTracker.Status.WAITING_FOR_NEXT_KILL, tracker.liveTask().getStatus());
 
-		// Another task observed while paused is not the session's.
+		// Another task observed while logged out is not the session's.
 		tracker.observe("Black dragons", DRAGON_ID, 30, false);
 		assertEquals(SessionTracker.LiveTask.UNKNOWN_REMAINING, tracker.liveTask().getRemaining());
 		demons(17);
 
 		// A cleared count waiting for its completion message.
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		assertEquals(ObserveResult.TASK_CLEARED, demons(0));
 		assertEquals(SessionTracker.LiveTask.UNKNOWN_REMAINING, tracker.liveTask().getRemaining());
 

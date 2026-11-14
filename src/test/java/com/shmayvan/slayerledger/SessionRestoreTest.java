@@ -37,10 +37,10 @@ public class SessionRestoreTest
 	{
 		SessionTracker original = new SessionTracker(() -> now);
 		original.observe("Abyssal demons", DEMON_ID, 50, 150, false);
-		original.play(ACCOUNT);
+		original.startNow(ACCOUNT);
 		now += 60_000;
 		original.observe("Abyssal demons", DEMON_ID, 43, 150, false);
-		original.autoPause();
+		original.loggedOut();
 		now += 5_000;
 		SessionTracker.Summary summary = original.activeSummary();
 		assertNotNull(summary);
@@ -74,26 +74,29 @@ public class SessionRestoreTest
 	}
 
 	@Test
-	public void restoresMatchingTaskAsPausedAndIgnoresUntrackedKills()
+	public void restoresMatchingTaskAsLoggedOutAndIgnoresUntrackedKills()
 	{
 		SessionSnapshot s = snapshotOfSession();
 		// 3 kills happened while the plugin was not watching
 		tracker.observe("Abyssal demons", DEMON_ID, 40, 150, false);
 		assertEquals(RestoreResult.RESTORED, tracker.restore(s, COUNTERS));
-		assertEquals(State.PAUSED, tracker.getState());
+		assertEquals("restored as after a logout, not Paused", State.LOGGED_OUT, tracker.getState());
+		assertEquals(SessionTracker.Status.WAITING_FOR_NEXT_KILL, tracker.getStatus());
+		assertFalse("Resume is only for Paused", tracker.canResume(ACCOUNT));
 		assertTrue(tracker.isRestoredPending());
 		assertEquals(7, tracker.getKills());
 		assertEquals(60_000, tracker.getActiveMillis());
 		assertEquals(ACCOUNT, tracker.getSessionAccountHash());
 
-		// resume: baseline is the current remaining count
-		assertTrue(tracker.play(ACCOUNT));
-		assertFalse(tracker.isRestoredPending());
+		// The next task kill restarts it, backdated to its fight; the baseline is the current remaining count.
 		now += 10_000;
-		tracker.observe("Abyssal demons", DEMON_ID, 38, 150, false);
+		tracker.observe("Abyssal demons", DEMON_ID, 38, 150, TaskContext.NONE, LocationTally.NO_REGION, false,
+			KillPairing.of(now - 4_000, null));
+		assertEquals(State.RUNNING, tracker.getState());
+		assertFalse(tracker.isRestoredPending());
 		SessionTracker.Summary summary = tracker.stopAndReset();
 		assertEquals(9, summary.getKills());
-		assertEquals(70_000, summary.getActiveMillis());
+		assertEquals(64_000, summary.getActiveMillis());
 		assertEquals(s.getSessionId(), summary.getSessionId());
 		assertEquals(50, summary.getInitialAmount());
 		assertEquals(150, summary.getOriginalAmount());
@@ -107,7 +110,7 @@ public class SessionRestoreTest
 		SessionSnapshot s = snapshotOfSession();
 		assertEquals(RestoreResult.REFUSED, tracker.restore(s, COUNTERS));
 		tracker.observe("Abyssal demons", DEMON_ID, 43, 150, false);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		assertEquals(RestoreResult.REFUSED, tracker.restore(s, COUNTERS));
 		assertEquals(State.RUNNING, tracker.getState());
 	}
@@ -197,18 +200,18 @@ public class SessionRestoreTest
 	{
 		assertNull(tracker.activeSummary());
 		tracker.observe("Abyssal demons", DEMON_ID, 10, false);
-		tracker.play(ACCOUNT);
-		tracker.autoPause();
+		tracker.startNow(ACCOUNT);
+		tracker.loggedOut();
 		assertNotNull(tracker.activeSummary());
 		// taking a snapshot on logout does not end the in-memory session
-		assertEquals(State.PAUSED, tracker.getState());
+		assertEquals(State.LOGGED_OUT, tracker.getState());
 	}
 
 	@Test
 	public void snapshotDuringPendingZeroResumesFromCountBeforeTheZero()
 	{
 		tracker.observe("Abyssal demons", DEMON_ID, 10, false);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		tracker.observe("Abyssal demons", DEMON_ID, 8, false);
 		tracker.observe(null, SessionTracker.NO_CREATURE, 0, false);
 		SessionSnapshot s = SessionSnapshot.fromSummary(tracker.activeSummary(), null, now);
@@ -220,9 +223,9 @@ public class SessionRestoreTest
 	public void newSessionsGetDistinctIds()
 	{
 		tracker.observe("Abyssal demons", DEMON_ID, 10, false);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		String first = tracker.stopAndReset().getSessionId();
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		String second = tracker.stopAndReset().getSessionId();
 		assertNotNull(first);
 		assertFalse(first.equals(second));
@@ -251,9 +254,9 @@ public class SessionRestoreTest
 	private SessionSnapshot logOutWithSessionInMemory()
 	{
 		tracker.observe("Abyssal demons", DEMON_ID, 50, 150, false);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		tracker.observe("Abyssal demons", DEMON_ID, 43, 150, false);
-		tracker.autoPause();
+		tracker.loggedOut();
 		SessionSnapshot s = SessionSnapshot.fromSummary(tracker.activeSummary(), COUNTERS, now);
 		tracker.clearCurrentTask();
 		return s;
@@ -265,7 +268,7 @@ public class SessionRestoreTest
 		SessionSnapshot s = logOutWithSessionInMemory();
 		tracker.observe("Abyssal demons", DEMON_ID, 43, 150, false);
 		assertTrue(tracker.activeSessionStillMatches(s, COUNTERS));
-		assertEquals(State.PAUSED, tracker.getState());
+		assertEquals(State.LOGGED_OUT, tracker.getState());
 	}
 
 	@Test

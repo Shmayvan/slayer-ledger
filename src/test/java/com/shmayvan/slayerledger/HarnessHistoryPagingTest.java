@@ -4,6 +4,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -84,10 +86,8 @@ public class HarnessHistoryPagingTest
 		harness.onEdt(() ->
 		{
 			harness.historyModel().setRecords(PluginHarness.ACCOUNT, records);
-			// Open every section that draws from the whole history, so the redraw below includes them.
-			harness.ui().getTrends().toggle();
+			// Open the section that draws from the whole history, so the redraw below includes it.
 			harness.ui().getOverallTotals().toggle();
-			harness.ui().getLuckMeter().toggle();
 		});
 		harness.drain();
 
@@ -95,30 +95,29 @@ public class HarnessHistoryPagingTest
 		assertEquals("Show 25 more", onEdt(() -> harness.ui().getHistory().getShowMoreText()));
 		assertEquals("Showing 25 of 2000 tasks", onEdt(() -> harness.ui().getHistory().getShowMoreTooltip()));
 
-		List<String> trendRows = onEdt(() -> harness.ui().getTrends().getRows());
-		assertEquals(MONSTERS.length, trendRows.size());
-		assertEquals(1, (int) onEdt(() -> harness.ui().getOverallTotals().getRows().size()));
+		List<String> totalsRows = onEdt(() -> harness.ui().getOverallTotals().getRows());
+		assertEquals(1, totalsRows.size());
 
-		// A full redraw on the EDT, as a reload of the ledger after a save does: the history list, Trends, Overall
-		// totals, the luck meter, the estimate and the advice. Measured on the EDT only, after a first warm-up redraw,
-		// as the best of a few runs so a CI pause doesn't fail it.
+		// A full redraw on the EDT, as a reload of the ledger after a save does: the history list, Overall totals, the
+		// estimate and the advice. Measured on the EDT only, after a first warm-up redraw, as the best of a few runs so
+		// a CI pause doesn't fail it.
 		long best = Long.MAX_VALUE;
 		for (int run = 0; run < 5; run++)
 		{
 			long[] nanos = new long[1];
-			int ranked = onEdt(() -> harness.historyModel().getRankingBuildCount());
+			int totals = onEdt(() -> harness.historyModel().getOverallTotalsBuildCount());
 			harness.onEdt(() ->
 			{
 				long start = System.nanoTime();
 				harness.historyModel().setRecords(PluginHarness.ACCOUNT, records);
 				nanos[0] = System.nanoTime() - start;
 			});
-			// Trends and the totals were queued for the executor, not worked out on the EDT; the rows shown stay.
+			// The totals were queued for the executor, not worked out on the EDT; the rows shown stay.
 			assertTrue(harness.executor.pendingCount() > 0);
-			assertEquals(ranked + 1, (int) onEdt(() -> harness.historyModel().getRankingBuildCount()));
-			assertEquals(trendRows, onEdt(() -> harness.ui().getTrends().getRows()));
+			assertEquals(totals + 1, (int) onEdt(() -> harness.historyModel().getOverallTotalsBuildCount()));
+			assertEquals(totalsRows, onEdt(() -> harness.ui().getOverallTotals().getRows()));
 			harness.drain();
-			assertEquals(trendRows, onEdt(() -> harness.ui().getTrends().getRows()));
+			assertEquals(totalsRows, onEdt(() -> harness.ui().getOverallTotals().getRows()));
 			if (run > 0)
 			{
 				best = Math.min(best, nanos[0]);
@@ -178,11 +177,12 @@ public class HarnessHistoryPagingTest
 		// Valued at today's prices.
 		Map<Integer, Long> today = onEdt(() -> new HashMap<>(harness.historyModel().shownPrices()));
 		assertEquals(HistoryListSection.PAGE_SIZE, tooltips.size());
+		DateTimeFormatter dateTime = LedgerHistory.shortDateTime(ZoneId.systemDefault());
 		for (int i = 0; i < tooltips.size(); i++)
 		{
 			LedgerRecord record = records.get(i);
-			assertEquals(LedgerHistory.rowTooltip(record, HistoryPricing.value(record, LootPriceMode.GE, today),
-				TaskLocation.UNKNOWN), tooltips.get(i));
+			assertEquals(LedgerHistory.historyRowTooltip(record, HistoryPricing.value(record, LootPriceMode.GE, today),
+				TaskLocation.UNKNOWN, LedgerHistory.formatEndedAt(record, dateTime)), tooltips.get(i));
 		}
 		// Asked again, the same text.
 		assertEquals(tooltips, onEdt(() -> harness.ui().getHistory().getTooltips()));

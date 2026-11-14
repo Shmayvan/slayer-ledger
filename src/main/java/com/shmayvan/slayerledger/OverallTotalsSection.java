@@ -3,7 +3,6 @@ package com.shmayvan.slayerledger;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
@@ -20,37 +19,52 @@ import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import net.runelite.client.ui.ColorScheme;
-import net.runelite.client.ui.FontManager;
+import javax.swing.SwingConstants;
 
 /**
  * The collapsed "Overall totals" section of {@link SlayerLedgerPanel}: completed-task totals, overall or grouped
  * by Slayer master, month or monster ({@link OverallTotals}, worked out by the history model). The rows are built only
  * while the section is open and its "Overall totals" setting shows it, and never by the panel's refresh timer.
- * Overall and By month show the task count, active time, profit and XP of all skills; By monster and By master
- * show averages and rates instead, and By master its monsters assigned ({@link OverallTotals.Assignment}) in a
- * text list with "+N more" ({@link ItemListView}).
+ * Overall and By month show the active time, profit and XP of all skills; By monster and By master show
+ * averages and rates instead, and By master its monsters assigned ({@link OverallTotals.Assignment}) in a text list
+ * with "+N more" ({@link ItemListView}).
  *
- * <p>By monster's group names and By master's monsters assigned show the task's icon before the name (* {@link TaskIcons}), the item sprite at the XP lists' small icon size ({@link SmallItemIcon}), asked for on the EDT
+ * <p>Look A (DESIGN_PRINCIPLES.md 3.3, 3.8): flat on the page under its section header, no cards. Each
+ * group is a block, and a grouping's blocks are small multiples: the same rows in the same order and units, so the eye
+ * compares values, not layouts. A block's title is the group's name in Bold in {@link LedgerTheme#HEADING} with its
+ * sample size on the right ({@code 3 tasks}). Each row is a label in Small in {@link LedgerTheme#LABEL}, with the unit
+ * in it ({@code Profit (GE)/h}), and its value right-aligned in Plain, every amount through {@link LedgerFormat} (one
+ * rule per row, so a row has the same precision in every block), profit signed and coloured. A total that only some
+ * of the group's tasks recorded says how many beside its label, in {@link LedgerTheme#HINT} ({@code 2 tasks}).</p>
+ *
+ * <p>By monster's group names and By master's monsters assigned show the task's icon before the name
+ * ({@link TaskIcons}), the item sprite at the XP lists' small icon size ({@link SmallItemIcon}), asked for on the EDT
  * only when the rows are built (open and shown, never by the refresh timer); a task without a known icon keeps an
  * empty slot of the same size.</p>
  *
  * <p>By master's group names show the master's face ({@link MasterIcons}), the bundled chathead image drawn in
  * the same slot, read the first time it is shown; a missing image or an unknown master keeps the empty slot.</p>
  *
- * <p>Each group has two item grids, "Supplies used" and "Loot received", closed until clicked. Its items are
- * summed off the EDT with the totals ({@link OverallTotals.Entry#getSupplies()}); here they are only named
+ * <p>Each group has two item grids, "Supplies used" and "Loot received", under nested sub-headers, quieter
+ * than the block's title ({@link TitledListView#useNestedSubHeader}), closed until clicked. Its items are summed off
+ * the EDT with the totals ({@link OverallTotals.Entry#getSupplies()}); here they are only named
  * ({@link ItemDetails#named}, with the names the model's {@link NameBook} has, asked for here) and shown. A grid stays
  * open or closed while the section rebuilds the same group in the same grouping; closing the section or changing the
  * grouping closes them again. EDT only.</p>
  */
 final class OverallTotalsSection
 {
-	/** XP is every skill's (owner decision), unlike Trends' Slayer XP/h. */
+	/** Shown instead of the blocks with no completed task (DESIGN_PRINCIPLES.md 3.9: plain, one line). */
+	static final String EMPTY_TEXT = "No completed tasks yet.";
+	/** XP is every skill's (owner decision), unlike the Slayer XP/h of {@link TaskRanking}'s rates. */
 	private static final String XP_LABEL = "XP (all skills)";
 	private static final String SUPPLIES_TITLE = "Supplies used";
 	private static final String LOOT_TITLE = "Loot received";
 	private static final String ASSIGNMENTS_TITLE = "Monsters assigned";
+	/** Space between two groups' blocks (DESIGN_PRINCIPLES.md 3.3: flat rows apart by 4 to 8 px). */
+	private static final int BLOCK_GAP = 8;
+	/** Space above each list under a block's rows: the monsters assigned and the two grids. */
+	private static final int LIST_GAP = 4;
 	/** The assignment lines have no skill icons; their task icons are item sprites ({@link #icons}). */
 	private static final SkillIcons NO_ICONS = (label, skill) ->
 	{
@@ -104,11 +118,8 @@ final class OverallTotalsSection
 		body.setName("totals.body");
 		grouping.setName("totals.grouping");
 		list.setName("totals.list");
-		header.setBackground(ColorScheme.DARK_GRAY_COLOR);
-		title.setFont(FontManager.getRunescapeBoldFont());
-		title.setForeground(ColorScheme.BRAND_ORANGE);
-		toggle.setFont(FontManager.getRunescapeSmallFont());
-		toggle.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+		// A section header (DESIGN_PRINCIPLES.md 3.3).
+		LedgerTheme.styleSectionHeader(header, title, toggle);
 		header.add(title, BorderLayout.WEST);
 		header.add(toggle, BorderLayout.EAST);
 		header.setToolTipText("Completed-task totals, overall or grouped by Slayer master, month or monster.");
@@ -126,12 +137,10 @@ final class OverallTotalsSection
 		SlayerLedgerPanel.addRow(content, header);
 
 		body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
-		body.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		body.setBackground(LedgerTheme.PAGE);
 		JPanel groupingRow = new JPanel(new BorderLayout(6, 0));
-		groupingRow.setBackground(ColorScheme.DARK_GRAY_COLOR);
-		JLabel groupingLabel = new JLabel("Group");
-		groupingLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
-		groupingLabel.setFont(FontManager.getRunescapeSmallFont());
+		groupingRow.setBackground(LedgerTheme.PAGE);
+		JLabel groupingLabel = LedgerTheme.label("Group", LedgerTheme.smallFont(), LedgerTheme.LABEL);
 		grouping.setFocusable(false);
 		grouping.addActionListener(e ->
 		{
@@ -145,7 +154,7 @@ final class OverallTotalsSection
 		SlayerLedgerPanel.addRow(body, groupingRow);
 
 		list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
-		list.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		list.setBackground(LedgerTheme.PAGE);
 		list.setAlignmentX(Component.LEFT_ALIGNMENT);
 		SlayerLedgerPanel.addRow(body, list);
 		body.setVisible(false);
@@ -244,10 +253,10 @@ final class OverallTotalsSection
 		Set<Integer> ids = new TreeSet<>();
 		if (entries.isEmpty())
 		{
-			JLabel empty = new JLabel("No completed tasks yet.");
-			empty.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
-			empty.setFont(FontManager.getRunescapeSmallFont());
-			empty.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
+			JLabel empty = LedgerTheme.label(EMPTY_TEXT, LedgerTheme.smallFont(), LedgerTheme.LABEL);
+			// A name for tests; no visible effect.
+			empty.setName("totals.empty");
+			empty.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
 			empty.setAlignmentX(Component.LEFT_ALIGNMENT);
 			list.add(empty);
 		}
@@ -257,21 +266,18 @@ final class OverallTotalsSection
 			{
 				OverallTotals.Entry entry = entries.get(i);
 				String key = selected + "|" + entry.getLabel();
-				JPanel row = row(entry, selected);
+				JPanel block = block(entry, selected);
 				JPanel items = items(entry, key, kept, ids);
 				if (selected == OverallTotals.Grouping.MASTER)
 				{
 					// The monsters assigned come first, above the item grids.
 					items.add(assignmentList(entry, key, keptLists), 0);
-					JComponent gap = (JComponent) Box.createVerticalStrut(2);
-					gap.setAlignmentX(Component.LEFT_ALIGNMENT);
-					items.add(gap, 1);
 				}
-				row.add(items);
-				list.add(row);
+				block.add(items);
+				list.add(block);
 				if (i + 1 < entries.size())
 				{
-					list.add(Box.createVerticalStrut(2));
+					list.add(Box.createVerticalStrut(BLOCK_GAP));
 				}
 			}
 		}
@@ -285,25 +291,20 @@ final class OverallTotalsSection
 	}
 
 	/**
-	 * A group's two item grids, below its lines: the grids already shown for {@code key} if any, so an open one stays
+	 * A group's two item grids, below its rows: the grids already shown for {@code key} if any, so an open one stays
 	 * open, else new closed ones. They go into {@code kept}, and their item ids into {@code ids}.
 	 */
 	private JPanel items(OverallTotals.Entry entry, String key, Map<String, Grid> kept, Set<Integer> ids)
 	{
 		JPanel items = new JPanel();
-		// A name for tests, which read the lines above it apart from it; no visible effect.
+		// A name for tests, which read the rows above it apart from it; no visible effect.
 		items.setName("totals.items");
 		items.setLayout(new BoxLayout(items, BoxLayout.Y_AXIS));
 		items.setOpaque(false);
 		items.setAlignmentX(Component.LEFT_ALIGNMENT);
-		items.setBorder(BorderFactory.createEmptyBorder(3, 0, 0, 0));
+		items.setBorder(BorderFactory.createEmptyBorder(2, 0, 0, 0));
 		items.add(grid(key + "|supplies", "totals.supplies", SUPPLIES_TITLE, entry.getSupplies(), false, kept));
-		items.add(Box.createVerticalStrut(2));
 		items.add(grid(key + "|loot", "totals.loot", LOOT_TITLE, entry.getLoot(), true, kept));
-		for (Component c : items.getComponents())
-		{
-			((JComponent) c).setAlignmentX(Component.LEFT_ALIGNMENT);
-		}
 		for (ItemDetails.Row row : entry.getSupplies())
 		{
 			ids.add(row.getItemId());
@@ -317,20 +318,22 @@ final class OverallTotalsSection
 
 	/**
 	 * A By master group's monsters assigned: {@code Dust devils | 12 / 80 (15%)}, most first, the top
-	 * {@link ItemDetails#MAX_ROWS} until "+N more" is clicked. The list shown for {@code key} is kept, so its "+N more"
-	 * choice stays while the same group rebuilds; it goes into {@code kept}.
+	 * {@link ItemDetails#MAX_ROWS} until "+N more" is clicked, under a nested sub-header like the grids'. The list
+	 * shown for {@code key} is kept, so its "+N more" choice stays while the same group rebuilds; it goes into
+	 * {@code kept}.
 	 */
 	private ItemListView assignmentList(OverallTotals.Entry entry, String key, Map<String, ItemListView> kept)
 	{
 		ItemListView view = assignmentLists.get(key);
 		if (view == null)
 		{
-			view = new ItemListView(ASSIGNMENTS_TITLE, false, ColorScheme.DARKER_GRAY_COLOR, "monsters", NO_ICONS,
-				icons);
+			view = new ItemListView(ASSIGNMENTS_TITLE, false, LedgerTheme.PAGE, "monsters", NO_ICONS, icons);
 			// A name for tests, which find the list by it; no visible effect.
 			view.setName("totals.assignments");
-			view.hideCount();
-			view.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
+			// Its lines count assignments, so the title counts nothing (only hidden rows, which it never has); quieter
+			// than the block's title above it.
+			view.useNestedSubHeader();
+			view.setBorder(BorderFactory.createEmptyBorder(LIST_GAP, 0, 0, 0));
 			view.setAlignmentX(Component.LEFT_ALIGNMENT);
 		}
 		List<AssignmentLine> lines = new ArrayList<>();
@@ -343,17 +346,22 @@ final class OverallTotalsSection
 		return view;
 	}
 
-	/** The grid for {@code key}, kept from the last build or new and closed, showing {@code rows}. */
+	/**
+	 * The grid for {@code key}, kept from the last build or new and closed, showing {@code rows}: a nested sub-header
+	 * with Show / Hide, and the live grids' stone cells on the page.
+	 */
 	private ItemGridView grid(String key, String name, String title, List<ItemDetails.Row> rows, boolean loot,
 		Map<String, Grid> kept)
 	{
 		Grid grid = grids.get(key);
 		if (grid == null)
 		{
-			ItemGridView view = new ItemGridView(title, true, ColorScheme.DARKER_GRAY_COLOR, icons);
+			ItemGridView view = new ItemGridView(title, true, LedgerTheme.PAGE, icons);
 			// A name for tests, which find the grids by it; no visible effect.
 			view.setName(name);
-			view.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
+			view.useNestedSubHeader();
+			view.setBorder(BorderFactory.createEmptyBorder(LIST_GAP, 0, 0, 0));
+			view.setAlignmentX(Component.LEFT_ALIGNMENT);
 			grid = new Grid(view, loot);
 		}
 		grid.rows = rows;
@@ -363,144 +371,131 @@ final class OverallTotalsSection
 	}
 
 	/**
-	 * One totals entry in short two-column lines that fit the sidebar, like a history row: the bold group name and
-	 * task count, then the grouping's lines ({@link #addTotalLines}, {@link #addMonsterLines},
-	 * {@link #addMasterLines}).
+	 * One group's block: its title line (the name and the sample size), then the grouping's rows
+	 * ({@link #addTotalLines}, {@link #addMonsterLines}, {@link #addMasterLines}), every block of a grouping with the
+	 * same rows; the item lists are added below them. Its tooltip has the exact figures.
 	 */
-	private JPanel row(OverallTotals.Entry entry, OverallTotals.Grouping grouping)
+	private JPanel block(OverallTotals.Entry entry, OverallTotals.Grouping grouping)
 	{
-		JPanel row = new JPanel();
-		row.setLayout(new BoxLayout(row, BoxLayout.Y_AXIS));
-		row.setOpaque(false);
-		row.setAlignmentX(Component.LEFT_ALIGNMENT);
-		row.setBorder(BorderFactory.createEmptyBorder(3, 8, 3, 4));
-
-		JLabel name = SlayerLedgerPanel.historyLabel(entry.getLabel(), Color.WHITE);
-		name.setFont(FontManager.getRunescapeBoldFont());
+		JPanel block = new JPanel();
+		block.setLayout(new BoxLayout(block, BoxLayout.Y_AXIS));
+		block.setOpaque(false);
+		block.setAlignmentX(Component.LEFT_ALIGNMENT);
+		block.add(titleLine(entry, grouping));
 		if (grouping == OverallTotals.Grouping.MONSTER)
 		{
-			taskIcon(name, entry.getTask());
+			addMonsterLines(block, entry);
+			block.setToolTipText(monsterTooltip(entry));
 		}
 		else if (grouping == OverallTotals.Grouping.MASTER)
 		{
-			masterIcon(name, entry.getLabel());
-		}
-		JLabel count = SlayerLedgerPanel.historyLabel(SlayerLedgerPanel.sampleTasks(entry.getTaskCount()),
-			ColorScheme.LIGHT_GRAY_COLOR);
-		// Completed tasks, not By master's assignments.
-		count.setToolTipText(completedTasks(entry.getTaskCount()));
-		row.add(SlayerLedgerPanel.historyLine(name, count));
-		if (grouping == OverallTotals.Grouping.MONSTER)
-		{
-			addMonsterLines(row, entry);
-			row.setToolTipText(monsterTooltip(entry));
-		}
-		else if (grouping == OverallTotals.Grouping.MASTER)
-		{
-			addMasterLines(row, entry);
-			row.setToolTipText(masterTooltip(entry));
+			addMasterLines(block, entry);
+			block.setToolTipText(masterTooltip(entry));
 		}
 		else
 		{
-			addTotalLines(row, entry);
-			row.setToolTipText(tooltip(entry));
+			addTotalLines(block, entry);
+			block.setToolTipText(tooltip(entry));
 		}
-		for (Component line : row.getComponents())
+		for (Component line : block.getComponents())
 		{
 			((JComponent) line).setAlignmentX(Component.LEFT_ALIGNMENT);
 		}
-		return row;
+		return block;
 	}
 
 	/**
-	 * By monster's group name: the icon of the group's task ({@link OverallTotals.Entry#getTask}, so a Catacombs
-	 * variant or cannon group shows its task's), or an empty slot of the same size, before the name. The name asks for
-	 * no width of its own, so the icon can't widen the sidebar: a long name is cut short (the row's tooltip has it).
+	 * A block's title line: the group's name in Bold in the heading colour, cut short with {@code …} when it doesn't fit
+	 * ({@link FitLabel}; the block's tooltip has it whole), with By monster's task icon or By master's face before it;
+	 * on the right the sample size, {@code 3 tasks}, whose tooltip says they are completed tasks.
 	 */
-	private void taskIcon(JLabel name, String task)
+	private JPanel titleLine(OverallTotals.Entry entry, OverallTotals.Grouping grouping)
 	{
-		// A name for tests, which read the icon from it; no visible effect.
+		FitLabel name = new FitLabel(entry.getLabel());
+		// A name for tests, which read the icon and the text as shown from it; no visible effect.
 		name.setName("totals.name");
-		SmallItemIcon.applyTask(icons, name, task);
+		name.setFont(LedgerTheme.boldFont());
+		name.setForeground(LedgerTheme.HEADING);
+		if (grouping == OverallTotals.Grouping.MONSTER)
+		{
+			// The icon of the group's task (OverallTotals.Entry#getTask), so a Catacombs variant or cannon group
+			// shows its task's, or an empty slot of the same size.
+			SmallItemIcon.applyTask(icons, name, entry.getTask());
+		}
+		else if (grouping == OverallTotals.Grouping.MASTER)
+		{
+			// The master's face, or an empty slot of the same size for an unknown master or a missing image.
+			name.setIconTextGap(4);
+			name.setIcon(masterIcons.icon(entry.getLabel()));
+		}
+		JLabel count = LedgerTheme.label(SlayerLedgerPanel.sampleTasks(entry.getTaskCount()), LedgerTheme.smallFont(),
+			LedgerTheme.LABEL);
+		count.setVerticalAlignment(SwingConstants.BOTTOM);
+		// Completed tasks, not By master's assignments.
+		count.setToolTipText(completedTasks(entry.getTaskCount()));
+		JPanel line = new JPanel(new BorderLayout(6, 0));
+		line.setOpaque(false);
+		line.add(name, BorderLayout.CENTER);
+		line.add(count, BorderLayout.EAST);
+		return line;
+	}
+
+	/** Overall and By month: active time, profit and XP of all skills. */
+	private void addTotalLines(JPanel block, OverallTotals.Entry entry)
+	{
+		int tasks = entry.getTaskCount();
+		addLine(block, "Active time", LedgerHistory.formatDuration(entry.getActiveMillis()), LedgerTheme.VALUE, null);
+		// "Profit (GE)" / "Profit (HA)" with the Loot price mode.
+		addProfitLine(block, LedgerHistory.profitName(model.lootPriceMode()), entry.getProfit(),
+			entry.isProfitApproximate(), sample(entry.getProfitSampleCount(), tasks));
+		addLine(block, XP_LABEL, LedgerFormat.amount(entry.getXp(), false), LedgerTheme.VALUE,
+			sample(entry.getXpSampleCount(), tasks));
 	}
 
 	/**
-	 * By master's group name: the master's face ({@link MasterIcons}), or an empty slot of the same size for an
-	 * unknown master or a missing image, before the name, which asks for no width of its own, as {@link #taskIcon}.
+	 * By monster: kills, average task length, average task profit, profit per kill, pace, profit per hour, then
+	 * Slayer XP and Slayer XP per hour. The tasks done are the title's sample size. The averages use the tasks that
+	 * recorded the figure and the rates those of them with active time, so only the totals say how many.
 	 */
-	private void masterIcon(JLabel name, String master)
+	private void addMonsterLines(JPanel block, OverallTotals.Entry entry)
 	{
-		// A name for tests, which read the icon from it; no visible effect.
-		name.setName("totals.name");
-		name.setIconTextGap(4);
-		name.setIcon(masterIcons.icon(master));
-		name.setPreferredSize(new Dimension(0, name.getPreferredSize().height));
-	}
-
-	/** Overall and By month: active time, profit and XP of all skills, each value with its own sample count. */
-	private void addTotalLines(JPanel row, OverallTotals.Entry entry)
-	{
-		row.add(SlayerLedgerPanel.historyLine(SlayerLedgerPanel.historyLabel("Active:", ColorScheme.LIGHT_GRAY_COLOR),
-			SlayerLedgerPanel.historyLabel(LedgerHistory.formatDuration(entry.getActiveMillis()),
-				ColorScheme.LIGHT_GRAY_COLOR)));
-		// "Profit (GE):" / "Profit (HA):" with the Loot price mode; amounts without " gp", as history rows.
-		String profit = LedgerHistory.formatAmount(entry.getProfit(), entry.isProfitApproximate())
-			+ " (n=" + entry.getProfitSampleCount() + ")";
-		row.add(SlayerLedgerPanel.historyLine(SlayerLedgerPanel.historyLabel(
-			LedgerHistory.profitLabel(model.lootPriceMode()).trim(), ColorScheme.LIGHT_GRAY_COLOR),
-			SlayerLedgerPanel.historyLabel(profit, SlayerLedgerPanel.profitColor(entry.getProfit()))));
-		row.add(SlayerLedgerPanel.historyLine(SlayerLedgerPanel.historyLabel(XP_LABEL + ":",
-			ColorScheme.LIGHT_GRAY_COLOR),
-			SlayerLedgerPanel.historyLabel(LedgerHistory.formatAmount(entry.getXp(), false) + " (n="
-				+ entry.getXpSampleCount() + ")", ColorScheme.LIGHT_GRAY_COLOR)));
-	}
-
-	/**
-	 * By monster: tasks done, kills, average task length, average task profit, profit per kill, time per kill,
-	 * profit per hour, then Slayer XP and Slayer XP per hour. The totals show their sample count as {@code (n=...)};
-	 * the averages use those tasks and the rates those of them with active time, so they don't repeat it.
-	 */
-	private void addMonsterLines(JPanel row, OverallTotals.Entry entry)
-	{
+		int tasks = entry.getTaskCount();
 		String profit = LedgerHistory.profitName(model.lootPriceMode());
-		addLine(row, "Tasks done:", LedgerHistory.formatAmount((long) entry.getTaskCount(), false),
-			ColorScheme.LIGHT_GRAY_COLOR);
-		addLine(row, "Killed:", LedgerHistory.formatAmount(entry.getKills(), false), ColorScheme.LIGHT_GRAY_COLOR);
-		addLine(row, "Avg task:", LedgerHistory.formatDuration(entry.getAverageActiveMillis()),
-			ColorScheme.LIGHT_GRAY_COLOR);
-		addProfitLine(row, "Avg " + lowerFirst(profit) + ":", entry.getAverageProfit(), entry.isProfitApproximate(),
-			entry.getProfitSampleCount());
-		addProfitLine(row, profit + "/kill:", entry.getProfitPerKill(), entry.isProfitRateApproximate(), null);
-		addLine(row, "Time/kill:", entry.getMillisPerKill() == null ? LedgerHistory.NO_VALUE
-			: LedgerHistory.formatKillTime(entry.getMillisPerKill()), ColorScheme.LIGHT_GRAY_COLOR);
-		addProfitLine(row, profit + "/h:", entry.getProfitPerHour(), entry.isProfitRateApproximate(), null);
-		addCountLine(row, "Slayer XP:", entry.getSlayerXp(), entry.getSlayerXpSampleCount());
-		addLine(row, "Slayer XP/h:", LedgerHistory.formatAmount(entry.getSlayerXpPerHour(), false),
-			ColorScheme.LIGHT_GRAY_COLOR);
-	}
-
-	/**
-	 * By master: total tasks, average task length, average task profit, total profit, profit per hour, Slayer
-	 * points (total and per task, the average without bonus tasks) and Slayer XP (total and per task). The monsters
-	 * assigned are a list below them ({@link #assignmentList}).
-	 */
-	private void addMasterLines(JPanel row, OverallTotals.Entry entry)
-	{
-		String profit = LedgerHistory.profitName(model.lootPriceMode());
-		addLine(row, "Total tasks:", LedgerHistory.formatAmount((long) entry.getTaskCount(), false),
-			ColorScheme.LIGHT_GRAY_COLOR);
-		addLine(row, "Avg task:", LedgerHistory.formatDuration(entry.getAverageActiveMillis()),
-			ColorScheme.LIGHT_GRAY_COLOR);
-		addProfitLine(row, "Avg " + lowerFirst(profit) + ":", entry.getAverageProfit(), entry.isProfitApproximate(),
+		addLine(block, "Kills", LedgerFormat.kills(entry.getKills()), LedgerTheme.VALUE, null);
+		addLine(block, "Avg task", LedgerHistory.formatDuration(entry.getAverageActiveMillis()), LedgerTheme.VALUE,
 			null);
-		addProfitLine(row, profit + ":", entry.getProfit(), entry.isProfitApproximate(), entry.getProfitSampleCount());
-		addProfitLine(row, profit + "/h:", entry.getProfitPerHour(), entry.isProfitRateApproximate(), null);
-		addCountLine(row, "Points:", entry.getPoints(), entry.getPointsSampleCount());
-		addLine(row, "Avg points:", LedgerHistory.formatAmount(entry.getAveragePoints(), false),
-			ColorScheme.LIGHT_GRAY_COLOR);
-		addCountLine(row, "Slayer XP:", entry.getSlayerXp(), entry.getSlayerXpSampleCount());
-		addLine(row, "Avg Slayer XP:", LedgerHistory.formatAmount(entry.getAverageSlayerXp(), false),
-			ColorScheme.LIGHT_GRAY_COLOR);
+		addProfitLine(block, "Avg " + lowerFirst(profit), entry.getAverageProfit(), entry.isProfitApproximate(),
+			sample(entry.getProfitSampleCount(), tasks));
+		addProfitLine(block, profit + "/kill", entry.getProfitPerKill(), entry.isProfitRateApproximate(), null);
+		addLine(block, "Pace", pace(entry.getMillisPerKill()), LedgerTheme.VALUE, null);
+		addProfitLine(block, profit + "/h", entry.getProfitPerHour(), entry.isProfitRateApproximate(), null);
+		addLine(block, "Slayer XP", LedgerFormat.amount(entry.getSlayerXp(), false), LedgerTheme.VALUE,
+			sample(entry.getSlayerXpSampleCount(), tasks));
+		addLine(block, "Slayer XP/h", LedgerFormat.amount(entry.getSlayerXpPerHour(), false), LedgerTheme.VALUE, null);
+	}
+
+	/**
+	 * By master: average task length, average task profit, total profit, profit per hour, Slayer points (total
+	 * and per task, the average without bonus tasks) and Slayer XP (total and per task). The tasks are the title's
+	 * sample size; the monsters assigned are a list below the rows ({@link #assignmentList}).
+	 */
+	private void addMasterLines(JPanel block, OverallTotals.Entry entry)
+	{
+		int tasks = entry.getTaskCount();
+		String profit = LedgerHistory.profitName(model.lootPriceMode());
+		addLine(block, "Avg task", LedgerHistory.formatDuration(entry.getAverageActiveMillis()), LedgerTheme.VALUE,
+			null);
+		addProfitLine(block, "Avg " + lowerFirst(profit), entry.getAverageProfit(), entry.isProfitApproximate(), null);
+		addProfitLine(block, profit, entry.getProfit(), entry.isProfitApproximate(),
+			sample(entry.getProfitSampleCount(), tasks));
+		addProfitLine(block, profit + "/h", entry.getProfitPerHour(), entry.isProfitRateApproximate(), null);
+		addLine(block, "Points", LedgerFormat.amount(entry.getPoints(), false), LedgerTheme.VALUE,
+			sample(entry.getPointsSampleCount(), tasks));
+		addLine(block, "Avg points", LedgerFormat.amount(entry.getAveragePoints(), false), LedgerTheme.VALUE, null);
+		addLine(block, "Slayer XP", LedgerFormat.amount(entry.getSlayerXp(), false), LedgerTheme.VALUE,
+			sample(entry.getSlayerXpSampleCount(), tasks));
+		addLine(block, "Avg Slayer XP", LedgerFormat.amount(entry.getAverageSlayerXp(), false), LedgerTheme.VALUE,
+			null);
 	}
 
 	/** "Profit (GE)" as "profit (GE)", after "Avg". */
@@ -509,55 +504,88 @@ final class OverallTotalsSection
 		return text.isEmpty() ? text : Character.toLowerCase(text.charAt(0)) + text.substring(1);
 	}
 
-	/** A two-column line: {@code left} in grey, {@code right} in {@code color}. */
-	private static void addLine(JPanel row, String left, String right, Color color)
+	/** The time per kill as the live card's pace, {@code 0:18/kill}, or {@link LedgerFormat#NONE} without one. */
+	private static String pace(Long millisPerKill)
 	{
-		row.add(SlayerLedgerPanel.historyLine(SlayerLedgerPanel.historyLabel(left, ColorScheme.LIGHT_GRAY_COLOR),
-			SlayerLedgerPanel.historyLabel(right, color)));
+		return millisPerKill == null ? LedgerFormat.NONE : LedgerFormat.pace(millisPerKill);
 	}
 
 	/**
-	 * A profit amount without " gp", with {@code ~} when approximate, coloured as a profit, and {@code (n=...)} when
-	 * {@code samples} is given.
+	 * The sample size of a total that only some of the group's {@code tasks} recorded, {@code 2 tasks}; {@code null}
+	 * when all did, since the block's title says how many those are.
 	 */
-	private static void addProfitLine(JPanel row, String left, Long value, boolean approximate, Integer samples)
+	private static String sample(int samples, int tasks)
 	{
-		addLine(row, left, LedgerHistory.formatAmount(value, approximate)
-			+ (samples == null ? "" : " (n=" + samples + ")"), SlayerLedgerPanel.profitColor(value));
+		return samples < tasks ? SlayerLedgerPanel.sampleTasks(samples) : null;
 	}
 
-	/** A total with its sample count: {@code 12.3K (n=12)}, or {@code - (n=0)}. */
-	private static void addCountLine(JPanel row, String left, Long value, int samples)
+	/**
+	 * Adds one row to {@code block}: {@code label} in Small in the label colour on the left, then {@code sample} (if
+	 * any) in the hint colour, cut short when the row has no room for it, and {@code value} right-aligned in Plain in
+	 * {@code color}. Labels and values are short, so a row never widens the sidebar.
+	 */
+	private static void addLine(JPanel block, String label, String value, Color color, String sample)
 	{
-		addLine(row, left, LedgerHistory.formatAmount(value, false) + " (n=" + samples + ")",
-			ColorScheme.LIGHT_GRAY_COLOR);
+		JPanel line = new JPanel(new BorderLayout(6, 0));
+		line.setOpaque(false);
+		line.setBorder(BorderFactory.createEmptyBorder(1, 0, 0, 0));
+		JLabel left = LedgerTheme.label(label, LedgerTheme.smallFont(), LedgerTheme.LABEL);
+		left.setVerticalAlignment(SwingConstants.BOTTOM);
+		line.add(left, BorderLayout.WEST);
+		if (sample != null)
+		{
+			FitLabel samples = new FitLabel(sample);
+			samples.setFont(LedgerTheme.smallFont());
+			samples.setForeground(LedgerTheme.HINT);
+			samples.setVerticalAlignment(SwingConstants.BOTTOM);
+			line.add(samples, BorderLayout.CENTER);
+		}
+		JLabel right = LedgerTheme.label(value, LedgerTheme.plainFont(), color);
+		right.setVerticalAlignment(SwingConstants.BOTTOM);
+		line.add(right, BorderLayout.EAST);
+		block.add(line);
 	}
 
-	/** Exact totals, the price source and what each sample count means. */
+	/**
+	 * A profit row: signed ({@link LedgerFormat#signed}, {@code ~} first when approximate), in the good colour for a
+	 * gain and the alert colour for a loss; the sign says it too (DESIGN_PRINCIPLES.md 4.3).
+	 */
+	private static void addProfitLine(JPanel block, String label, Long value, boolean approximate, String sample)
+	{
+		addLine(block, label, LedgerFormat.signed(value, approximate), profitColor(value), sample);
+	}
+
+	/** {@link LedgerTheme#GOOD} for a gain, {@link LedgerTheme#ALERT} for a loss, the value colour otherwise. */
+	private static Color profitColor(Long profit)
+	{
+		if (profit == null || profit == 0)
+		{
+			return LedgerTheme.VALUE;
+		}
+		return profit > 0 ? LedgerTheme.GOOD : LedgerTheme.ALERT;
+	}
+
+	/** Exact totals, the price source and how many tasks each total comes from. */
 	private String tooltip(OverallTotals.Entry entry)
 	{
 		LootPriceMode mode = model.lootPriceMode();
 		StringBuilder sb = new StringBuilder("<html>").append(LedgerHistory.escapeHtml(entry.getLabel()));
-		int tasks = entry.getTaskCount();
-		sb.append("<br>").append(tasks).append(tasks == 1 ? " completed task" : " completed tasks")
-			.append(", active ").append(LedgerHistory.formatDuration(entry.getActiveMillis()));
+		sb.append("<br>").append(completedTasks(entry.getTaskCount())).append(", active ")
+			.append(LedgerHistory.formatDuration(entry.getActiveMillis()));
 
 		Long profit = entry.getProfit();
 		sb.append("<br>").append(LedgerHistory.escapeHtml(LedgerHistory.profitLabel(mode)))
 			.append(profit == null ? "unknown" : (entry.isProfitApproximate() ? LedgerHistory.APPROXIMATE : "")
 				+ LedgerHistory.escapeHtml(LedgerHistory.formatGpExact(profit)));
-		String source = "Loot at " + mode + " prices minus GE-valued supplies"
-			+ (mode == LootPriceMode.HIGH_ALCH
-			? " (today's available GE prices for GE-priced items)"
-			: " (today's available GE prices)");
-		sb.append("<br>").append(LedgerHistory.escapeHtml(source));
-		sb.append("<br>n = ").append(SlayerLedgerPanel.sampleTasks(entry.getProfitSampleCount()))
+		sb.append("<br>").append(LedgerHistory.escapeHtml(priceSource(mode)));
+		sb.append("<br>Profit from ").append(SlayerLedgerPanel.sampleTasks(entry.getProfitSampleCount()))
 			.append(" with loot and supply values");
 
 		Long xp = entry.getXp();
 		sb.append("<br>").append(XP_LABEL).append(": ")
 			.append(xp == null ? "unknown" : String.format("%,d", xp));
-		sb.append("<br>n = ").append(SlayerLedgerPanel.sampleTasks(entry.getXpSampleCount())).append(" with recorded XP");
+		sb.append("<br>XP from ").append(SlayerLedgerPanel.sampleTasks(entry.getXpSampleCount()))
+			.append(" with recorded XP");
 		if (entry.isProfitApproximate())
 		{
 			sb.append("<br>~ means some item prices were unavailable, or an older task kept its saved totals.");
@@ -571,14 +599,13 @@ final class OverallTotalsSection
 		LootPriceMode mode = model.lootPriceMode();
 		String profit = LedgerHistory.profitName(mode);
 		StringBuilder sb = groupTooltipStart(entry);
-		sb.append("<br>Killed: ").append(String.format("%,d", entry.getKills()));
+		sb.append("<br>Kills: ").append(String.format("%,d", entry.getKills()));
 		sb.append("<br>Average task: ").append(LedgerHistory.formatDuration(entry.getAverageActiveMillis()));
 		sb.append("<br>Average ").append(lowerFirst(profit)).append(": ")
 			.append(exactGp(entry.getAverageProfit(), entry.isProfitApproximate()));
 		sb.append("<br>").append(profit).append(" per kill: ")
 			.append(exactGp(entry.getProfitPerKill(), entry.isProfitRateApproximate()));
-		sb.append("<br>Time per kill: ").append(entry.getMillisPerKill() == null ? LedgerHistory.NO_VALUE
-			: LedgerHistory.formatKillTime(entry.getMillisPerKill()));
+		sb.append("<br>Pace: ").append(pace(entry.getMillisPerKill()));
 		sb.append("<br>").append(profit).append(" per hour: ")
 			.append(exactGp(entry.getProfitPerHour(), entry.isProfitRateApproximate()));
 		sb.append("<br>Slayer XP: ").append(exact(entry.getSlayerXp()))
@@ -587,7 +614,7 @@ final class OverallTotalsSection
 		return sb.append("</html>").toString();
 	}
 
-	/** By master's tooltip: the exact figures, the price source and what the sample counts mean. */
+	/** By master's tooltip: the exact figures, the price source and how many tasks each total comes from. */
 	private String masterTooltip(OverallTotals.Entry entry)
 	{
 		LootPriceMode mode = model.lootPriceMode();
@@ -601,7 +628,7 @@ final class OverallTotalsSection
 			.append(exactGp(entry.getProfitPerHour(), entry.isProfitRateApproximate()));
 		sb.append("<br>Slayer points: ").append(exact(entry.getPoints())).append(", per task: ")
 			.append(exact(entry.getAveragePoints()));
-		sb.append("<br>n = ").append(SlayerLedgerPanel.sampleTasks(entry.getPointsSampleCount()))
+		sb.append("<br>Points from ").append(SlayerLedgerPanel.sampleTasks(entry.getPointsSampleCount()))
 			.append(" with recorded points (bonus tasks included)");
 		sb.append("<br>Per task leaves out bonus tasks (every 10th in a streak): ")
 			.append(SlayerLedgerPanel.sampleTasks(entry.getAveragePointsSampleCount()));
@@ -628,17 +655,22 @@ final class OverallTotalsSection
 		return tasks + (tasks == 1 ? " completed task" : " completed tasks");
 	}
 
-	/** The price source, the sample counts, the rate rules and the {@code ~} note. */
+	/** Where a profit's prices come from, in the Loot price {@code mode}. */
+	private static String priceSource(LootPriceMode mode)
+	{
+		return "Loot at " + mode + " prices minus GE-valued supplies" + (mode == LootPriceMode.HIGH_ALCH
+			? " (today's available GE prices for GE-priced items)"
+			: " (today's available GE prices)");
+	}
+
+	/** The price source, how many tasks the totals come from, the rate rules and the {@code ~} note. */
 	private static void appendNotes(StringBuilder sb, OverallTotals.Entry entry, LootPriceMode mode)
 	{
-		sb.append("<br>").append(LedgerHistory.escapeHtml("Loot at " + mode + " prices minus GE-valued supplies"
-			+ (mode == LootPriceMode.HIGH_ALCH
-			? " (today's available GE prices for GE-priced items)"
-			: " (today's available GE prices)")));
-		sb.append("<br>n = ").append(SlayerLedgerPanel.sampleTasks(entry.getProfitSampleCount()))
-			.append(" with loot and supply values, ").append(entry.getSlayerXpSampleCount())
-			.append(" with recorded XP");
-		sb.append("<br>Averages use those tasks; rates pool those of them with active time, as Trends does,")
+		sb.append("<br>").append(LedgerHistory.escapeHtml(priceSource(mode)));
+		sb.append("<br>Profit from ").append(SlayerLedgerPanel.sampleTasks(entry.getProfitSampleCount()))
+			.append(" with loot and supply values, Slayer XP from ")
+			.append(SlayerLedgerPanel.sampleTasks(entry.getSlayerXpSampleCount())).append(" with recorded XP");
+		sb.append("<br>Averages use those tasks; rates pool those of them with active time,")
 			.append(" and hourly rates need 1 minute of it.");
 		if (entry.isProfitApproximate())
 		{

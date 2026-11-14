@@ -14,7 +14,7 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
 /**
- * The Catacombs variant table, the kills per NPC name and the majority rule: {@link CatacombsVariants},
+ * The Catacombs variant table, the kills per NPC name and the most-kills rule: {@link CatacombsVariants},
  * {@link NpcKillTally}, {@link DamagedNpcs} and {@link TaskSelection}.
  */
 public class CatacombsVariantsTest
@@ -59,7 +59,7 @@ public class CatacombsVariantsTest
 	}
 
 	@Test
-	public void theVariantMustBeMoreThanHalfOfTheTaskKills()
+	public void theVariantMustHaveMoreTaskKillsThanTheStandardMonster()
 	{
 		// All standard.
 		assertNull(CatacombsVariants.decide("Aberrant spectres", tally("Aberrant spectre", 50), 50));
@@ -191,23 +191,23 @@ public class CatacombsVariantsTest
 	public void damagedNpcsAreTakenOnceAndBounded()
 	{
 		DamagedNpcs npcs = new DamagedNpcs();
-		npcs.damaged(0, 5);
-		assertTrue(npcs.takeDied(0, 5));
-		assertFalse("taken once", npcs.takeDied(0, 5));
-		assertFalse("never damaged", npcs.takeDied(0, 6));
+		npcs.damaged(0, 5, 0L, AWAY);
+		assertTrue(died(npcs, 0, 5));
+		assertFalse("taken once", died(npcs, 0, 5));
+		assertFalse("never damaged", died(npcs, 0, 6));
 
-		npcs.damaged(0, 7);
+		npcs.damaged(0, 7, 0L, AWAY);
 		npcs.forget(0, 7);
-		assertFalse("despawned", npcs.takeDied(0, 7));
+		assertFalse("despawned", died(npcs, 0, 7));
 
 		for (int i = 0; i < DamagedNpcs.MAX_NPCS + 10; i++)
 		{
-			npcs.damaged(0, i);
+			npcs.damaged(0, i, 0L, AWAY);
 		}
 		assertEquals(DamagedNpcs.MAX_NPCS, npcs.size());
 		// The ones damaged longest ago went first.
-		assertFalse(npcs.takeDied(0, 0));
-		assertTrue(npcs.takeDied(0, DamagedNpcs.MAX_NPCS + 9));
+		assertFalse(died(npcs, 0, 0));
+		assertTrue(died(npcs, 0, DamagedNpcs.MAX_NPCS + 9));
 		npcs.clear();
 		assertEquals(0, npcs.size());
 	}
@@ -217,21 +217,30 @@ public class CatacombsVariantsTest
 	{
 		// The same index in another world view (a boat's) is another NPC.
 		DamagedNpcs npcs = new DamagedNpcs();
-		npcs.damaged(0, 5);
-		assertFalse(npcs.takeDied(3, 5));
+		npcs.damaged(0, 5, 0L, AWAY);
+		assertFalse(died(npcs, 3, 5));
 		npcs.forget(3, 5);
-		assertTrue(npcs.takeDied(0, 5));
+		assertTrue(died(npcs, 0, 5));
 
-		npcs.damaged(-1, 5);
-		npcs.damaged(3, 5);
+		npcs.damaged(-1, 5, 0L, AWAY);
+		npcs.damaged(3, 5, 0L, AWAY);
 		assertEquals(2, npcs.size());
-		assertTrue(npcs.takeDied(3, 5));
-		assertFalse(npcs.takeDied(0, 5));
-		assertTrue(npcs.takeDied(-1, 5));
+		assertTrue(died(npcs, 3, 5));
+		assertFalse(died(npcs, 0, 5));
+		assertTrue(died(npcs, -1, 5));
 		// Indexes and ids with the high bit set don't collide.
-		npcs.damaged(0, -1);
-		assertFalse(npcs.takeDied(-1, -1));
-		assertTrue(npcs.takeDied(0, -1));
+		npcs.damaged(0, -1, 0L, AWAY);
+		assertFalse(died(npcs, -1, -1));
+		assertTrue(died(npcs, 0, -1));
+	}
+
+	/** The Away limit the engagements in these tests use. */
+	private static final long AWAY = 10 * 60_000L;
+
+	/** The NPC died, with no name, on tick 0 (pairing is {@link DamagedNpcsTest}'s subject). */
+	private static boolean died(DamagedNpcs npcs, int worldViewId, int index)
+	{
+		return npcs.died(worldViewId, index, null, null, false, 0, 0L, AWAY);
 	}
 
 	private static void assertVariant(String task, int constant, int id, String npcName, String name)

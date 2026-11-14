@@ -98,7 +98,9 @@ public class HarnessAssignmentLogTest
 		assertTrue(onEdt(() -> harness.ui().getAssignments().isExpanded()));
 		List<String> rows = assignmentRows();
 		assertEquals(1, rows.size());
-		assertTrue(rows.get(0), rows.get(0).startsWith("Abyssal demons | Skipped \u00b7 "));
+		// The monster and the outcome word, then the date and the master (9d).
+		assertTrue(rows.get(0), rows.get(0).startsWith("Abyssal demons | Skipped | "));
+		assertTrue(rows.get(0), rows.get(0).contains(" \u00b7 Duradel/Kuradal | <html>"));
 		assertTrue(rows.get(0), rows.get(0).contains("<br>Master: Duradel/Kuradal<br>Type: Regular<br>Assigned: 120"
 			+ "<br>Points: -30</html>"));
 		assertEquals("Saved tasks: 0", onEdt(() -> harness.ui().getSavedTasksText()));
@@ -140,14 +142,17 @@ public class HarnessAssignmentLogTest
 	}
 
 	@Test
-	public void aCompletionWithoutASessionIsSaved()
+	public void aCompletionSeenWhileWaitingForTheFirstKillIsATrackedTask()
 	{
+		// Tracking is automatic (V2 plan 4.1): the final kill is the assignment's first kill, so it starts a session
+		// and completes it. The assignment was played, so it is no "Completed (untracked)" entry
+		// (AssignmentWatchTest covers that outcome).
 		harness.completeTask(15);
 		settle();
-		AssignmentEntry e = onlyEntry();
-		assertEquals(AssignmentOutcome.COMPLETED, e.getOutcome());
-		assertEquals(Integer.valueOf(15), e.getPointsChange());
-		assertTrue(harness.records(ACCOUNT).isEmpty());
+		assertTrue(harness.assignments(ACCOUNT).isEmpty());
+		LedgerRecord record = harness.onlyRecord(ACCOUNT);
+		assertTrue(record.isCompleted());
+		assertEquals(Integer.valueOf(15), record.getPointsEarned());
 	}
 
 	@Test
@@ -165,7 +170,7 @@ public class HarnessAssignmentLogTest
 	@Test
 	public void aCompletedPlayedTaskGetsNoEntry()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.setRemaining(119);
 		harness.tick();
 		harness.completeTask(15);
@@ -177,10 +182,10 @@ public class HarnessAssignmentLogTest
 	@Test
 	public void aPartialPlayedTaskGetsNoEntryWhenSkippedLater()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.setRemaining(100);
 		harness.tick();
-		harness.stop();
+		harness.endTask();
 		assertTrue(harness.onlyRecord(ACCOUNT).isPartial());
 		harness.ticks(5);
 		skip(30);
@@ -191,7 +196,7 @@ public class HarnessAssignmentLogTest
 	@Test
 	public void aRunningSessionsTaskSkippedGetsNoEntry()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.tick();
 		skip(30);
 		settle();
@@ -201,7 +206,7 @@ public class HarnessAssignmentLogTest
 	@Test
 	public void aTaskChangedDuringASessionGetsNoEntry()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.tick();
 		harness.setTask(6, "Cows", 20, 20);
 		harness.setVarbit(VarbitID.SLAYER_TASKS_COMPLETED, 0);
@@ -213,10 +218,10 @@ public class HarnessAssignmentLogTest
 	@Test
 	public void aTaskPlayedInAnEarlierRunGetsNoEntry()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.setRemaining(100);
 		harness.tick();
-		harness.stop();
+		harness.endTask();
 		// The client is restarted: the plugin forgets what it watched.
 		harness.shutDown();
 		harness.startUp();
@@ -331,10 +336,10 @@ public class HarnessAssignmentLogTest
 	@Test
 	public void deletingAnEntryKeepsTheRecords()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.setRemaining(100);
 		harness.tick();
-		harness.stop();
+		harness.endTask();
 		harness.setTask(CAVE_HORRORS, "Cave horrors", 150, 150);
 		harness.ticks(2);
 		skip(30);

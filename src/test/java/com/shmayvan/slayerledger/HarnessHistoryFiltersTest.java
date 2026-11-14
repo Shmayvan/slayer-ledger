@@ -17,7 +17,8 @@ import org.junit.Test;
 /**
  * The Task history's Monster, Location and Master filters as wired in the plugin ({@link PluginHarness}): their
  * choices, how they combine, paging and the empty text on the filtered list, values that disappear, another account,
- * region names that arrive later and an edited location. {@link HistoryFilterTest} covers the rules.
+ * region names that arrive later and an edited location. The Location filter's choices are spots, shown by their
+ * tasks' location names. {@link HistoryFilterTest} covers the rules.
  */
 public class HarnessHistoryFiltersTest
 {
@@ -25,7 +26,6 @@ public class HarnessHistoryFiltersTest
 	public final PluginHarness harness = new PluginHarness();
 
 	private static final long ACCOUNT = PluginHarness.ACCOUNT;
-	private static final int SMOKE = 12_946;
 	private static final int DURADEL = 5;
 	private static final int NIEVE = 6;
 	private static final String DURADEL_NAME = "Duradel/Kuradal";
@@ -218,29 +218,31 @@ public class HarnessHistoryFiltersTest
 	}
 
 	@Test
-	public void aRegionsNameArrivingMovesItsTasksOutOfNoLocation()
+	public void aRegionsNameArrivingRenamesItsSpotsChoice()
 	{
-		harness.setRsProfileConfig(SlayerLedgerConfig.GROUP, SlayerLedgerPlugin.LOCATION_NAME_KEY_PREFIX + SMOKE,
-			"Smoke Dungeon");
+		harness.setRsProfileConfig(SlayerLedgerConfig.GROUP,
+			SlayerLedgerPlugin.LOCATION_NAME_KEY_PREFIX + TestSpots.UNLISTED, "Edgeville");
 		harness.startUp();
 		harness.loginAndSettle(ACCOUNT);
 		List<LedgerRecord> records = new ArrayList<>();
+		// A task saved before spots, in a region the spot table doesn't list.
 		LedgerRecord regionOnly = record(0, "Dust devils", null, NIEVE);
-		regionOnly.setLocationRegion(SMOKE);
+		regionOnly.setLocationRegion(TestSpots.UNLISTED);
 		records.add(regionOnly);
 		records.add(record(1, "Kurasks", null, NIEVE));
 		harness.onEdt(() ->
 		{
 			harness.historyModel().setRecords(ACCOUNT, records);
-			// The region's name is asked of the client thread, so it is not known yet.
-			assertEquals(Arrays.asList(LedgerHistory.ALL, HistoryFilter.NO_LOCATION_LABEL),
+			// The region's name is asked of the client thread, so it is not known yet: the spot is still a choice.
+			assertEquals(Arrays.asList(LedgerHistory.ALL, "Region 12342", HistoryFilter.NO_LOCATION_LABEL),
 				history().getLocationFilterOptions());
+			history().selectLocationFilter("Region 12342");
 		});
 		harness.drain();
-		assertEquals(Arrays.asList(LedgerHistory.ALL, "Smoke Dungeon", HistoryFilter.NO_LOCATION_LABEL),
+		assertEquals(Arrays.asList(LedgerHistory.ALL, "Edgeville", HistoryFilter.NO_LOCATION_LABEL),
 			onEdt(() -> history().getLocationFilterOptions()));
-		harness.onEdt(() -> history().selectLocationFilter("Smoke Dungeon"));
-		assertEquals(Arrays.asList("Dust devils | Completed"), titles());
+		assertEquals("the same choice, renamed", "All | Edgeville | All", onEdt(() -> history().getFilterSelections()));
+		assertEquals(Arrays.asList("Dust devils"), titles());
 	}
 
 	@Test
@@ -336,16 +338,16 @@ public class HarnessHistoryFiltersTest
 			HistoryFilter.NO_LOCATION_LABEL), onEdt(() -> history().getLocationFilterOptions()));
 
 		harness.onEdt(() -> history().selectLocationFilter("No location"));
-		assertEquals(Arrays.asList("Dust devils | Completed"), titles());
+		assertEquals(Arrays.asList("Dust devils"), titles());
 		harness.onEdt(() -> history().selectLocationFilter(HistoryFilter.NO_LOCATION));
-		assertEquals(Arrays.asList("Kurasks | Completed"), titles());
+		assertEquals(Arrays.asList("Kurasks"), titles());
 		assertEquals("All | No location | All", onEdt(() -> history().getFilterSelections()));
 		assertEquals("<html>Show only tasks at this location:<br>No location</html>",
 			onEdt(() -> history().getFilterTooltip("history.locationFilter")));
 
 		// The named place's tasks are gone: the tasks without a location stay selected.
 		show(ACCOUNT, records.subList(1, 2));
-		assertEquals(Arrays.asList("Kurasks | Completed"), titles());
+		assertEquals(Arrays.asList("Kurasks"), titles());
 		assertEquals(Arrays.asList(LedgerHistory.ALL, HistoryFilter.NO_LOCATION_LABEL),
 			onEdt(() -> history().getLocationFilterOptions()));
 	}

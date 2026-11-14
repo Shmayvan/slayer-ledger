@@ -1,37 +1,50 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.GridLayout;
+import java.awt.BorderLayout;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
+import javax.swing.BoxLayout;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import net.runelite.client.ui.ColorScheme;
-import net.runelite.client.ui.FontManager;
+import javax.swing.SwingConstants;
 
 /**
- * The task box at the top of {@link SlayerLedgerPanel}, at most three lines:
+ * The header of the live task card (DESIGN_PRINCIPLES.md 3.4): the task's icon (36 by 32) beside its lines.
  * <ol>
- * <li>the task and the kills left: {@code Abyssal demons · 172 left}; a task done on its Catacombs variant, once the
- * session's kills say so, shows the variant instead: {@code Deviant spectres · 120 left}; once the session has
- * fired a cannonball the name ends with {@code (cannon)}: {@code Dust devils (cannon) · 80 left};</li>
- * <li>(while any part is known) the master, the type when it isn't Regular or Konar (the master already says
- * Konar), the location (the running or paused session's, else the task's assigned area) and the next bonus
- *: {@code Konar · Kraken Cove · bonus in 3}; its tooltip has each of them in full;</li>
- * <li>(while the task advisor has advice other than Do) the advice, with its reason as the tooltip. Do adds
- * nothing to the box; its reason is in the first line's tooltip. When the advisor can say which version of the task
- * is better, standard or Catacombs variant ({@link TaskAdvisor#adviseVariant}), or with or without a cannon
- * ({@link TaskAdvisor#adviseCannon}): with advice other than Do it is in the advice's tooltip, otherwise this
- * line shows it, both in one line when there are both ({@link TaskAdvisor#betterText}):
- * {@code Better: Deviant spectres, without cannon}.</li>
+ * <li>The task's name in Bold, in the heading colour: {@code Abyssal demons}; a task done on its Catacombs variant or
+ * Slayer boss, once the session's kills say so, shows the variant instead: {@code Deviant spectres},
+ * {@code Grotesque Guardians}; while the session's Cannon tag is Yes the name ends with {@code (cannon)};
+ * boss kills the name doesn't show add {@code + boss}: {@code Cave kraken + boss}. Without a task:
+ * {@code No Slayer task.}</li>
+ * <li>(while known) the location, in Small: the active session's Slayer spot, else a Konar or Wilderness task's
+ * assigned area;</li>
+ * <li>(while any part is known) the master, the type when it isn't Regular or Konar (the master already says Konar),
+ * the kills left while no session is active (the stats grid shows them while one is: before the first kill, after
+ * End task) and the next bonus, in Small: {@code Konar · 201 left · bonus in 3}; its tooltip has each part,
+ * the location too, in full.</li>
  * </ol>
- * The optional lines are added or removed only when they appear or go. EDT only.
+ * The task advisor's skip / block badge is on the advisor card ({@link AdvisorCardSection}).
+ * The lines are cut short with {@code …} when they don't fit the card ({@link FitLabel}); the optional ones are added
+ * or removed only when they appear or go, and the icon is asked for only when the task changes. EDT only.
  */
 final class TaskBoxView
 {
-	/** Between the parts of the first and second lines. */
+	/** Between the parts of the master line. */
 	static final String SEPARATOR = " · ";
+	/** The name line without a task (DESIGN_PRINCIPLES.md 3.9). */
+	static final String NO_TASK = "No Slayer task.";
+	/** The name line before the game has told the plugin the task. */
+	static final String WAITING_FOR_GAME = "Waiting for game data";
+	/** The task icon's size: an item sprite. */
+	static final int ICON_WIDTH = 36;
+	static final int ICON_HEIGHT = 32;
 
 	private final LedgerHistoryModel model;
 	private final SessionTracker tracker;
@@ -39,118 +52,188 @@ final class TaskBoxView
 	private final Supplier<Integer> taskStreak;
 	/** Revalidates and repaints the panel after a change. */
 	private final Runnable relayout;
+	/** Draws the task's icon. */
+	private final ItemIcons icons;
 
-	/** "Abyssal demons · 172 left", "Task: None" or "Task: waiting for game data". */
-	private final JLabel taskLabel = new JLabel();
-	/** "Konar · Kraken Cove · bonus in 3"; in {@link #box}, after the task, only while some part is known. */
-	private final JLabel detailsLabel = new JLabel();
-	/**
-	 * "Advice: Consider skip (n=3)" ({@link TaskAdvisor}); last in {@link #box}, only while there is a task, the
-	 * "Task advisor" setting is on, there is enough history and the advice isn't Do.
-	 */
-	private final JLabel adviceLabel = new JLabel();
-	/** The task box: the task, then (while known) the details and the advice. */
-	private final JPanel box;
-	/** The advice shown (the model's result), so the row is redrawn only when the model works out a new one. */
-	private TaskAdvisor.Result shownAdvice;
-	/** The variant advice shown, likewise. */
-	private TaskAdvisor.VersionAdvice shownVariant;
-	/** The cannon advice shown, likewise. */
-	private TaskAdvisor.VersionAdvice shownCannon;
-
-	/** The first line's tooltip without the advice: the task and the kills left in full, or {@code null}. */
-	private String taskTooltip;
+	/** The task's icon, 36 by 32; shown while the task has one. */
+	private final JLabel iconLabel = new JLabel();
+	/** "Abyssal demons", "No Slayer task." or "Waiting for game data". */
+	private final FitLabel taskLabel = new FitLabel();
+	/** "Catacombs of Kourend"; in {@link #lines} only while known. */
+	private final FitLabel locationLabel = new FitLabel();
+	/** "Konar · bonus in 3"; in {@link #lines}, after the location, only while some part is known. */
+	private final FitLabel detailsLabel = new FitLabel();
+	/** The header: the icon, then {@link #lines}. */
+	private final JPanel box = new JPanel(new BorderLayout(6, 0));
+	/** The name, then (while known) the location and the details. */
+	private final JPanel lines = new JPanel();
 	/** The details of the current task, as of the last {@link #refreshTask}: whether there is a task, its master etc. */
 	private boolean hasTask;
+	/** The kills left on the task. */
+	private int remaining;
+	/** Whether a session is active, so the stats grid shows the kills left and the master line doesn't. */
+	private boolean sessionActive;
 	private Integer master;
 	private TaskType type;
 	/** The task's assigned area (Konar, Wilderness), or {@code null}. */
 	private String area;
-	/** The running or paused session's location name, as of the last {@link #refreshLocation}, or {@code null}. */
+	/** The active session's location name, as of the last {@link #refreshLocation}, or {@code null}. */
 	private String liveLocation;
+	/** The task whose icon is shown ({@code null}: none), so it is asked for only when the task changes. */
+	private String iconTask;
+	/** How many times the icon was asked for ({@link #getBuildCount}). */
+	private int builds;
 
-	TaskBoxView(LedgerHistoryModel model, SessionTracker tracker, Supplier<Integer> taskStreak, Runnable relayout)
+	TaskBoxView(LedgerHistoryModel model, SessionTracker tracker, Supplier<Integer> taskStreak, Runnable relayout,
+		ItemIcons icons)
 	{
 		this.model = model;
 		this.tracker = tracker;
 		this.taskStreak = taskStreak;
 		this.relayout = relayout;
-		box = SlayerLedgerPanel.section(taskLabel);
+		this.icons = icons;
 		// Names for tests, which find the rows by them; no visible effect.
 		box.setName("taskBox");
+		iconLabel.setName("taskBox.icon");
+		lines.setName("taskBox.lines");
 		taskLabel.setName("taskBox.task");
+		locationLabel.setName("taskBox.location");
 		detailsLabel.setName("taskBox.details");
-		adviceLabel.setName("taskBox.advice");
+
+		box.setOpaque(false);
+		box.setAlignmentX(Component.LEFT_ALIGNMENT);
+		Dimension iconSize = new Dimension(ICON_WIDTH, ICON_HEIGHT);
+		iconLabel.setPreferredSize(iconSize);
+		iconLabel.setMinimumSize(iconSize);
+		iconLabel.setMaximumSize(iconSize);
+		iconLabel.setHorizontalAlignment(SwingConstants.CENTER);
+		iconLabel.setVerticalAlignment(SwingConstants.CENTER);
+		iconLabel.setVisible(false);
+		box.add(iconLabel, BorderLayout.WEST);
+
+		lines.setOpaque(false);
+		lines.setLayout(new BoxLayout(lines, BoxLayout.Y_AXIS));
+		taskLabel.setFont(LedgerTheme.boldFont());
+		taskLabel.setForeground(LedgerTheme.HEADING);
+		locationLabel.setFont(LedgerTheme.smallFont());
+		locationLabel.setForeground(LedgerTheme.LABEL);
+		detailsLabel.setFont(LedgerTheme.smallFont());
+		detailsLabel.setForeground(LedgerTheme.HINT);
+		for (FitLabel label : new FitLabel[]{taskLabel, locationLabel, detailsLabel})
+		{
+			label.setAlignmentX(Component.LEFT_ALIGNMENT);
+		}
+		lines.add(taskLabel);
+		// The lines are centred on the icon's height, and take the width beside it.
+		JPanel centred = new JPanel(new GridBagLayout());
+		centred.setOpaque(false);
+		GridBagConstraints c = new GridBagConstraints();
+		c.weightx = 1;
+		c.fill = GridBagConstraints.HORIZONTAL;
+		centred.add(lines, c);
+		box.add(centred, BorderLayout.CENTER);
 	}
 
-	/** Adds the task box to {@code content}. */
-	void addTo(JPanel content)
+	/** The header, for the live task card to add first. */
+	JPanel getComponent()
 	{
-		detailsLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
-		detailsLabel.setFont(FontManager.getRunescapeSmallFont());
-		adviceLabel.setFont(FontManager.getRunescapeSmallFont());
-		SlayerLedgerPanel.addRow(content, box);
+		return box;
 	}
 
-	/** Shows the task and the kills left, then who assigned it, its type, the next bonus and the advice. */
+	/** Shows the task's name, icon and tooltip, then who assigned it, its type and the next bonus. */
 	void refreshTask(int remaining, String monster)
 	{
 		hasTask = remaining > 0;
+		this.remaining = remaining;
+		sessionActive = tracker.getState().isActive();
+		String icon = null;
 		if (!tracker.isTaskObserved())
 		{
-			taskLabel.setText("Task: waiting for game data");
-			taskTooltip = null;
+			taskLabel.setText(WAITING_FOR_GAME);
+			taskLabel.setToolTipText(null);
 		}
 		else if (hasTask)
 		{
-			// The Catacombs variant the running or paused session's kills say is being done, and whether it
-			// fired a cannonball: the name its task is saved under.
+			// The variant the active session's kills say is being done (its Catacombs variant, or Slayer
+			// boss), and whether its Cannon tag is Yes: the name its task is saved under; then
+			// whether it has boss kills its name doesn't show.
 			TaskSelection selection = tracker.getCurrentTaskSelection();
-			String variant = selection.getVariant();
+			TaskVariants.Decision decision = tracker.getCurrentVariant();
+			String variant = decision.getVariant();
 			boolean cannon = Boolean.TRUE.equals(selection.getCannon());
-			taskLabel.setText(selection.displayName(monster) + SEPARATOR + remaining + " left");
-			// A long monster name may not fit the sidebar; the tooltip has it in full.
-			taskTooltip = "Task: " + LedgerHistory.escapeHtml(monster)
+			String boss = decision.isBossKills() && !decision.isVariantBoss()
+				? TaskVariants.bossName(decision.getTask()) : null;
+			taskLabel.setText(decision.displayName(monster, cannon));
+			// A long monster name may not fit the card; the tooltip has it in full.
+			taskLabel.setToolTipText("<html>Task: " + LedgerHistory.escapeHtml(monster)
 				+ (variant == null ? "" : "<br>Doing: " + LedgerHistory.escapeHtml(variant) + " (from your kills)")
-				+ (cannon ? "<br>Cannon: cannonballs fired this session" : "")
-				+ "<br>Remaining: " + remaining;
+				+ (boss == null ? "" : "<br>Boss kills: " + LedgerHistory.escapeHtml(boss))
+				+ (cannon ? "<br>Cannon: Yes, a cannon task" : "")
+				+ "<br>Kills left: " + LedgerFormat.kills(remaining) + "</html>");
+			// The assigned task's icon, also for a variant or cannon task, as the history rows show it.
+			icon = tracker.getCurrentMonster();
 		}
 		else
 		{
-			taskLabel.setText("Task: None");
-			taskTooltip = null;
+			taskLabel.setText(NO_TASK);
+			taskLabel.setToolTipText(null);
 		}
+		refreshIcon(icon);
 		TaskContext context = hasTask ? tracker.getCurrentContext() : TaskContext.NONE;
 		master = context.getMaster();
 		type = hasTask ? context.type(tracker.getCurrentCreatureId()) : null;
 		area = type == null ? null : TaskLocation.normalizeName(context.getLocation());
 		refreshDetails();
-		refreshAdvice();
+	}
+
+	/** Shows {@code task}'s icon ({@link TaskIcons}), or none; asks for it only when the task changed. */
+	private void refreshIcon(String task)
+	{
+		if (Objects.equals(task, iconTask))
+		{
+			return;
+		}
+		iconTask = task;
+		Integer itemId = task == null ? null : TaskIcons.itemId(task);
+		boolean show = itemId != null;
+		iconLabel.setIcon(null);
+		if (show)
+		{
+			builds++;
+			icons.apply(iconLabel, itemId, 0);
+		}
+		if (iconLabel.isVisible() != show)
+		{
+			iconLabel.setVisible(show);
+			relayout.run();
+		}
 	}
 
 	/**
-	 * Takes the running or paused session's location while it is known: its assigned area, else the player's name for
-	 * its region with the most kills (asked of the plugin when not known yet).
+	 * Takes the active session's location while it is known: the name of the Slayer spot its kills so far decide
+	 * ({@link TaskLocation#liveName}: the player's name for its region, asked of the plugin when not known yet,
+	 * else the spot table's name). Until then the line shows a Konar or Wilderness task's assigned area.
 	 */
 	void refreshLocation(SessionTracker.State state)
 	{
 		String name = null;
-		if (state == SessionTracker.State.RUNNING || state == SessionTracker.State.PAUSED)
+		if (state.isActive())
 		{
-			Integer region = tracker.getDominantRegion();
-			if (region != null)
+			TaskSpot spot = tracker.getTaskSpot();
+			if (spot.getRegion() != null)
 			{
-				model.requestLocationNames(Collections.singleton(region));
+				model.requestLocationNames(Collections.singleton(spot.getRegion()));
 			}
-			name = TaskLocation.liveName(tracker.getSessionTaskLocation(), region, model::locationName);
+			name = TaskLocation.liveName(spot, model::locationName, model.spots());
 		}
 		liveLocation = name;
 		refreshDetails();
 	}
 
 	/**
-	 * Shows the second line: the known parts of master, type (unless Regular or Konar), location and next bonus, with
-	 * each in full in the tooltip; the line is in the box only while some part is known.
+	 * Shows the location line and the details line: the known parts of master, type (unless Regular or Konar), the
+	 * kills left while no session is active and the next bonus, with each part and the location in full in the
+	 * tooltip; each line is in the header only while it has something to say.
 	 */
 	private void refreshDetails()
 	{
@@ -169,12 +252,15 @@ final class TaskBoxView
 			}
 			tooltip.add("Master: " + LedgerHistory.escapeHtml(masterName == null ? LedgerHistory.NO_VALUE : masterName));
 			tooltip.add(LedgerHistory.escapeHtml(LedgerHistory.formatTaskType(type, area)));
+			if (!sessionActive)
+			{
+				// The task's size before the first kill and after End task; while a session is active the stats grid
+				// shows it.
+				parts.add(LedgerFormat.kills(remaining) + " left");
+				tooltip.add("Kills left: " + LedgerFormat.kills(remaining));
+			}
 		}
 		String location = liveLocation != null ? liveLocation : area;
-		if (location != null)
-		{
-			parts.add(location);
-		}
 		if (liveLocation != null)
 		{
 			tooltip.add(LedgerHistory.escapeHtml(TaskLocation.format(liveLocation)));
@@ -187,191 +273,59 @@ final class TaskBoxView
 			tooltip.add(StreakMilestone.format(streak));
 		}
 
-		boolean show = !parts.isEmpty();
-		if (show)
+		String tip = tooltip.isEmpty() ? null : "<html>" + String.join("<br>", tooltip) + "</html>";
+		boolean changed = false;
+		if (location != null)
 		{
-			String text = String.join(SEPARATOR, parts);
-			// A player-typed location first in the line must not turn it into HTML.
-			detailsLabel.setText(text.regionMatches(true, 0, "<html", 0, 5) ? " " + text : text);
-			// A long location may not fit the sidebar; the tooltip has every part in full.
-			detailsLabel.setToolTipText("<html>" + String.join("<br>", tooltip) + "</html>");
+			// A player-typed location must not turn the line into HTML.
+			locationLabel.setText(location.regionMatches(true, 0, "<html", 0, 5) ? " " + location : location);
+			// A long location may not fit the card; the tooltip has every part in full.
+			locationLabel.setToolTipText(tip);
 		}
-		boolean shown = detailsLabel.getParent() == box;
-		if (shown != show)
+		changed |= showLine(locationLabel, location != null, 1);
+		if (!parts.isEmpty())
 		{
-			if (show)
-			{
-				box.add(detailsLabel, 1);
-			}
-			else
-			{
-				box.remove(detailsLabel);
-			}
-			relayoutBox();
+			detailsLabel.setText(String.join(SEPARATOR, parts));
+			detailsLabel.setToolTipText(tip);
+		}
+		changed |= showLine(detailsLabel, !parts.isEmpty(), lineIndex(locationLabel) + 1);
+		if (changed)
+		{
+			relayout.run();
 		}
 	}
 
-	/**
-	 * Shows the task advisor's row for the current task, last in the box. The model works it out
-	 * ({@link LedgerHistoryModel#advice}) only when the task, the records, the Loot price mode, today's prices or the
-	 * settings change, and the row is redrawn only then; while views wait for today's prices the shown row stays
-	 * until they arrive.
-	 */
-	void refreshAdvice()
+	/** Where the line after {@code previous} goes: after it while it is shown, else after the name. */
+	private int lineIndex(JLabel previous)
 	{
-		if (!model.isAdviceShown())
+		return previous.getParent() == lines ? lines.getComponentZOrder(previous) : 0;
+	}
+
+	/** Adds {@code line} at {@code index} or removes it, as {@code show} says; whether it changed. */
+	private boolean showLine(JLabel line, boolean show, int index)
+	{
+		boolean shown = line.getParent() == lines;
+		if (shown == show)
 		{
-			shownAdvice = null;
-			shownVariant = null;
-			shownCannon = null;
-			showAdvice(null, null, null);
-			return;
+			return false;
 		}
-		if (model.isWaitingForCurrentPrices())
+		if (show)
 		{
-			// The first line's tooltip may have changed (a new task); the advice in it stays until the prices arrive.
-			showTaskTooltip(shownAdvice, shownVariant, shownCannon);
-			return;
-		}
-		TaskAdvisor.Result result = model.advice();
-		TaskAdvisor.VersionAdvice variant = model.variantAdvice();
-		TaskAdvisor.VersionAdvice cannon = model.cannonAdvice();
-		boolean rowShown = adviceLabel.getParent() == box;
-		if (result != shownAdvice || variant != shownVariant || cannon != shownCannon
-			|| hasRow(result, variant, cannon) != rowShown)
-		{
-			shownAdvice = result;
-			shownVariant = variant;
-			shownCannon = cannon;
-			showAdvice(result, variant, cannon);
+			lines.add(line, Math.min(index, lines.getComponentCount()));
 		}
 		else
 		{
-			showTaskTooltip(result, variant, cannon);
+			lines.remove(line);
 		}
-	}
-
-	/** Whether the advice row is in the box: advice other than Do, or variant or cannon advice. */
-	private static boolean hasRow(TaskAdvisor.Result result, TaskAdvisor.VersionAdvice variant,
-		TaskAdvisor.VersionAdvice cannon)
-	{
-		return isWarning(result) || variant != null || cannon != null;
-	}
-
-	/** Whether {@code result} is advice other than Do (shown in orange). */
-	private static boolean isWarning(TaskAdvisor.Result result)
-	{
-		return result != null && result.getAdvice() != TaskAdvisor.Advice.DO;
+		return true;
 	}
 
 	/**
-	 * Shows {@code result}: as the last row of the task box when it isn't Do, in the first line's tooltip when it is,
-	 * or nowhere for {@code null}. The variant and cannon advice are in that row's tooltip, or the row
-	 * itself, in one line, when there is no other advice to show there: the box keeps to three lines.
+	 * How many times the task icon was asked for. Performance seam: tests assert this doesn't grow on the refresh
+	 * timer.
 	 */
-	private void showAdvice(TaskAdvisor.Result result, TaskAdvisor.VersionAdvice variant,
-		TaskAdvisor.VersionAdvice cannon)
+	int getBuildCount()
 	{
-		boolean row = hasRow(result, variant, cannon);
-		String versions = versionReasons(variant, cannon);
-		if (isWarning(result))
-		{
-			adviceLabel.setText(result.text());
-			// The panel's hint colour (as the blowpipe hint) for skip and block.
-			adviceLabel.setForeground(ColorScheme.BRAND_ORANGE);
-			adviceLabel.setToolTipText("<html>" + adviceReason(result)
-				+ (versions == null ? "" : "<br>" + versions) + "</html>");
-		}
-		else if (versions != null)
-		{
-			String better = TaskAdvisor.betterText(variant, cannon);
-			adviceLabel.setText(better);
-			adviceLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
-			// The line in full first, as the sidebar may cut it off.
-			adviceLabel.setToolTipText("<html>" + LedgerHistory.escapeHtml(better) + "<br>" + versions + "</html>");
-		}
-		showTaskTooltip(result, variant, cannon);
-		boolean shown = adviceLabel.getParent() == box;
-		if (shown != row)
-		{
-			if (row)
-			{
-				box.add(adviceLabel);
-			}
-			else
-			{
-				box.remove(adviceLabel);
-			}
-			relayoutBox();
-		}
-	}
-
-	/**
-	 * Sets the first line's tooltip: the task in full and, when {@code advice} is Do, that advice and its reason, and
-	 * then the variant and cannon advice, if any.
-	 */
-	private void showTaskTooltip(TaskAdvisor.Result advice, TaskAdvisor.VersionAdvice variant,
-		TaskAdvisor.VersionAdvice cannon)
-	{
-		String tooltip = taskTooltip;
-		if (tooltip != null && advice != null && advice.getAdvice() == TaskAdvisor.Advice.DO)
-		{
-			tooltip += "<br>" + advice.text() + "<br>" + adviceReason(advice);
-		}
-		String versions = versionReasons(variant, cannon);
-		if (tooltip != null && versions != null)
-		{
-			tooltip += "<br>" + LedgerHistory.escapeHtml(TaskAdvisor.betterText(variant, cannon)) + "<br>" + versions;
-		}
-		taskLabel.setToolTipText(tooltip == null ? null : "<html>" + tooltip + "</html>");
-	}
-
-	/**
-	 * The variant and cannon advice's reasons and what they count, as HTML without the {@code <html>}
-	 * tags, or {@code null} when there is neither.
-	 */
-	private String versionReasons(TaskAdvisor.VersionAdvice variant, TaskAdvisor.VersionAdvice cannon)
-	{
-		if (variant == null && cannon == null)
-		{
-			return null;
-		}
-		StringBuilder reasons = new StringBuilder();
-		if (variant != null)
-		{
-			reasons.append(LedgerHistory.escapeHtml(variant.reason(model.lootPriceMode())))
-				.append("<br>Standard and Catacombs variant tasks compared, with and without a cannon.");
-		}
-		if (cannon != null)
-		{
-			reasons.append(reasons.length() == 0 ? "" : "<br>")
-				.append(LedgerHistory.escapeHtml(cannon.reason(model.lootPriceMode())))
-				.append("<br>Tasks with a cannon (cannonballs fired) and without one compared, both versions.");
-		}
-		return reasons.append("<br>Each with ").append(TaskAdvisor.MIN_TASKS).append("+ tasks and ")
-			.append(TaskAdvisor.MIN_ACTIVE_MILLIS / 60_000L).append("+ min, rates as in the Trends list. Advice only.")
-			.toString();
-	}
-
-	/**
-	 * The advice's reason and what it counts, as HTML without the {@code <html>} tags. The main advice pools each
-	 * task's Catacombs variant and cannon tasks with its others, while the Trends list splits them, so it
-	 * says so.
-	 */
-	private String adviceReason(TaskAdvisor.Result result)
-	{
-		return LedgerHistory.escapeHtml(result.reason(model.lootPriceMode()))
-			+ "<br>From " + result.getTasks() + " completed tasks of this monster (n), with rates as in the Trends"
-			+ " list, Catacombs variant and cannon tasks pooled with their task. Advice only."
-			+ "<br>Counts monsters with " + TaskAdvisor.MIN_TASKS + "+ tasks and "
-			+ TaskAdvisor.MIN_ACTIVE_MILLIS / 60_000L + "+ min; Consider block needs n of "
-			+ TaskAdvisor.MIN_BLOCK_TASKS + "+. " + (result.isBoss() ? "Bosses rank only against bosses."
-			: "Boss tasks are ranked separately.");
-	}
-
-	private void relayoutBox()
-	{
-		((GridLayout) box.getLayout()).setRows(box.getComponentCount());
-		relayout.run();
+		return builds;
 	}
 }

@@ -14,9 +14,9 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
 /**
- * Catacombs variant tasks in the session, the saved record and every per-monster grouping: the History estimate
- * statistics, the Trends list and chart, the history list and its Monster filter, the task advisor (pooled) and its
- * variant advice. Records saved before variants were tracked have no variant and stay standard.
+ * Catacombs variant tasks in the session, the saved record and every per-monster grouping: the per-task
+ * statistics, the monster ranking, the history list and its Monster filter, and the task advisor's badge (pooled).
+ * Records saved in older versions have no variant and stay standard.
  */
 public class CatacombsVariantGroupingTest
 {
@@ -99,7 +99,7 @@ public class CatacombsVariantGroupingTest
 		// A Greater nechryael task: each Greater Nechryael kill also kills its death spawns, which count for nothing.
 		SessionTracker tracker = new SessionTracker(() -> now);
 		tracker.observe("Nechryael", 52, 20, 20, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		for (int i = 1; i <= 5; i++)
 		{
 			tracker.addNpcKill("Greater Nechryael");
@@ -122,7 +122,7 @@ public class CatacombsVariantGroupingTest
 		{
 			tracker.addNpcKill("Deviant spectre");
 		}
-		tracker.autoPause();
+		tracker.loggedOut();
 		SessionSnapshot snapshot = SessionSnapshot.fromSummary(tracker.activeSummary(), null, now);
 		String json = gson.toJson(snapshot);
 		String tally = ",\"npcKills\":[{\"name\":\"Deviant spectre\",\"kills\":6}]";
@@ -141,16 +141,17 @@ public class CatacombsVariantGroupingTest
 		assertEquals(DEVIANT, LedgerRecord.fromSummary(gson.fromJson(json, SessionSnapshot.class).toSummary(), true)
 			.getVariant());
 
-		// Fewer variant kills than half of the restored task kills: standard, live and on save.
+		// Fewer variant kills than standard ones in the restored tally: standard, live and on save. (Task kills the tally
+		// missed count for neither, so 5 variant kills alone would still be the variant.)
 		SessionTracker half = new SessionTracker(() -> now);
 		half.observe(TASK, SPECTRES, 40, 50, false);
-		assertEquals(SessionTracker.RestoreResult.RESTORED,
-			half.restore(gson.fromJson(json.replace("\"kills\":6}", "\"kills\":5}"), SessionSnapshot.class), null));
+		assertEquals(SessionTracker.RestoreResult.RESTORED, half.restore(gson.fromJson(json.replace("\"kills\":6}",
+			"\"kills\":4},{\"name\":\"Aberrant spectre\",\"kills\":6}"), SessionSnapshot.class), null));
 		assertNull(half.getCurrentTaskSelection().getVariant());
 		assertSame(TaskSelection.STANDARD, half.getCurrentTaskSelection());
 		assertNull(LedgerRecord.fromSummary(half.activeSummary(), true).getVariant());
 
-		// An older file has no tally and restores without one.
+		// A file from an older version has no tally and restores without one.
 		SessionSnapshot old = gson.fromJson(json.replace(tally, ""), SessionSnapshot.class);
 		assertNull(old.getNpcKills());
 		SessionTracker fromOld = new SessionTracker(() -> now);
@@ -187,40 +188,22 @@ public class CatacombsVariantGroupingTest
 		TaskStatistics deviant = stats(records, TaskSelection.of(DEVIANT));
 		assertEquals(1, deviant.getSampleCount());
 		assertEquals(Long.valueOf(2 * MINUTE), deviant.getMillisPerKill());
-		// The pooled overloads are unchanged.
-		assertEquals(3, TaskStatistics.forTask(records, SPECTRES, TASK, LootPriceMode.GE, Collections.emptyMap())
-			.getSampleCount());
+		assertEquals("no selection pools them", 3, stats(records, null).getSampleCount());
 	}
 
 	@Test
-	public void trendsListAndChartShowAVariantAsItsOwnMonster()
+	public void theAdvisorRankingPoolsAVariantWithItsTask()
 	{
 		List<LedgerRecord> records = new ArrayList<>();
 		records.add(profit(null, 100_000L));
 		records.add(profit(DEVIANT, 400_000L));
 		records.add(profit(DEVIANT, 400_000L));
 
-		List<TaskRanking.Entry> ranking = TaskRanking.rank(records, TaskRanking.Metric.PROFIT, LootPriceMode.GE, null);
-		assertEquals(2, ranking.size());
-		assertEquals(DEVIANT, ranking.get(0).getMonster());
-		assertEquals(2, ranking.get(0).getSampleCount());
-		assertEquals(Long.valueOf(400_000L), ranking.get(0).getRatePerHour());
-		assertEquals(TASK, ranking.get(1).getMonster());
-		assertEquals(1, ranking.get(1).getSampleCount());
-
-		// The advisor's ranking pools the two, as before.
 		List<TaskRanking.Entry> pooled = TaskRanking.rank(records, TaskRanking.Metric.PROFIT, LootPriceMode.GE, null,
-			HiddenLoot.NONE, TaskRanking.Split.NONE);
+			HiddenLoot.NONE);
 		assertEquals(1, pooled.size());
 		assertEquals(TASK, pooled.get(0).getMonster());
 		assertEquals(3, pooled.get(0).getSampleCount());
-
-		List<TaskChart.Monster> monsters = TaskChart.monsters(records, TaskRanking.Metric.PROFIT, LootPriceMode.GE,
-			null);
-		assertEquals(Arrays.asList(TASK, DEVIANT), Arrays.asList(monsters.get(0).getLabel(),
-			monsters.get(1).getLabel()));
-		assertEquals(2, TaskChart.points(records, monsters.get(1), TaskRanking.Metric.PROFIT, LootPriceMode.GE, null)
-			.size());
 	}
 
 	@Test
@@ -228,74 +211,16 @@ public class CatacombsVariantGroupingTest
 	{
 		List<LedgerRecord> records = Arrays.asList(record(null, 10, HOUR), record(DEVIANT, 10, HOUR));
 		assertEquals(Arrays.asList(LedgerHistory.ALL, TASK, DEVIANT), LedgerHistory.filterOptions(records));
-		assertEquals(1, new HistoryFilter(DEVIANT, null, null).apply(records, r -> null).size());
-		assertEquals(1, new HistoryFilter(TASK, null, null).apply(records, r -> null).size());
-		assertTrue(LedgerHistory.rowTooltip(records.get(1), HistoryPricing.value(records.get(1), LootPriceMode.GE,
-			Collections.emptyMap()), null).contains("Catacombs variant of Aberrant spectres"));
-		assertFalse(LedgerHistory.rowTooltip(records.get(0), HistoryPricing.value(records.get(0), LootPriceMode.GE,
-			Collections.emptyMap()), null).contains("Catacombs variant"));
+		assertEquals(1, new HistoryFilter(DEVIANT, null, null).apply(records, SlayerSpots.NONE, r -> null).size());
+		assertEquals(1, new HistoryFilter(TASK, null, null).apply(records, SlayerSpots.NONE, r -> null).size());
+		assertTrue(LedgerHistory.historyRowTooltip(records.get(1), HistoryPricing.value(records.get(1),
+			LootPriceMode.GE, Collections.emptyMap()), null, LedgerHistory.NO_VALUE)
+			.contains("Catacombs variant of Aberrant spectres"));
+		assertFalse(LedgerHistory.historyRowTooltip(records.get(0), HistoryPricing.value(records.get(0),
+			LootPriceMode.GE, Collections.emptyMap()), null, LedgerHistory.NO_VALUE).contains("Catacombs variant"));
 	}
 
 	// ---- Task advisor ----
-
-	@Test
-	public void theAdvisorSaysWhichVersionIsBetterWithEnoughHistoryOfBoth()
-	{
-		List<LedgerRecord> records = new ArrayList<>();
-		for (int i = 0; i < TaskAdvisor.MIN_TASKS; i++)
-		{
-			records.add(profit(null, 300_000L));
-			records.add(profit(DEVIANT, 450_000L));
-		}
-		TaskAdvisor.VersionAdvice advice = adviseVariant(records);
-		assertNotNull(advice);
-		assertEquals(DEVIANT, advice.getLabel());
-		assertEquals("Better: Deviant spectres", TaskAdvisor.betterText(advice, null));
-		assertEquals("Profit (GE)/h: Deviant spectres 450K (n=3), Aberrant spectres 300K (n=3)",
-			advice.reason(LootPriceMode.GE));
-
-		// The other way round.
-		for (LedgerRecord record : records)
-		{
-			record.setLootGeValue(record.getVariant() == null ? 500_000L : 200_000L);
-		}
-		assertEquals(TASK, adviseVariant(records).getLabel());
-
-		// Equal rates: no variant advice.
-		for (LedgerRecord record : records)
-		{
-			record.setLootGeValue(300_000L);
-		}
-		assertNull(adviseVariant(records));
-	}
-
-	@Test
-	public void theAdvisorGivesNoVariantAdviceWithoutEnoughHistoryOfEither()
-	{
-		List<LedgerRecord> records = new ArrayList<>();
-		for (int i = 0; i < TaskAdvisor.MIN_TASKS; i++)
-		{
-			records.add(profit(null, 300_000L));
-		}
-		records.add(profit(DEVIANT, 450_000L));
-		records.add(profit(DEVIANT, 450_000L));
-		assertNull("2 variant tasks", adviseVariant(records));
-
-		// Three variant tasks, but under 30 minutes of them.
-		List<LedgerRecord> short3 = new ArrayList<>(records.subList(0, TaskAdvisor.MIN_TASKS));
-		for (int i = 0; i < TaskAdvisor.MIN_TASKS; i++)
-		{
-			LedgerRecord quick = profit(DEVIANT, 450_000L);
-			quick.setActiveMillis(5 * MINUTE);
-			short3.add(quick);
-		}
-		assertNull("15 minutes of variant tasks", adviseVariant(short3));
-
-		// No variant for the task, or no variant history at all.
-		assertNull(adviseVariant(records.subList(0, TaskAdvisor.MIN_TASKS)));
-		assertNull(TaskAdvisor.adviseVariant(records, 42, "Abyssal demons", TaskRanking.Metric.PROFIT,
-			LootPriceMode.GE, null, HiddenLoot.NONE));
-	}
 
 	@Test
 	public void theMainAdvicePoolsBothVersions()
@@ -315,12 +240,11 @@ public class CatacombsVariantGroupingTest
 		records.add(profit(null, 50_000L));
 		records.add(profit(null, 50_000L));
 		records.add(profit(DEVIANT, 50_000L));
-		TaskAdvisor.Outcome outcome = TaskAdvisor.adviseAll(records, SPECTRES, TASK, TaskRanking.Metric.PROFIT,
+		TaskAdvisor.Result advice = TaskAdvisor.advise(records, SPECTRES, TASK, TaskRanking.Metric.PROFIT,
 			LootPriceMode.GE, null, HiddenLoot.NONE);
-		assertNotNull("pooled, the spectres have 3 tasks and qualify", outcome.getAdvice());
-		assertEquals(3, outcome.getAdvice().getTasks());
-		assertEquals(TaskAdvisor.Advice.CONSIDER_SKIP, outcome.getAdvice().getAdvice());
-		assertNull("too few of each version", outcome.getVariant());
+		assertNotNull("pooled, the spectres have 3 tasks and qualify", advice);
+		assertEquals(3, advice.getTasks());
+		assertEquals(TaskAdvisor.Advice.CONSIDER_SKIP, advice.getAdvice());
 	}
 
 	// ---- Helpers ----
@@ -339,7 +263,7 @@ public class CatacombsVariantGroupingTest
 	{
 		SessionTracker tracker = new SessionTracker(() -> now);
 		tracker.observe(TASK, SPECTRES, 50, 50, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		return tracker;
 	}
 
@@ -350,16 +274,9 @@ public class CatacombsVariantGroupingTest
 		tracker.observe(TASK, SPECTRES, tracker.getCurrentRemaining() - 1, 50, false);
 	}
 
-	private static TaskAdvisor.VersionAdvice adviseVariant(List<LedgerRecord> records)
-	{
-		return TaskAdvisor.adviseVariant(records, SPECTRES, TASK, TaskRanking.Metric.PROFIT, LootPriceMode.GE, null,
-			HiddenLoot.NONE);
-	}
-
 	private static TaskStatistics stats(List<LedgerRecord> records, TaskSelection variant)
 	{
-		return TaskStatistics.forTask(records, SPECTRES, TASK, variant, null, null, LootPriceMode.GE,
-			Collections.emptyMap(), HiddenLoot.NONE);
+		return TaskStatistics.forTask(records, SPECTRES, TASK, variant, null, null);
 	}
 
 	/** An hour-long completed spectres task making {@code profit} (loot at GE, no supplies). */

@@ -42,7 +42,7 @@ public class CompletionGraceTest
 	private void runAndCompleteTask()
 	{
 		tracker.observe("Abyssal demons", DEMON_ID, 3, 3, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		tracker.addLoot(tally(BONES, 1));
 		now += 30_000;
 		tracker.observe("Abyssal demons", DEMON_ID, 1, 3, false);
@@ -119,43 +119,44 @@ public class CompletionGraceTest
 	{
 		assertFalse("idle", tracker.holdCompletion());
 		tracker.observe("Abyssal demons", DEMON_ID, 3, 3, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		assertFalse("running, not completed", tracker.holdCompletion());
 		assertEquals(SessionTracker.State.RUNNING, tracker.getState());
 		assertNull(tracker.tickCompletion());
 	}
 
 	@Test
-	public void pausedCompletionIsNotHeldAndSavesAsBefore()
+	public void finalKillWhilePausedRestartsTheSessionAndIsHeld()
 	{
 		tracker.observe("Abyssal demons", DEMON_ID, 3, 3, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		now += 10_000;
 		tracker.observe("Abyssal demons", DEMON_ID, 2, 3, false);
 		tracker.pause();
 		now += 10_000;
 		assertEquals(SessionTracker.ObserveResult.COMPLETED, tracker.observe(null, SessionTracker.NO_CREATURE, 0, true));
 
-		assertFalse(tracker.holdCompletion());
-		assertFalse(tracker.hasPendingCompletion());
-		assertEquals(SessionTracker.State.PAUSED, tracker.getState());
-		assertFalse("paused", tracker.addLoot(tally(BONES, 1)));
+		// The final kill restarted the session first (at the kill, nothing paired), then completed it.
+		assertEquals(SessionTracker.State.RUNNING, tracker.getState());
+		assertTrue(tracker.holdCompletion());
+		assertTrue("its loot still counts", tracker.addLoot(tally(BONES, 1)));
 
 		SessionTracker.Summary[] ended = endSession();
-		assertNull(ended[0]);
-		assertNotNull(ended[1]);
-		assertTrue(ended[1].isCompleted());
-		assertEquals(1, ended[1].getKills());
-		assertEquals(10_000, ended[1].getActiveMillis());
+		assertNotNull(ended[0]);
+		assertNull(ended[1]);
+		assertTrue(ended[0].isCompleted());
+		assertEquals(3, ended[0].getKills());
+		assertEquals(10_000, ended[0].getActiveMillis());
+		assertEquals(Long.valueOf(1), ended[0].getLoot().toMap().get(BONES));
 		assertEquals(SaveDecision.Action.SAVE_COMPLETED,
-			SaveDecision.decide(ended[1], SaveDecision.EndReason.SYSTEM, true));
+			SaveDecision.decide(ended[0], SaveDecision.EndReason.SYSTEM, true));
 	}
 
 	@Test
 	public void completionAfterAwaitedZeroIsHeldToo()
 	{
 		tracker.observe("Abyssal demons", DEMON_ID, 2, 2, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		assertEquals(SessionTracker.ObserveResult.TASK_CLEARED, tracker.observe(null, SessionTracker.NO_CREATURE, 0, false));
 		assertEquals(SessionTracker.ObserveResult.COMPLETED, tracker.observe(null, SessionTracker.NO_CREATURE, 0, true));
 		assertTrue(tracker.holdCompletion());
@@ -177,7 +178,7 @@ public class CompletionGraceTest
 			runAndCompleteTask();
 			assertTrue(tracker.holdCompletion());
 			tracker.addLoot(tally(ASHES, 1));
-			tracker.autoPause();
+			tracker.loggedOut();
 			// Logout persists only an active session; a held completion is never one.
 			assertNull(reason.name(), tracker.activeSummary());
 
@@ -205,7 +206,7 @@ public class CompletionGraceTest
 		runAndCompleteTask();
 		assertTrue(tracker.holdCompletion());
 		tracker.observe("Black dragons", DRAGON_ID, 10, 10, false);
-		assertTrue("Play is allowed during the window", tracker.play(ACCOUNT));
+		assertTrue("Play is allowed during the window", tracker.startNow(ACCOUNT));
 		assertTrue(tracker.addLoot(tally(ASHES, 1)));
 		assertTrue("the new session gets none of it", tracker.getLoot().isEmpty());
 
@@ -222,7 +223,7 @@ public class CompletionGraceTest
 		runAndCompleteTask();
 		assertTrue(tracker.holdCompletion());
 		tracker.observe("Black dragons", DRAGON_ID, 10, 10, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		tracker.tickCompletion();
 		assertNotNull(tracker.tickCompletion());
 		assertTrue(tracker.addLoot(tally(ASHES, 1)));
@@ -235,7 +236,7 @@ public class CompletionGraceTest
 		runAndCompleteTask();
 		assertTrue(tracker.holdCompletion());
 		tracker.observe("Black dragons", DRAGON_ID, 1, 1, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		assertEquals(SessionTracker.ObserveResult.COMPLETED, tracker.observe(null, SessionTracker.NO_CREATURE, 0, true));
 		assertFalse(tracker.holdCompletion());
 		// The plugin then ends the session normally, which releases the held one first.

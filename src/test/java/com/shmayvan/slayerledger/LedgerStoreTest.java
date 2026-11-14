@@ -445,6 +445,22 @@ public class LedgerStoreTest
 	}
 
 	@Test
+	public void deleteEndedMarkerOnlyDeletesAMarker() throws IOException
+	{
+		assertFalse(store.deleteEndedMarker(ACCOUNT_A));
+		store.writeActive(ACCOUNT_A, snapshot("s1", 3));
+		assertFalse("a session's file stays", store.deleteEndedMarker(ACCOUNT_A));
+		assertTrue(activeFile(ACCOUNT_A).exists());
+
+		SessionSnapshot marker = snapshot(SessionSnapshot.ENDED_ID_PREFIX + "1", 0);
+		marker.setTrackingState(SessionSnapshot.ENDED_STATE);
+		store.writeActive(ACCOUNT_A, marker);
+		assertFalse("per account", store.deleteEndedMarker(ACCOUNT_B));
+		assertTrue(store.deleteEndedMarker(ACCOUNT_A));
+		assertFalse(activeFile(ACCOUNT_A).exists());
+	}
+
+	@Test
 	public void corruptActiveFileIsMovedAsideAndIgnored() throws IOException
 	{
 		assertTrue(dir.mkdirs());
@@ -464,6 +480,7 @@ public class LedgerStoreTest
 		assertTrue(dir.mkdirs());
 		Files.write(activeFile(ACCOUNT_A).toPath(), "{oops".getBytes(StandardCharsets.UTF_8));
 		assertFalse(store.deleteActive(ACCOUNT_A, "s1")); // never deletes a file it cannot read
+		assertFalse(store.deleteEndedMarker(ACCOUNT_A));
 		assertTrue(activeFile(ACCOUNT_A).exists());
 		store.writeActive(ACCOUNT_A, snapshot("s1", 1));
 		assertEquals("s1", store.readActive(ACCOUNT_A).getSessionId());
@@ -496,6 +513,7 @@ public class LedgerStoreTest
 			// expected
 		}
 		assertFalse(store.deleteActive(ACCOUNT_A, "future"));
+		assertFalse(store.deleteEndedMarker(ACCOUNT_A));
 		assertEquals(json, new String(Files.readAllBytes(activeFile(ACCOUNT_A).toPath()), StandardCharsets.UTF_8));
 	}
 
@@ -927,7 +945,8 @@ public class LedgerStoreTest
 		assertTrue(dir.mkdirs());
 		File file = new File(dir, ACCOUNT_A + ".json");
 		// A future layout this version cannot bind: records became an object.
-		String json = "{\"schemaVersion\":3,\"records\":{\"future\":{\"monster\":\"Hydras\",\"kills\":9}}}";
+		String json = "{\"schemaVersion\":" + (LedgerStore.FILE_SCHEMA_VERSION + 1)
+			+ ",\"records\":{\"future\":{\"monster\":\"Hydras\",\"kills\":9}}}";
 		Files.write(file.toPath(), json.getBytes(StandardCharsets.UTF_8));
 		AssignmentEntry entry = new AssignmentEntry();
 		entry.setId("e1");
@@ -964,7 +983,7 @@ public class LedgerStoreTest
 	{
 		assertTrue(dir.mkdirs());
 		// A future snapshot this version cannot bind: kills became an object.
-		String json = "{\"schemaVersion\":3,\"sessionId\":\"future\",\"kills\":{\"total\":4}}";
+		String json = "{\"schemaVersion\":99,\"sessionId\":\"future\",\"kills\":{\"total\":4}}";
 		Files.write(activeFile(ACCOUNT_A).toPath(), json.getBytes(StandardCharsets.UTF_8));
 
 		for (IoAction action : Arrays.<IoAction>asList(

@@ -34,7 +34,7 @@ public class SessionTrackerNoteTest
 	public void setWhileRunningOrPausedAndNormalized()
 	{
 		assertFalse("no session", tracker.setNote(null, "Barrage"));
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		String id = tracker.getSessionId();
 		assertFalse("another session", tracker.setNote("other", "Barrage"));
 		assertTrue(tracker.setNote(id, "  Barrage\n "));
@@ -51,7 +51,7 @@ public class SessionTrackerNoteTest
 	@Test
 	public void clearedWhenTheSessionEndsAndRefusedAfterwards()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		String id = tracker.getSessionId();
 		tracker.setNote(id, "Cannon");
 		SessionTracker.Summary ended = tracker.stopAndReset();
@@ -59,14 +59,14 @@ public class SessionTrackerNoteTest
 		assertNull(tracker.getNote());
 		assertFalse("the session is gone", tracker.setNote(id, "Barrage"));
 
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		assertNull("a new session has no note", tracker.activeSummary().getNote());
 	}
 
 	@Test
 	public void aNoteSetDuringTheGraceWindowReachesTheHeldSession()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		String id = tracker.getSessionId();
 		tracker.setNote(id, "Range pray");
 		tracker.observe("Abyssal demons", DEMON_ID, 0, 150, true);
@@ -75,7 +75,7 @@ public class SessionTrackerNoteTest
 
 		// A new session started during the grace window keeps its own note.
 		tracker.observe("Abyssal demons", DEMON_ID, 30, 30, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		String next = tracker.getSessionId();
 		assertTrue(tracker.setNote(next, "Cannon"));
 		assertTrue(tracker.setNote(id, "Barrage, burst"));
@@ -93,7 +93,7 @@ public class SessionTrackerNoteTest
 	@Test
 	public void recordCarriesTheNoteThroughJson()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		tracker.setNote(tracker.getSessionId(), "Prayer gear");
 		LedgerRecord record = LedgerRecord.fromSummary(tracker.stopAndReset(), false);
 		assertEquals("Prayer gear", record.getNote());
@@ -101,13 +101,13 @@ public class SessionTrackerNoteTest
 		assertTrue(json, json.contains("\"note\":\"Prayer gear\""));
 		LedgerRecord read = gson.fromJson(json, LedgerRecord.class);
 		assertEquals(record, read);
-		assertEquals(2, read.getSchemaVersion());
+		assertEquals(3, read.getSchemaVersion());
 	}
 
 	@Test
 	public void recordWithoutANoteOmitsIt()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		LedgerRecord record = LedgerRecord.fromSummary(tracker.stopAndReset(), false);
 		assertNull(record.getNote());
 		String json = gson.toJson(record);
@@ -134,9 +134,9 @@ public class SessionTrackerNoteTest
 	@Test
 	public void snapshotRoundTripAndRestoreCarryTheNote()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		tracker.setNote(tracker.getSessionId(), "Strength gear");
-		tracker.autoPause();
+		tracker.loggedOut();
 		SessionSnapshot snapshot = SessionSnapshot.fromSummary(tracker.activeSummary(), COUNTERS, now);
 		assertEquals("Strength gear", snapshot.getNote());
 		SessionSnapshot read = gson.fromJson(gson.toJson(snapshot), SessionSnapshot.class);
@@ -153,8 +153,8 @@ public class SessionTrackerNoteTest
 	@Test
 	public void aHandEditedSnapshotNoteIsNormalized()
 	{
-		tracker.play(ACCOUNT);
-		tracker.autoPause();
+		tracker.startNow(ACCOUNT);
+		tracker.loggedOut();
 		SessionSnapshot snapshot = SessionSnapshot.fromSummary(tracker.activeSummary(), COUNTERS, now);
 		snapshot.setNote("  Barrage \n");
 		SessionTracker restored = new SessionTracker(() -> now);

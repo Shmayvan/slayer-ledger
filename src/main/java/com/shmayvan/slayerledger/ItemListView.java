@@ -22,7 +22,7 @@ import net.runelite.client.ui.FontManager;
  * ({@link SkillIcons}, as RuneLite's XP tracker shows), the name (cut short, with the full name in the tooltip) and the
  * amount on the right. Every line keeps an icon-sized slot before its name, empty for a line with no skill, so the
  * names stay aligned and the lines keep one height. A line can show a small item sprite in the slot instead
- * ({@link Line#getIconItemId}, {@link SmallItemIcon}; Overall totals' monsters assigned). At most
+ * ({@link Line#getIconItemId}, {@link SmallItemIcon}, Overall totals' monsters assigned). At most
  * {@link ItemDetails#MAX_ROWS} lines show until "+N more" is clicked. The per-skill XP lists use it, with
  * {@link SkillXp.Row} lines; supplies and loot are item icons ({@link ItemGridView}). EDT only.
  */
@@ -74,6 +74,10 @@ class ItemListView extends TitledListView<ItemListView.Line>
 	private boolean showAll;
 	/** Told when the player clicks "+N more" or "Show less", or {@code null}. */
 	private Consumer<Boolean> showAllListener;
+	/** The names' colour: white, or the label colour under a sub-header ({@link #useSubHeader}). */
+	private Color nameColor = LedgerTheme.VALUE;
+	/** The amounts' colour: RuneLite's light grey, or the value colour under a sub-header. */
+	private Color amountColor = ColorScheme.LIGHT_GRAY_COLOR;
 
 	/**
 	 * @param noun what the lines are, for the tooltips ("skills")
@@ -116,6 +120,16 @@ class ItemListView extends TitledListView<ItemListView.Line>
 			}
 		});
 		rebuild();
+	}
+
+	/** A flat sub-header's list (the live XP): names in the label colour, amounts in the value colour. */
+	@Override
+	void useSubHeader()
+	{
+		nameColor = LedgerTheme.LABEL;
+		amountColor = LedgerTheme.VALUE;
+		moreLabel.setForeground(LedgerTheme.LABEL);
+		super.useSubHeader();
 	}
 
 	/** Shows every line, or only the first {@link ItemDetails#MAX_ROWS} again, as a click on "+N more" does. */
@@ -168,14 +182,14 @@ class ItemListView extends TitledListView<ItemListView.Line>
 		line.setAlignmentX(Component.LEFT_ALIGNMENT);
 		line.setBorder(BorderFactory.createEmptyBorder(1, 0, 1, 0));
 		line.add(iconSlot(row), BorderLayout.WEST);
-		JLabel name = label(row.getName(), Color.WHITE);
+		JLabel name = label(row.getName(), nameColor);
 		// The name asks for no width of its own, so a long one is cut short in the space left rather than widening
 		// the sidebar (long monster names in "Monsters assigned").
 		name.setPreferredSize(new Dimension(0, name.getPreferredSize().height));
 		line.add(name, BorderLayout.CENTER);
 		JPanel right = new JPanel(new BorderLayout(4, 0));
 		right.setOpaque(false);
-		right.add(label(row.amountText(), ColorScheme.LIGHT_GRAY_COLOR), BorderLayout.EAST);
+		right.add(label(row.amountText(), amountColor), BorderLayout.EAST);
 		line.add(right, BorderLayout.EAST);
 		// The tooltip has the full name and the exact amounts.
 		line.setToolTipText(row.tooltip());

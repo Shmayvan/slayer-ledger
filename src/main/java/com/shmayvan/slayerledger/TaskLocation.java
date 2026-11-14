@@ -1,25 +1,23 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import java.util.function.IntFunction;
+import lombok.Value;
 
 /**
- * Rules for a task's location name: how a typed name is cleaned up, which name a record is saved with, and which
- * name the panel shows. A region's name is the player's own (named once, kept per RuneScape profile); a Konar or
- * Wilderness task's assigned area ({@code taskLocation}) is its location without naming. Pure (no RuneLite types).
+ * Rules for a task's location name: how a typed name is cleaned up and which name the panel shows. A task's
+ * location is its Slayer spot ({@link SlayerSpots}, decided from its kills); the name shown is, in order, the player's
+ * own name for the task ({@link LedgerRecord#getLocation}, "Edit location"), the player's name for its map region (kept
+ * per RuneScape profile: named in 1.x, or an unlisted region renamed since; not for a region several spots share,
+ * {@link #spotName}), the spot table's name ("Region N" for an unlisted region), and a Konar or Wilderness task's
+ * assigned area when its spot is Unknown. Names never decide the spot: tasks group by spot id. Pure (no RuneLite
+ * types).
  */
 final class TaskLocation
 {
 	/** Longest location name kept, in characters; longer names are cut. */
 	static final int MAX_NAME_LENGTH = 40;
-	/** Shown for a record without a location (older records, or a region nobody named). */
+	/** Shown for a record without a location (older records without a region). */
 	static final String UNKNOWN = "Unknown";
 
 	private TaskLocation()
@@ -38,66 +36,151 @@ final class TaskLocation
 	}
 
 	/**
-	 * The location name a record is saved with: the task's assigned area when it has one (Konar, Wilderness), otherwise
-	 * the dominant region's name.
+	 * The location a history row shows ({@link #recordLocation}), or {@link #UNKNOWN}.
 	 *
-	 * @param taskLocation the task's assigned area name, or {@code null}
-	 * @param regionName   the dominant region's name, or {@code null} when unnamed or there is no region
-	 * @return the name, or {@code null} when neither is known
+	 * @param regionNames region id to the player's name for it, {@code null} when unnamed or not known yet
 	 */
-	static String recordName(String taskLocation, String regionName)
+	static String displayName(LedgerRecord record, IntFunction<String> regionNames, SlayerSpots spots)
 	{
-		final String area = normalizeName(taskLocation);
-		return area != null ? area : normalizeName(regionName);
-	}
-
-	/**
-	 * The location a history row shows: the record's own name, else its assigned area (an older Konar or Wilderness
-	 * record), else the current name of its region (named after the record was saved; display only, the file is not
-	 * changed), else {@link #UNKNOWN}.
-	 *
-	 * @param regionNames region id to its name, {@code null} when unnamed or not known yet
-	 */
-	static String displayName(LedgerRecord record, IntFunction<String> regionNames)
-	{
-		final String name = recordLocation(record, regionNames);
+		final String name = recordLocation(record, regionNames, spots);
 		return name != null ? name : UNKNOWN;
 	}
 
 	/**
-	 * A saved record's location, as {@link #displayName} finds it: its own name, else its assigned area, else its
-	 * region's current name (a record saved before its region was named).
+	 * A saved record's location name: its own name (the player's for this task; a 1.x record's name as saved), else
+	 * its spot's name ({@link #spotName}: its region's name, else the table's), else its assigned area (an older Konar
+	 * or Wilderness record with no spot). The spot is {@link SlayerSpots#recordSpot}: the stored one, or for a record
+	 * saved before spots, its region's.
 	 *
 	 * @return the name, or {@code null} when none is known (never {@link #UNKNOWN})
 	 */
-	static String recordLocation(LedgerRecord record, IntFunction<String> regionNames)
+	static String recordLocation(LedgerRecord record, IntFunction<String> regionNames, SlayerSpots spots)
 	{
 		final String own = normalizeName(record.getLocation());
 		if (own != null)
 		{
 			return own;
 		}
-		return liveName(record.getTaskLocation(), record.getLocationRegion(), regionNames);
+		final SlayerSpots table = spots == null ? SlayerSpots.NONE : spots;
+		final String spot = spotName(table.recordSpot(record), record.getLocationRegion(), regionNames, table);
+		return spot != null ? spot : normalizeName(record.getTaskLocation());
 	}
 
 	/**
-	 * The current task's location, for same-location estimates (Part B): its assigned area (Konar, Wilderness),
-	 * else the name of the running or paused session's region with the most kills, else the name of the region the
-	 * player is in now.
+	 * The location a Task history row shows on its second line: {@link #recordLocation}'s name, with
+	 * the spot table's short name ({@link SlayerSpots#shortName}, "Catacombs") in place of its full name ("Catacombs
+	 * of Kourend") when that is the name shown. A name the player gave (the task's own, or its region's) is shown as
+	 * given; the row cuts a long one short and its tooltip has the full location.
 	 *
-	 * @param sessionRegion the running or paused session's dominant region, or {@code null}
-	 * @param currentRegion the region the player is in now, or {@link LocationTally#NO_REGION}
-	 * @return the name, or {@code null} while unknown
+	 * @return the name, or {@code null} when none is known
 	 */
-	static String currentName(String taskLocation, Integer sessionRegion, int currentRegion,
-		IntFunction<String> regionNames)
+	static String shortName(LedgerRecord record, IntFunction<String> regionNames, SlayerSpots spots)
 	{
-		final String name = liveName(taskLocation, sessionRegion, regionNames);
-		if (name != null || !LocationTally.isRegion(currentRegion) || regionNames == null)
+		final String name = recordLocation(record, regionNames, spots);
+		if (name == null || spots == null)
 		{
 			return name;
 		}
-		return normalizeName(regionNames.apply(currentRegion));
+		final String spot = spots.recordSpot(record);
+		if (spot == null || !name.equals(normalizeName(spots.name(spot))))
+		{
+			return name;
+		}
+		final String shortName = spots.shortName(spot);
+		return shortName != null ? shortName : name;
+	}
+
+	/**
+	 * A spot's name without a task's own name: the player's name for {@code region} (one they gave it in 1.x, or the
+	 * name of an unlisted region they renamed), else the table's name of {@code spotKey} ({@link SlayerSpots#name}:
+	 * "Region N" for an unlisted region). The region's name is used only for a region with at most one spot in the
+	 * table (V2 plan 4.5), or for the Unknown spot, which has no table name: a 1.x name for a region several spots share
+	 * (Kraken Cove and its boss room, Karuulm and the Hydra's lair) can't tell which of them it meant, so each of them
+	 * shows its table name.
+	 *
+	 * @param spotKey the spot key, or {@code null} for the Unknown spot
+	 * @param region  the region the task was saved with or is decided from, or {@code null}
+	 * @return the name, or {@code null} when neither is known
+	 */
+	static String spotName(String spotKey, Integer region, IntFunction<String> regionNames, SlayerSpots spots)
+	{
+		final SlayerSpots table = spots == null ? SlayerSpots.NONE : spots;
+		if (region != null && LocationTally.isRegion(region) && regionNames != null
+			&& (spotKey == null || table.spotsInRegion(region).size() <= 1))
+		{
+			final String named = normalizeName(regionNames.apply(region));
+			if (named != null)
+			{
+				return named;
+			}
+		}
+		return spots == null ? null : normalizeName(spots.name(spotKey));
+	}
+
+	/**
+	 * The live session's location: the name of its spot ({@link #spotName} of its {@link TaskSpot}).
+	 *
+	 * @param spot the session's spot so far ({@link TaskSpot#UNKNOWN} with no kill tallied)
+	 * @return the name, or {@code null} while unknown
+	 */
+	static String liveName(TaskSpot spot, IntFunction<String> regionNames, SlayerSpots spots)
+	{
+		return spot == null ? null : spotName(spot.getSpotId(), spot.getRegion(), regionNames, spots);
+	}
+
+	/**
+	 * The current task's location, for same-location estimates (by spot): the active session's
+	 * spot, named as {@link #liveName} names it; else its assigned area (Konar, Wilderness), with the spot the table
+	 * gives that name ({@link SlayerSpots#spotNamed}, none when it has no such spot); else the spot the player is in
+	 * now, named as {@link #spotName} names it. A session whose spot is Unknown (a shared region its kills don't decide)
+	 * is passed over like no session.
+	 *
+	 * @param sessionSpot   the active session's spot, or {@link TaskSpot#UNKNOWN}
+	 * @param currentRegion the region the player is in now, or {@link LocationTally#NO_REGION}
+	 * @param currentSpot   the spot the player is in now, or {@code null}
+	 * @return the location; {@link Here#UNKNOWN} while neither is known
+	 */
+	static Here current(String taskLocation, TaskSpot sessionSpot, int currentRegion, String currentSpot,
+		IntFunction<String> regionNames, SlayerSpots spots)
+	{
+		final SlayerSpots table = spots == null ? SlayerSpots.NONE : spots;
+		if (sessionSpot != null && sessionSpot.getSpotId() != null)
+		{
+			return new Here(sessionSpot.getSpotId(), liveName(sessionSpot, regionNames, table));
+		}
+		final String area = normalizeName(taskLocation);
+		if (area != null)
+		{
+			return new Here(table.spotNamed(area), area);
+		}
+		return new Here(currentSpot, spotName(currentSpot, LocationTally.isRegion(currentRegion) ? currentRegion : null,
+			regionNames, table));
+	}
+
+	/**
+	 * Where the current task is, for the same-location statistics (the live card's time left and the overlay's pace):
+	 * its spot key ({@link SlayerSpots}), which the saved tasks are matched by ({@link SlayerSpots#recordSpot}), and
+	 * its name, which the time left's tooltip shows. Immutable; compares by value, so it can be part of a cache key.
+	 */
+	@Value
+	static class Here
+	{
+		/** No location known: every task counts. */
+		static final Here UNKNOWN = new Here(null, null);
+
+		/** The spot key, or {@code null} when no spot is known (then no task is matched by location). */
+		String spot;
+		/**
+		 * The name the time left's tooltip shows ("from 1 completed task at Smoke Dungeon"), or {@code null} when none
+		 * is known.
+		 */
+		String name;
+
+		/** Whether tasks can be matched by location: the spot and its name are known. */
+		boolean isKnown()
+		{
+			return spot != null && name != null;
+		}
 	}
 
 	/**
@@ -119,68 +202,6 @@ final class TaskLocation
 		return key != null && key.equals(matchKey(right));
 	}
 
-	/**
-	 * The names the "Name this location" prompt suggests: the Wiki's locations of the task, in the Wiki's order, then
-	 * the player's own names (for other regions), sorted ignoring case. Each is {@link #normalizeName}d; blank names and
-	 * repeats ({@link #sameLocation}, the first spelling kept) are left out.
-	 */
-	static List<String> suggestions(Collection<String> bundled, Collection<String> own)
-	{
-		final List<String> suggestions = new ArrayList<>();
-		final Set<String> seen = new HashSet<>();
-		addSuggestions(suggestions, seen, bundled);
-		if (own != null)
-		{
-			final List<String> sorted = new ArrayList<>();
-			for (String name : own)
-			{
-				if (name != null)
-				{
-					sorted.add(name);
-				}
-			}
-			sorted.sort(String.CASE_INSENSITIVE_ORDER.thenComparing(Comparator.naturalOrder()));
-			addSuggestions(suggestions, seen, sorted);
-		}
-		return Collections.unmodifiableList(suggestions);
-	}
-
-	private static void addSuggestions(List<String> suggestions, Set<String> seen, Collection<String> names)
-	{
-		if (names == null)
-		{
-			return;
-		}
-		for (String raw : names)
-		{
-			final String name = normalizeName(raw);
-			if (name != null && seen.add(matchKey(name)))
-			{
-				suggestions.add(name);
-			}
-		}
-	}
-
-	/**
-	 * The live session's location: its assigned area, else the name of its dominant region.
-	 *
-	 * @param region the session's dominant region, or {@code null} when no kill was tallied yet
-	 * @return the name, or {@code null} while unknown
-	 */
-	static String liveName(String taskLocation, Integer region, IntFunction<String> regionNames)
-	{
-		final String area = normalizeName(taskLocation);
-		if (area != null)
-		{
-			return area;
-		}
-		if (region == null || !LocationTally.isRegion(region) || regionNames == null)
-		{
-			return null;
-		}
-		return normalizeName(regionNames.apply(region));
-	}
-
 	/** The location line of the live task box and the history tooltip: {@code Location: Smoke Dungeon}. */
 	static String format(String name)
 	{
@@ -192,6 +213,12 @@ final class TaskLocation
 	{
 		final int creatureId = record.getCreatureId() == null ? SessionTracker.NO_CREATURE : record.getCreatureId();
 		return "Location of this " + LedgerRecord.displayName(record.getMonster(), creatureId)
-			+ " task (empty to remove its own name):";
+			+ " task only (empty to remove its own name):";
+	}
+
+	/** The question of the history's "Rename place" dialog, for an unlisted region ({@link SlayerSpots#regionKey}). */
+	static String renamePrompt(int region)
+	{
+		return "Name of " + SlayerSpots.regionName(region) + ", for every task there:";
 	}
 }

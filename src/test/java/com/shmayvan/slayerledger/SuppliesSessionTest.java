@@ -95,7 +95,7 @@ public class SuppliesSessionTest
 	private void startDemonTask()
 	{
 		tracker.observe("Abyssal demons", DEMON_ID, 50, 150, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 	}
 
 	// ---- Tracker ----
@@ -105,12 +105,12 @@ public class SuppliesSessionTest
 	{
 		tracker.observe("Abyssal demons", DEMON_ID, 50, 150, false);
 		assertFalse("idle", tracker.addSupplies(tally(SHARK, 1), null, null));
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		assertTrue(tracker.addSupplies(tally(SHARK, 2, PRAYER_4, 3), null, doses(PRAYER_4, 4)));
 		tracker.pause();
 		assertFalse("paused", tracker.addSupplies(tally(SHARK, 5), null, null));
-		tracker.play(ACCOUNT);
-		tracker.autoPause();
+		tracker.startNow(ACCOUNT);
+		tracker.loggedOut();
 		assertFalse("auto-paused", tracker.addSupplies(tally(SHARK, 5), null, null));
 
 		assertEquals(2, tracker.getSupplies().get(SHARK));
@@ -162,14 +162,14 @@ public class SuppliesSessionTest
 	public void heldCompletionGetsNoSuppliesButANewSessionDoes()
 	{
 		tracker.observe("Abyssal demons", DEMON_ID, 1, 150, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		tracker.addSupplies(tally(SHARK, 2), null, null);
 		tracker.observe(null, SessionTracker.NO_CREATURE, 0, true);
 		assertTrue(tracker.holdCompletion());
 		assertFalse("held session is no longer running", tracker.addSupplies(tally(SHARK, 3), null, null));
 
 		tracker.observe("Black dragons", DRAGON_ID, 20, 20, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		assertTrue(tracker.addSupplies(tally(SHARK, 4), null, null));
 		SessionTracker.Summary held = tracker.takePendingCompletion();
 		assertEquals(2, held.getSupplies().get(SHARK));
@@ -180,7 +180,7 @@ public class SuppliesSessionTest
 	public void lateLootKeepsTheHeldSessionsSupplies()
 	{
 		tracker.observe("Abyssal demons", DEMON_ID, 1, 150, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		tracker.addSupplies(tally(PRAYER_4, 2), null, doses(PRAYER_4, 4));
 		tracker.observe(null, SessionTracker.NO_CREATURE, 0, true);
 		assertTrue(tracker.holdCompletion());
@@ -280,7 +280,7 @@ public class SuppliesSessionTest
 		tracker.addSupplies(tally(SHARK, 4, PRAYER_4, 6), null, doses(PRAYER_4, 4));
 		now += 30_000;
 		tracker.observe("Abyssal demons", DEMON_ID, 46, 150, false);
-		tracker.autoPause();
+		tracker.loggedOut();
 		return SessionSnapshot.fromSummary(tracker.activeSummary(), COUNTERS, now);
 	}
 
@@ -305,7 +305,7 @@ public class SuppliesSessionTest
 		assertEquals(SessionTracker.RestoreResult.RESTORED, restored.restore(s, COUNTERS));
 		assertEquals(4, restored.getSupplies().get(SHARK));
 		assertFalse("restored session is paused", restored.addSupplies(tally(SHARK, 10), null, null));
-		assertTrue(restored.play(ACCOUNT));
+		assertTrue(restored.startNow(ACCOUNT));
 		restored.addSupplies(tally(SHARK, 1, PRAYER_4, 1), null, doses(PRAYER_4, 4));
 
 		LedgerRecord record = LedgerRecord.fromSummary(restored.stopAndReset(), true);
@@ -334,7 +334,7 @@ public class SuppliesSessionTest
 		SessionSnapshot s = snapshotWithSupplies();
 		SessionTracker other = new SessionTracker(() -> now);
 		other.observe("Abyssal demons", DEMON_ID, 46, 150, false);
-		other.play(ACCOUNT);
+		other.startNow(ACCOUNT);
 		other.addSupplies(tally(ARROW, 9), null, null);
 		other.stopAndReset();
 		assertEquals(SessionTracker.RestoreResult.RESTORED, other.restore(s, COUNTERS));

@@ -33,6 +33,30 @@ public class HistoryPricingTest
 		return map;
 	}
 
+	/** The loot value as Task history shows it: the Loot received sub-header of a task's details. */
+	private static String loot(HistoryPricing.Values v)
+	{
+		return LedgerFormat.amount(v.getLootValue(), v.isLootApproximate());
+	}
+
+	/** The supplies value as Task history shows it: the Supplies used sub-header of a task's details. */
+	private static String supplies(HistoryPricing.Values v)
+	{
+		return LedgerFormat.amount(v.getSuppliesGe(), v.isSuppliesApproximate());
+	}
+
+	/** The profit as a Task history row shows it, signed. */
+	private static String profit(HistoryPricing.Values v)
+	{
+		return LedgerFormat.signed(v.getProfit(), v.isProfitApproximate());
+	}
+
+	/** {@code r}'s Task history row tooltip at {@code v}, without a location or an end time. */
+	private static String tooltip(LedgerRecord r, HistoryPricing.Values v)
+	{
+		return LedgerHistory.historyRowTooltip(r, v, null, LedgerHistory.NO_VALUE);
+	}
+
 	/**
 	 * Loot: 2 runes (GE 100, HA 60) and an item without a GE price (HA 300). Supplies: 3 doses of a 4-dose potion
 	 * (GE 800, HA 100). Totals as {@link LedgerRecord#captureValues} saves them.
@@ -126,8 +150,8 @@ public class HistoryPricingTest
 				assertNull(v.getLootValue());
 				assertNull(v.getSuppliesGe());
 				assertNull(v.getProfit());
-				assertEquals(LedgerHistory.lootLabel(mode) + "-", LedgerHistory.formatLoot(v));
-				assertEquals(LedgerHistory.profitLabel(mode) + "-", LedgerHistory.formatProfit(v));
+				assertEquals("-", loot(v));
+				assertEquals("-", profit(v));
 			}
 		}
 	}
@@ -169,8 +193,8 @@ public class HistoryPricingTest
 		assertEquals(2, none.getLootUnpriced());
 		assertEquals(1, none.getSuppliesUnpriced());
 		assertTrue(none.isProfitApproximate());
-		assertEquals("Loot (GE): ~0", LedgerHistory.formatLoot(none));
-		assertEquals("Supplies: ~0", LedgerHistory.formatSupplies(none));
+		assertEquals("~0", loot(none));
+		assertEquals("~0", supplies(none));
 
 		// In "High alch", the loot doesn't need today's GE prices.
 		HistoryPricing.Values ha = HistoryPricing.value(record(), LootPriceMode.HIGH_ALCH, prices(POTION, 1_000));
@@ -190,8 +214,8 @@ public class HistoryPricingTest
 		assertEquals("supplies at today's GE price", Long.valueOf(750), ha.getSuppliesGe());
 		assertEquals(Long.valueOf(420 - 750), ha.getProfit());
 		assertEquals("the GE figure follows today's prices too", Long.valueOf(800), ha.getLootGe());
-		assertEquals("Loot (HA): 420", LedgerHistory.formatLoot(ha));
-		assertEquals("Profit (HA): -330", LedgerHistory.formatProfit(ha));
+		assertEquals("420", loot(ha));
+		assertEquals("-330", profit(ha));
 	}
 
 	@Test
@@ -210,10 +234,10 @@ public class HistoryPricingTest
 		assertEquals("2 runes at 150 and the other item at 500", Long.valueOf(800), ge.getLootValue());
 		assertEquals("3 doses of a 4-dose potion at 1,000", Long.valueOf(750), ge.getSuppliesGe());
 		assertFalse(ge.isProfitApproximate());
-		assertEquals("Loot (GE): 800", LedgerHistory.formatLoot(ge));
-		assertEquals("Supplies: 750", LedgerHistory.formatSupplies(ge));
-		assertEquals("Profit (GE): 50", LedgerHistory.formatProfit(ge));
-		String tooltip = LedgerHistory.rowTooltip(r, ge, null);
+		assertEquals("800", loot(ge));
+		assertEquals("750", supplies(ge));
+		assertEquals("+50", profit(ge));
+		String tooltip = tooltip(r, ge);
 		assertTrue(tooltip, tooltip.contains(LedgerHistory.CURRENT_PRICES));
 		assertFalse(tooltip, tooltip.contains(LedgerHistory.SAVED_TOTALS));
 
@@ -244,8 +268,8 @@ public class HistoryPricingTest
 		Map<Integer, Long> today = Collections.singletonMap(ItemID.DRAGON_BONES, 3_000L);
 
 		HistoryPricing.Values ge = HistoryPricing.value(r, LootPriceMode.GE, today);
-		assertEquals("Loot (GE): 30K", LedgerHistory.formatLoot(ge));
-		assertEquals("Profit (GE): 30K", LedgerHistory.formatProfit(ge));
+		assertEquals("30K", loot(ge));
+		assertEquals("+30K", profit(ge));
 		assertFalse(ge.isProfitApproximate());
 		ItemDetails.Row row = ItemDetails.of(r).withGePrices(today).lootRows(LootPriceMode.GE, null).get(0);
 		assertEquals("the item grid shows the same value", ge.getLootValue(), row.getValue());
@@ -262,7 +286,7 @@ public class HistoryPricingTest
 		assertEquals("the saved high alch total", Long.valueOf(420), ha.getLootValue());
 		assertEquals("both loot items unpriced", 2, ha.getLootUnpriced());
 		assertTrue(ha.isLootApproximate());
-		assertEquals("Loot (HA): ~420", LedgerHistory.formatLoot(ha));
+		assertEquals("~420", loot(ha));
 		for (ItemDetails.Row row : ItemDetails.of(r).withGePrices(today).lootRows(LootPriceMode.HIGH_ALCH, null))
 		{
 			assertNull("the grid shows the item unpriced", row.getValue());
@@ -297,10 +321,10 @@ public class HistoryPricingTest
 		assertEquals("the saved supplies total", Long.valueOf(600), ge.getSuppliesGe());
 		assertTrue("not at today's prices: ~", ge.isLootApproximate());
 		assertTrue(ge.isSuppliesApproximate());
-		assertEquals("Loot (GE): ~200", LedgerHistory.formatLoot(ge));
-		assertEquals("Supplies: ~600", LedgerHistory.formatSupplies(ge));
-		assertEquals("Profit (GE): ~-400", LedgerHistory.formatProfit(ge));
-		assertTrue(LedgerHistory.rowTooltip(r, ge, null).contains(LedgerHistory.SAVED_TOTALS));
+		assertEquals("~200", loot(ge));
+		assertEquals("~600", supplies(ge));
+		assertEquals("~-400", profit(ge));
+		assertTrue(tooltip(r, ge).contains(LedgerHistory.SAVED_TOTALS));
 
 		// High alch values never change: the saved total is exact, but the supplies are still saved GE.
 		HistoryPricing.Values ha = HistoryPricing.value(r, LootPriceMode.HIGH_ALCH, today);
@@ -332,10 +356,10 @@ public class HistoryPricingTest
 		{
 			HistoryPricing.Values v = HistoryPricing.value(r, mode, today);
 			assertFalse(mode.toString(), v.isSavedTotals());
-			assertEquals(LedgerHistory.lootLabel(mode) + "0", LedgerHistory.formatLoot(v));
-			assertEquals("Supplies: 0", LedgerHistory.formatSupplies(v));
+			assertEquals("0", loot(v));
+			assertEquals("0", supplies(v));
 			assertFalse(v.isProfitApproximate());
-			String tooltip = LedgerHistory.rowTooltip(r, v, null);
+			String tooltip = tooltip(r, v);
 			assertFalse(tooltip, tooltip.contains(LedgerHistory.SAVED_TOTALS));
 			assertFalse(tooltip, tooltip.contains("~"));
 		}
@@ -344,7 +368,7 @@ public class HistoryPricingTest
 		r.setLoot(null);
 		HistoryPricing.Values none = HistoryPricing.value(r, LootPriceMode.GE, today);
 		assertFalse(none.isSavedTotals());
-		assertFalse(LedgerHistory.rowTooltip(r, none, null).contains(LedgerHistory.SAVED_TOTALS));
+		assertFalse(tooltip(r, none).contains(LedgerHistory.SAVED_TOTALS));
 	}
 
 	/**
@@ -379,8 +403,8 @@ public class HistoryPricingTest
 		assertEquals(0, ge.getLootUnpriced());
 		assertFalse(ge.isLootApproximate());
 		assertEquals(Long.valueOf(336_100 - 800), ge.getProfit());
-		assertEquals("Loot (GE): 336K", LedgerHistory.formatLoot(ge));
-		String tooltip = LedgerHistory.rowTooltip(r, ge);
+		assertEquals("336K", loot(ge));
+		String tooltip = tooltip(r, ge);
 		assertTrue(tooltip, tooltip.contains("Loot: 336,100 gp GE, 336,060 gp high alch"));
 		assertFalse(tooltip, tooltip.contains("unavailable"));
 		assertEquals(Long.valueOf(336_060), HistoryPricing.value(r, LootPriceMode.HIGH_ALCH, null).getLootValue());

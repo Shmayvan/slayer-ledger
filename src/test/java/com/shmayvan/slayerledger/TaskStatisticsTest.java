@@ -1,7 +1,6 @@
 package com.shmayvan.slayerledger;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import java.util.Arrays;
@@ -9,6 +8,10 @@ import java.util.Collections;
 import java.util.Locale;
 import org.junit.Test;
 
+/**
+ * The per-task statistics the live card's time left and the overlay's time left and supply runway read: the sample
+ * count, the time per kill, the location and the supplies per kill (the 2.0 rebuild trimmed them to these).
+ */
 public class TaskStatisticsTest
 {
 	private static final int CREATURE = 42;
@@ -19,64 +22,26 @@ public class TaskStatisticsTest
 	public void averagesCompletedRecordsAndKeepsOutliers()
 	{
 		LedgerRecord usual = record(CREATURE, MONSTER, 10, 10 * MINUTE);
-		usual.setLoot(Collections.singletonMap(SavedItems.LOOT, 100_000L));
-		usual.setLootGeValue(100_000L);
-		usual.setLootHaValue(200_000L);
-		usual.setSuppliesGeValue(10_000L);
 		usual.setSupplies(Collections.singletonMap(100, 10L));
 		usual.setSupplyDoses(Collections.singletonMap(100, 4));
-		usual.setXpGained(Collections.singletonMap("SLAYER", 10_000L));
 
 		LedgerRecord outlier = record(CREATURE, MONSTER, 20, 60 * MINUTE);
-		outlier.setLoot(Collections.singletonMap(SavedItems.LOOT, 400_000L));
-		outlier.setLootGeValue(400_000L);
-		outlier.setLootHaValue(800_000L);
-		outlier.setSuppliesGeValue(60_000L);
 		outlier.setSupplies(Collections.singletonMap(100, 60L));
 		outlier.setSupplyDoses(Collections.singletonMap(100, 4));
-		outlier.setXpGained(Collections.singletonMap("SLAYER", 30_000L));
 
 		LedgerRecord partial = record(CREATURE, MONSTER, 100, 100 * MINUTE);
 		partial.setPartial(true);
 		LedgerRecord otherCreature = record(43, MONSTER, 100, 100 * MINUTE);
-		// A 4-dose item at 4,000 gp today: 1,000 gp a dose.
-		java.util.Map<Integer, Long> today = SavedItems.todaysPrices();
-		today.put(100, 4_000L);
-		TaskStatistics stats = TaskStatistics.forTask(Arrays.asList(usual, outlier, partial, otherCreature), CREATURE,
-			MONSTER, LootPriceMode.GE, today);
+		TaskStatistics stats = stats(Arrays.asList(usual, outlier, partial, otherCreature));
 
 		assertEquals(2, stats.getSampleCount());
-		assertEquals(35 * MINUTE, stats.getAverageTaskDurationMillis());
 		assertEquals(Long.valueOf(140_000), stats.getMillisPerKill());
-		assertEquals(Long.valueOf(16_667), stats.getLootPerKill());
-		assertEquals("70 doses at 1,000 gp over 30 kills", Long.valueOf(2_333), stats.getSuppliesValuePerKill());
-		assertFalse(stats.isProfitApproximate());
-		assertEquals(70d / 30d, stats.getSuppliesPerKill().get(100), 1e-9);
-		assertEquals(4, (int) stats.getSupplyDoses().get(100));
-		assertEquals(40_000d / 30d, stats.getXpPerKill().get("SLAYER"), 1e-9);
-		assertEquals(Long.valueOf(34_286), stats.getXpPerHour());
+		assertEquals("70 doses over 30 kills", 70d / 30d, stats.getSuppliesPerKill().get(100), 1e-9);
+		assertNull("from every location", stats.getLocation());
 	}
 
 	@Test
-	public void includesOneSampleAndReturnsNoEstimateForNoSamples()
-	{
-		assertEquals(0, stats(Collections.emptyList()).getSampleCount());
-		assertNull(stats(Collections.emptyList()).estimate(10));
-
-		LedgerRecord one = record(CREATURE, MONSTER, 2, 2 * MINUTE);
-		one.setLootGeValue(1_000L);
-		one.setSuppliesGeValue(100L);
-		TaskStatistics stats = stats(Collections.singletonList(one));
-		TaskStatistics.Estimate estimate = stats.estimate(5);
-
-		assertEquals(1, estimate.getSampleCount());
-		assertEquals(Long.valueOf(5 * MINUTE), estimate.getActiveMillis());
-		assertEquals(Long.valueOf(2_500), estimate.getLootValue());
-		assertEquals(Long.valueOf(250), estimate.getSuppliesValue());
-	}
-
-	@Test
-	public void handlesLegacyMissingValuesAndXpWithoutTreatingThemAsZero()
+	public void handlesLegacyMissingSuppliesWithoutTreatingThemAsZero()
 	{
 		LedgerRecord legacy = record(CREATURE, MONSTER, 5, 10 * MINUTE);
 		legacy.setSupplies(Collections.singletonMap(100, 5L));
@@ -85,31 +50,23 @@ public class TaskStatisticsTest
 		TaskStatistics stats = stats(Collections.singletonList(legacy));
 		assertEquals(1, stats.getSampleCount());
 		assertEquals(Long.valueOf(120_000), stats.getMillisPerKill());
-		assertNull(stats.getLootPerKill());
-		assertNull(stats.getSuppliesValuePerKill());
 		assertEquals(Double.valueOf(1d), stats.getSuppliesPerKill().get(100));
-		assertTrue(stats.getXpPerKill().isEmpty());
-		assertNull(stats.getXpPerHour());
 
+		// Valued with no supplies: it used none, so it counts for the supplies per kill.
 		LedgerRecord valuedWithoutSupplies = record(CREATURE, MONSTER, 5, 10 * MINUTE);
 		valuedWithoutSupplies.setLootGeValue(500L);
 		TaskStatistics mixed = stats(Arrays.asList(legacy, valuedWithoutSupplies));
-		assertEquals(Long.valueOf(100), mixed.getLootPerKill());
-		assertEquals(Long.valueOf(0), mixed.getSuppliesValuePerKill());
 		assertEquals(Double.valueOf(0.5), mixed.getSuppliesPerKill().get(100));
 	}
 
 	@Test
-	public void supportsLegacyNameMatchingAndSelectedLootPriceMode()
+	public void supportsLegacyNameMatching()
 	{
 		LedgerRecord legacy = record(null, "  ABYSSAL DEMONS ", 2, MINUTE);
-		legacy.setLootGeValue(100L);
-		legacy.setLootHaValue(400L);
-		TaskStatistics stats = TaskStatistics.forTask(Collections.singletonList(legacy), CREATURE, MONSTER,
-			LootPriceMode.HIGH_ALCH, Collections.emptyMap());
+		TaskStatistics stats = stats(Collections.singletonList(legacy));
 
 		assertEquals(1, stats.getSampleCount());
-		assertEquals(Long.valueOf(200), stats.getLootPerKill());
+		assertEquals(Long.valueOf(30_000), stats.getMillisPerKill());
 	}
 
 	@Test
@@ -120,131 +77,43 @@ public class TaskStatisticsTest
 		stopped.setPartial(false);
 		LedgerRecord noKills = record(CREATURE, MONSTER, 0, 10 * MINUTE);
 
-		assertEquals(0, stats(Arrays.asList(stopped, noKills)).getSampleCount());
-		assertNull(stats(Arrays.asList(stopped, noKills)).estimate(10));
+		TaskStatistics none = stats(Arrays.asList(stopped, noKills));
+		assertEquals(0, none.getSampleCount());
+		assertNull(none.getMillisPerKill());
+		assertTrue(none.getSuppliesPerKill().isEmpty());
 	}
 
 	@Test
-	public void todaysPricesChangeTheGpAverages()
+	public void aOneXTaskSavedWithoutSuppliesIsLeftOutOfTheSuppliesPerKill()
 	{
-		LedgerRecord record = record(CREATURE, MONSTER, 10, 10 * MINUTE);
-		record.setLoot(Collections.singletonMap(500, 10L));
-		record.setUnitGePrices(Collections.singletonMap(500, 1_000L));
-		record.setLootGeValue(10_000L);
-		record.setLootHaValue(5_000L);
-		record.setSupplies(Collections.singletonMap(600, 20L));
-		record.setSuppliesGeValue(2_000L);
-		java.util.List<LedgerRecord> records = Collections.singletonList(record);
+		// A 2.0 task: 10 kills, 100K of loot, 20 manta rays.
+		LedgerRecord tracked = record(CREATURE, MONSTER, 10, 10 * MINUTE);
+		tracked.setLootGeValue(100_000L);
+		tracked.setLootHaValue(100_000L);
+		tracked.setSuppliesGeValue(1_000L);
+		SavedItems.withItems(tracked);
+		// A 1.x task saved with no supplies: its supply counting may have stopped, so what it used is unknown.
+		LedgerRecord oneX = record(CREATURE, MONSTER, 30, 30 * MINUTE);
+		oneX.setLootGeValue(300_000L);
+		oneX.setLootHaValue(300_000L);
+		oneX.setSuppliesGeValue(0L);
+		SavedItems.withItems(oneX);
+		oneX.setSchemaVersion(2);
 
-		java.util.Map<Integer, Long> then = new java.util.HashMap<>();
-		then.put(500, 1_000L);
-		then.put(600, 100L);
-		TaskStatistics saved = TaskStatistics.forTask(records, CREATURE, MONSTER, LootPriceMode.GE, then);
-		assertEquals(Long.valueOf(1_000), saved.getLootPerKill());
-		assertEquals(Long.valueOf(200), saved.getSuppliesValuePerKill());
+		TaskStatistics stats = stats(Arrays.asList(tracked, oneX));
+		assertEquals("both count for the time", 2, stats.getSampleCount());
+		assertEquals(Long.valueOf(MINUTE), stats.getMillisPerKill());
+		// The 2.0 task's 20 manta rays, over its own 10 kills, not over the 40 of both.
+		assertEquals(2d, stats.getSuppliesPerKill().get(SavedItems.SUPPLY), 1e-9);
 
-		java.util.Map<Integer, Long> today = new java.util.HashMap<>();
-		today.put(500, 3_000L);
-		today.put(600, 50L);
-		TaskStatistics current = TaskStatistics.forTask(records, CREATURE, MONSTER, LootPriceMode.GE, today);
-		assertEquals(Long.valueOf(3_000), current.getLootPerKill());
-		assertEquals(Long.valueOf(100), current.getSuppliesValuePerKill());
-	}
-
-	@Test
-	public void profitPerKillIsLootPerKillMinusSuppliesPerKillOverTheValuedKills()
-	{
-		LedgerRecord first = record(CREATURE, MONSTER, 10, 10 * MINUTE);
-		first.setLootGeValue(100_000L);
-		first.setLootHaValue(150_000L);
-		first.setSuppliesGeValue(10_000L);
-		LedgerRecord second = record(CREATURE, MONSTER, 30, 20 * MINUTE);
-		second.setLootGeValue(300_000L);
-		second.setLootHaValue(450_000L);
-		second.setSuppliesGeValue(50_000L);
-		// Not valued: left out of the GP averages, not counted as 0.
-		LedgerRecord legacy = record(CREATURE, MONSTER, 60, 60 * MINUTE);
-		java.util.List<LedgerRecord> records = Arrays.asList(SavedItems.withItems(first),
-			SavedItems.withItems(second), legacy);
-
-		TaskStatistics ge = TaskStatistics.forTask(records, CREATURE, MONSTER, LootPriceMode.GE,
-			SavedItems.todaysPrices());
-		assertEquals(Long.valueOf(10_000), ge.getLootPerKill());
-		assertEquals(Long.valueOf(1_500), ge.getSuppliesValuePerKill());
-		assertEquals(Long.valueOf(8_500), ge.getProfitPerKill());
-		assertFalse(ge.isProfitApproximate());
-
-		// Loot at the Loot price mode, supplies at GE.
-		TaskStatistics ha = TaskStatistics.forTask(records, CREATURE, MONSTER, LootPriceMode.HIGH_ALCH,
-			SavedItems.todaysPrices());
-		assertEquals(Long.valueOf(13_500), ha.getProfitPerKill());
-	}
-
-	@Test
-	public void profitPerKillAddsUpWithTheRoundedPartsAndCanBeALoss()
-	{
-		LedgerRecord record = record(CREATURE, MONSTER, 3, 10 * MINUTE);
-		record.setLootGeValue(1_000L);
-		record.setSuppliesGeValue(2_000L);
-
-		TaskStatistics stats = stats(Collections.singletonList(record));
-		// 333.3 and 666.7 round to 333 and 667: the profit line matches the two lines above it.
-		assertEquals(Long.valueOf(333), stats.getLootPerKill());
-		assertEquals(Long.valueOf(667), stats.getSuppliesValuePerKill());
-		assertEquals(Long.valueOf(-334), stats.getProfitPerKill());
-	}
-
-	@Test
-	public void profitPerKillIsApproximateWhenEitherPartIsAndUnknownWithoutValuedTasks()
-	{
-		// Item 7 has no price today.
-		LedgerRecord lootUnpriced = record(CREATURE, MONSTER, 10, 10 * MINUTE);
-		lootUnpriced.setLootGeValue(1_000L);
-		lootUnpriced.setSuppliesGeValue(0L);
-		SavedItems.withItems(lootUnpriced);
-		java.util.Map<Integer, Long> loot7 = new java.util.HashMap<>(lootUnpriced.getLoot());
-		loot7.put(7, 1L);
-		lootUnpriced.setLoot(loot7);
-		TaskStatistics loot = stats(Collections.singletonList(lootUnpriced));
-		assertTrue(loot.isLootApproximate());
-		assertFalse(loot.isSuppliesApproximate());
-		assertTrue(loot.isProfitApproximate());
-
-		LedgerRecord suppliesUnpriced = record(CREATURE, MONSTER, 10, 10 * MINUTE);
-		suppliesUnpriced.setLootGeValue(1_000L);
-		suppliesUnpriced.setSuppliesGeValue(0L);
-		SavedItems.withItems(suppliesUnpriced);
-		suppliesUnpriced.setSupplies(Collections.singletonMap(7, 1L));
-		TaskStatistics supplies = stats(Collections.singletonList(suppliesUnpriced));
-		assertFalse(supplies.isLootApproximate());
-		assertTrue(supplies.isSuppliesApproximate());
-		assertTrue(supplies.isProfitApproximate());
-
-		LedgerRecord legacy = record(CREATURE, MONSTER, 10, 10 * MINUTE);
-		TaskStatistics unvalued = stats(Collections.singletonList(legacy));
-		assertEquals(1, unvalued.getSampleCount());
-		assertNull(unvalued.getLootPerKill());
-		assertNull(unvalued.getProfitPerKill());
-		assertNull(stats(Collections.emptyList()).getProfitPerKill());
-	}
-
-	@Test
-	public void untradeableLootAtGeZeroCountsAtHighAlch()
-	{
-		LedgerRecord record = record(CREATURE, MONSTER, 10, 10 * MINUTE);
-		record.setLoot(Collections.singletonMap(500, 10L));
-		record.setUnitGePrices(Collections.singletonMap(500, 0L));
-		record.setUnitHaPrices(Collections.singletonMap(500, 300L));
-		// Stored at the captured GE price, 0; HistoryPricing recomputes it per item.
-		record.setLootGeValue(0L);
-		record.setLootHaValue(3_000L);
-		record.setSuppliesGeValue(0L);
-
-		// Still untradeable today.
-		TaskStatistics stats = TaskStatistics.forTask(Collections.singletonList(record), CREATURE, MONSTER,
-			LootPriceMode.GE, Collections.singletonMap(500, 0L));
-		assertEquals(Long.valueOf(300), stats.getLootPerKill());
-		assertFalse(stats.isLootApproximate());
+		// A 1.x task migrated in memory reads schema version 3; its estimated cannon tag says it is one.
+		oneX.setSchemaVersion(SetupMigration.MIGRATED_VERSION);
+		oneX.setCannonEstimated(true);
+		assertEquals(2d, stats(Arrays.asList(tracked, oneX)).getSuppliesPerKill().get(SavedItems.SUPPLY), 1e-9);
+		// A task 2.0 saved without supplies used none.
+		oneX.setCannonEstimated(null);
+		assertEquals("20 over 40 kills", 0.5d, stats(Arrays.asList(tracked, oneX)).getSuppliesPerKill()
+			.get(SavedItems.SUPPLY), 1e-9);
 	}
 
 	@Test
@@ -259,7 +128,7 @@ public class TaskStatisticsTest
 		LedgerRecord legacyOther = record(null, "Kraken", 9, 9 * MINUTE);
 
 		TaskStatistics stats = TaskStatistics.forTask(Arrays.asList(same, otherKeySameName, legacy, legacyOther),
-			cerberus, "Cerberus", LootPriceMode.GE, Collections.emptyMap());
+			cerberus, "Cerberus", TaskSelection.ANY, null, null);
 		assertEquals(2, stats.getSampleCount());
 		assertEquals(Long.valueOf(MINUTE), stats.getMillisPerKill());
 	}
@@ -270,105 +139,143 @@ public class TaskStatisticsTest
 		// Without the current task's key there is nothing to compare ids with, so every record (with or without an
 		// id) is matched by its name.
 		LedgerRecord withId = record(CREATURE, MONSTER, 4, 4 * MINUTE);
-		LedgerRecord legacy = record(null, MONSTER, 6, 6 * MINUTE);
+		LedgerRecord legacy = record(null, MONSTER, 6, 12 * MINUTE);
 		LedgerRecord otherName = record(CREATURE, "Kraken", 10, 10 * MINUTE);
 
 		TaskStatistics stats = TaskStatistics.forTask(Arrays.asList(withId, legacy, otherName),
-			SessionTracker.NO_CREATURE, MONSTER, LootPriceMode.GE, Collections.emptyMap());
+			SessionTracker.NO_CREATURE, MONSTER, TaskSelection.ANY, null, null);
 		assertEquals(2, stats.getSampleCount());
-		assertEquals(5 * MINUTE, stats.getAverageTaskDurationMillis());
+		assertEquals("16 minutes over 10 kills", Long.valueOf(96_000), stats.getMillisPerKill());
 	}
 
 	@Test
-	public void sameLocationFirstUsesOnlyTheTasksThereAndSaysWhere()
+	public void sameLocationFirstUsesOnlyTheTasksAtTheSpotAndSaysWhere()
 	{
 		LedgerRecord smoke = record(CREATURE, MONSTER, 10, 10 * MINUTE);
-		smoke.setLocation("Smoke Dungeon");
+		smoke.setSpotId(TestSpots.SMOKE_ID);
 		LedgerRecord catacombs = record(CREATURE, MONSTER, 10, 30 * MINUTE);
-		catacombs.setLocation("Catacombs of Kourend");
+		catacombs.setSpotId(TestSpots.CATACOMBS_ID);
+		// Its own name (Edit location) says Smoke Dungeon, but its spot is the Catacombs: tasks match by spot.
+		catacombs.setLocation("Smoke Dungeon");
 		LedgerRecord partialHere = record(CREATURE, MONSTER, 10, 100 * MINUTE);
-		partialHere.setLocation("Smoke Dungeon");
+		partialHere.setSpotId(TestSpots.SMOKE_ID);
 		partialHere.setPartial(true);
 		LedgerRecord otherMonsterHere = record(43, "Dust devils", 10, 100 * MINUTE);
-		otherMonsterHere.setLocation("Smoke Dungeon");
+		otherMonsterHere.setSpotId(TestSpots.SMOKE_ID);
 		java.util.List<LedgerRecord> records = Arrays.asList(smoke, catacombs, partialHere, otherMonsterHere);
 
-		TaskStatistics here = TaskStatistics.forTask(records, CREATURE, MONSTER, "  smoke   DUNGEON ",
-			record -> TaskLocation.recordLocation(record, region -> null), LootPriceMode.GE, Collections.emptyMap());
-		assertEquals("case and spacing ignored; samples only", 1, here.getSampleCount());
+		TaskStatistics here = atSpot(records, smoke("Smoke Dungeon"));
+		assertEquals("samples at the spot only", 1, here.getSampleCount());
 		assertEquals(Long.valueOf(MINUTE), here.getMillisPerKill());
-		assertEquals("as the current location was given, normalised", "smoke DUNGEON", here.getLocation());
+		assertEquals("the name the current location was given", "Smoke Dungeon", here.getLocation());
 	}
 
 	@Test
 	public void withNoTaskAtTheLocationEveryLocationCounts()
 	{
 		LedgerRecord smoke = record(CREATURE, MONSTER, 10, 10 * MINUTE);
-		smoke.setLocation("Smoke Dungeon");
+		smoke.setSpotId(TestSpots.SMOKE_ID);
 		LedgerRecord unknown = record(CREATURE, MONSTER, 10, 30 * MINUTE);
 		java.util.List<LedgerRecord> records = Arrays.asList(smoke, unknown);
 
-		for (String location : new String[]{"Catacombs of Kourend", null, "  "})
+		TaskLocation.Here[] elsewhere = {new TaskLocation.Here(TestSpots.CATACOMBS_ID, "Catacombs of Kourend"), null,
+			TaskLocation.Here.UNKNOWN, new TaskLocation.Here(null, "Smoke Dungeon"), smoke(null)};
+		for (TaskLocation.Here location : elsewhere)
 		{
-			TaskStatistics all = TaskStatistics.forTask(records, CREATURE, MONSTER, location,
-				record -> TaskLocation.recordLocation(record, region -> null), LootPriceMode.GE,
-				Collections.emptyMap());
-			assertEquals(location, 2, all.getSampleCount());
-			assertEquals(location, Long.valueOf(2 * MINUTE), all.getMillisPerKill());
-			assertNull(location, all.getLocation());
+			TaskStatistics all = atSpot(records, location);
+			assertEquals(String.valueOf(location), 2, all.getSampleCount());
+			assertEquals(String.valueOf(location), Long.valueOf(2 * MINUTE), all.getMillisPerKill());
+			assertNull(String.valueOf(location), all.getLocation());
 		}
 		LedgerRecord partial = record(CREATURE, MONSTER, 10, 10 * MINUTE);
 		partial.setPartial(true);
-		partial.setLocation("Catacombs of Kourend");
-		TaskStatistics onlyPartialThere = TaskStatistics.forTask(Arrays.asList(smoke, unknown, partial), CREATURE,
-			MONSTER, "Catacombs of Kourend", record -> TaskLocation.recordLocation(record, region -> null),
-			LootPriceMode.GE, Collections.emptyMap());
+		partial.setSpotId(TestSpots.CATACOMBS_ID);
+		TaskStatistics onlyPartialThere = atSpot(Arrays.asList(smoke, unknown, partial),
+			new TaskLocation.Here(TestSpots.CATACOMBS_ID, "Catacombs of Kourend"));
 		assertNull("a partial task is no sample there", onlyPartialThere.getLocation());
 		assertEquals(2, onlyPartialThere.getSampleCount());
 	}
 
 	@Test
-	public void aRecordSavedBeforeItsRegionWasNamedMatchesOnceItIs()
+	public void aRecordSavedWithOnlyARegionMatchesByItsRegionsSpotAndANameAloneNever()
 	{
-		LedgerRecord unnamed = record(CREATURE, MONSTER, 10, 10 * MINUTE);
-		unnamed.setLocationRegion(12_946);
+		// Saved before spots: its region decides its spot, with no name needed.
+		LedgerRecord regionOnly = record(CREATURE, MONSTER, 10, 10 * MINUTE);
+		regionOnly.setLocationRegion(TestSpots.SMOKE);
+		// A 1.x task named by hand, with no region: no spot, so it never matches a location.
+		LedgerRecord nameOnly = record(CREATURE, MONSTER, 10, 50 * MINUTE);
+		nameOnly.setLocation("Smoke Dungeon");
 		LedgerRecord elsewhere = record(CREATURE, MONSTER, 10, 30 * MINUTE);
-		elsewhere.setLocation("Catacombs of Kourend");
-		java.util.List<LedgerRecord> records = Arrays.asList(unnamed, elsewhere);
-		java.util.Map<Integer, String> names = new java.util.HashMap<>();
+		elsewhere.setSpotId(TestSpots.CATACOMBS_ID);
+		java.util.List<LedgerRecord> records = Arrays.asList(regionOnly, nameOnly, elsewhere);
 
-		TaskStatistics before = TaskStatistics.forTask(records, CREATURE, MONSTER, "Smoke Dungeon",
-			record -> TaskLocation.recordLocation(record, names::get), LootPriceMode.GE, Collections.emptyMap());
-		assertNull("not named yet: all history", before.getLocation());
-		assertEquals(2, before.getSampleCount());
-
-		names.put(12_946, "Smoke Dungeon");
-		TaskStatistics after = TaskStatistics.forTask(records, CREATURE, MONSTER, "Smoke Dungeon",
-			record -> TaskLocation.recordLocation(record, names::get), LootPriceMode.GE, Collections.emptyMap());
-		assertEquals("Smoke Dungeon", after.getLocation());
-		assertEquals(1, after.getSampleCount());
-		assertEquals(Long.valueOf(MINUTE), after.getMillisPerKill());
+		TaskStatistics here = atSpot(records, smoke("Smoke"));
+		assertEquals("Smoke", here.getLocation());
+		assertEquals(1, here.getSampleCount());
+		assertEquals(Long.valueOf(MINUTE), here.getMillisPerKill());
 	}
 
 	@Test
-	public void theSameLocationSamplesFeedWhatToBring()
+	public void theSameLocationSamplesFeedTheSuppliesPerKill()
 	{
 		LedgerRecord smoke = record(CREATURE, MONSTER, 10, 10 * MINUTE);
-		smoke.setLocation("Smoke Dungeon");
+		smoke.setSpotId(TestSpots.SMOKE_ID);
 		smoke.setSupplies(Collections.singletonMap(100, 10L));
-		smoke.setBankTrips(0);
 		LedgerRecord catacombs = record(CREATURE, MONSTER, 10, 10 * MINUTE);
-		catacombs.setLocation("Catacombs of Kourend");
+		catacombs.setSpotId(TestSpots.CATACOMBS_ID);
 		catacombs.setSupplies(Collections.singletonMap(100, 90L));
-		catacombs.setBankTrips(4);
 
-		TaskStatistics here = TaskStatistics.forTask(Arrays.asList(smoke, catacombs), CREATURE, MONSTER,
-			"Smoke Dungeon", record -> TaskLocation.recordLocation(record, region -> null), LootPriceMode.GE,
-			Collections.emptyMap());
-		SupplyRecommendation.Estimate bring = SupplyRecommendation.forTask(here, 10);
-		assertEquals(Long.valueOf(10), bring.getSupplies().get(100));
-		assertEquals(Long.valueOf(0), bring.getBankTrips());
-		assertEquals(1, bring.getSupplySampleCount());
+		TaskStatistics here = atSpot(Arrays.asList(smoke, catacombs), smoke("Smoke Dungeon"));
+		assertEquals(Double.valueOf(1d), here.getSuppliesPerKill().get(100));
+		assertEquals("every location", Double.valueOf(5d),
+			atSpot(Arrays.asList(smoke, catacombs), null).getSuppliesPerKill().get(100));
+	}
+
+	@Test
+	public void poolsTheSuppliesPerKillOverTheRecordsThatHaveThem()
+	{
+		LedgerRecord first = record(CREATURE, MONSTER, 10, 10 * MINUTE);
+		first.setSupplies(map(100, 12, 101, 30));
+		first.setSupplyDoses(Collections.singletonMap(100, 4));
+		LedgerRecord second = record(CREATURE, MONSTER, 20, 20 * MINUTE);
+		second.setSupplies(map(100, 40, 101, 60));
+		second.setSupplyDoses(Collections.singletonMap(100, 4));
+
+		TaskStatistics stats = stats(Arrays.asList(first, second));
+		// 52 doses and 90 items over 30 kills.
+		assertEquals(52d / 30d, stats.getSuppliesPerKill().get(100), 1e-9);
+		assertEquals(3d, stats.getSuppliesPerKill().get(101), 1e-9);
+	}
+
+	@Test
+	public void aKnownNoUseCountsAsNoSuppliesAndAnUnknownOneStaysUnknown()
+	{
+		LedgerRecord used = record(CREATURE, MONSTER, 10, 10 * MINUTE);
+		used.setSupplies(map(100, 10));
+		// A partial task is no sample; a task saved without supplies or values says nothing of them.
+		LedgerRecord partial = record(CREATURE, MONSTER, 10, 10 * MINUTE);
+		partial.setPartial(true);
+		partial.setSupplies(map(100, 1_000));
+		LedgerRecord legacy = record(CREATURE, MONSTER, 10, 10 * MINUTE);
+		legacy.setSupplies(null);
+		TaskStatistics unknown = stats(Arrays.asList(used, partial, legacy));
+		assertEquals(2, unknown.getSampleCount());
+		assertEquals("10 over the 10 kills that say what they used", Double.valueOf(1d),
+			unknown.getSuppliesPerKill().get(100));
+
+		// Valued with no supplies: it used none.
+		LedgerRecord noSupplies = record(CREATURE, MONSTER, 10, 10 * MINUTE);
+		noSupplies.setLootGeValue(0L);
+		noSupplies.setSupplies(Collections.emptyMap());
+		assertEquals("10 over 20 kills", Double.valueOf(0.5d),
+			stats(Arrays.asList(used, legacy, noSupplies)).getSuppliesPerKill().get(100));
+		assertTrue(stats(Collections.singletonList(noSupplies)).getSuppliesPerKill().isEmpty());
+	}
+
+	/** The Smoke Dungeon's spot as the current location, shown as {@code name}. */
+	private static TaskLocation.Here smoke(String name)
+	{
+		return new TaskLocation.Here(TestSpots.SMOKE_ID, name);
 	}
 
 	@Test
@@ -388,7 +295,7 @@ public class TaskStatisticsTest
 		for (String monster : new String[]{"", " ", null})
 		{
 			assertEquals(0, TaskStatistics.forTask(Arrays.asList(blank, unnamed), SessionTracker.NO_CREATURE, monster,
-				LootPriceMode.GE, Collections.emptyMap()).getSampleCount());
+				TaskSelection.ANY, null, null).getSampleCount());
 		}
 	}
 
@@ -405,7 +312,7 @@ public class TaskStatisticsTest
 			assertEquals("Mining", SkillXp.skillName("mINING"));
 			LedgerRecord iron = record(null, "Iron dragons", 10, 10 * MINUTE);
 			assertEquals(1, TaskStatistics.forTask(Collections.singletonList(iron), SessionTracker.NO_CREATURE,
-				"IRON DRAGONS", LootPriceMode.GE, Collections.emptyMap()).getSampleCount());
+				"IRON DRAGONS", TaskSelection.ANY, null, null).getSampleCount());
 		}
 		finally
 		{
@@ -413,14 +320,26 @@ public class TaskStatisticsTest
 		}
 	}
 
-	private static TaskStatistics stats(Iterable<LedgerRecord> records)
+	/** The task's statistics over every location. */
+	private static TaskStatistics stats(java.util.List<LedgerRecord> records)
 	{
-		java.util.List<LedgerRecord> list = new java.util.ArrayList<>();
-		for (LedgerRecord record : records)
+		return TaskStatistics.forTask(records, CREATURE, MONSTER, TaskSelection.ANY, null, null);
+	}
+
+	/** The task's statistics at {@code here}'s spot first. */
+	private static TaskStatistics atSpot(java.util.List<LedgerRecord> records, TaskLocation.Here here)
+	{
+		return TaskStatistics.forTask(records, CREATURE, MONSTER, TaskSelection.ANY, here, TestSpots.TABLE::recordSpot);
+	}
+
+	private static java.util.Map<Integer, Long> map(int... values)
+	{
+		java.util.Map<Integer, Long> result = new java.util.HashMap<>();
+		for (int i = 0; i < values.length; i += 2)
 		{
-			list.add(record);
+			result.put(values[i], (long) values[i + 1]);
 		}
-		return TaskStatistics.forTask(list, CREATURE, MONSTER, LootPriceMode.GE, SavedItems.todaysPrices());
+		return result;
 	}
 
 	private static LedgerRecord record(Integer creatureId, String monster, int kills, long activeMillis)

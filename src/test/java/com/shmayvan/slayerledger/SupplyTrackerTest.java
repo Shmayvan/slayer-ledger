@@ -585,4 +585,50 @@ public class SupplyTrackerTest
 		assertEquals(1, tracker.update(obs(runeArrow, 97), true, false, Collections.emptySet())
 			.getUsed().get(runeArrow));
 	}
+
+	@Test
+	public void ammoExcludedBeforeItsDataLoadedIsStillReturnedOnceClassified()
+	{
+		// darts are left out of a blowpipe-loading tick (or dropped) before their item stats arrive. That must not
+		// fix their category as "not a supply", or darts picked up later would never offset the ones thrown.
+		final boolean[] loaded = {false};
+		SupplyTracker tracker = new SupplyTracker(id -> loaded[0]
+			? SupplyTracker.classify("Rune dart", new String[]{null, "Wield", null, null, "Drop"}, false, true, false)
+			: null);
+		final int runeDart = 811;
+		tracker.update(obs(runeDart, 100), true, false, Collections.emptySet());
+		tracker.update(obs(runeDart, 100), true, false, Collections.emptySet(), ids(runeDart));
+		tracker.update(obs(runeDart, 100), true, false, ids(runeDart));
+		loaded[0] = true;
+		tracker.update(obs(runeDart, 100), true, false, Collections.emptySet());
+		assertEquals(10, tracker.update(obs(runeDart, 90), true, false, Collections.emptySet()).getUsed().get(runeDart));
+		assertEquals("picked up", 4, tracker.update(obs(runeDart, 94), true, false, Collections.emptySet())
+			.getReturned().get(runeDart));
+	}
+
+	@Test
+	public void aClassificationIsAskedForAgainUntilItIsKnownAndThenKept()
+	{
+		// a members item on a free world (or a wieldable item without its stats) has no answer yet; once it has
+		// one it is kept, so the classifier is not asked every tick.
+		final Map<Integer, Integer> calls = new HashMap<>();
+		final boolean[] membersWorld = {false};
+		SupplyTracker tracker = new SupplyTracker(id ->
+		{
+			calls.merge(id, 1, Integer::sum);
+			return membersWorld[0] ? CLASSIFIER.classify(id) : null;
+		});
+		tracker.noteVariants(obs(PRAYER_4, 1));
+		tracker.update(obs(PRAYER_4, 1), true, false, Collections.emptySet());
+		assertTrue("nothing counted on the free world", tracker.update(obs(PRAYER_3, 1), true, false,
+			Collections.emptySet()).isEmpty());
+		membersWorld[0] = true;
+		tracker.update(obs(PRAYER_4, 1), true, false, Collections.emptySet());
+		SupplyTracker.Usage usage = tracker.update(obs(PRAYER_3, 1), true, false, Collections.emptySet());
+		assertEquals(1, usage.getUsed().get(PRAYER_4));
+		assertEquals(Integer.valueOf(4), usage.getDoses().get(PRAYER_4));
+		final int askedBefore = calls.get(PRAYER_4);
+		tracker.update(obs(PRAYER_4, 1), true, false, Collections.emptySet());
+		assertEquals("kept once known", askedBefore, (int) calls.get(PRAYER_4));
+	}
 }

@@ -5,8 +5,9 @@ import lombok.Getter;
 import lombok.ToString;
 
 /**
- * Kills a session counted in one map region. Serialized with Gson in {@link SessionSnapshot}; effectively
- * immutable (no setters). Pure (no RuneLite types). The rules are in {@link LocationTally}.
+ * Kills a session counted at one place: a map region and the Slayer spot of the tiles they were counted on.
+ * Serialized with Gson in {@link SessionSnapshot}; effectively immutable (no setters). Pure (no RuneLite types). The
+ * rules are in {@link LocationTally}.
  */
 @Getter
 @EqualsAndHashCode
@@ -15,7 +16,12 @@ final class LocationKills
 {
 	/** Map region id of the local player's tile when the kills were counted (instances as their template region). */
 	private int region;
-	/** Kills counted in {@link #region}; at least 1. */
+	/**
+	 * The Slayer spot key of those tiles ({@link KillPlace#getSpot}), or {@code null} when it is decided from
+	 * {@link #region} alone: a tile no spot of a shared region matched, or a tally kept before spots.
+	 */
+	private String spot;
+	/** Kills counted at this place; at least 1. */
 	private int kills;
 
 	/** For Gson. */
@@ -23,9 +29,16 @@ final class LocationKills
 	{
 	}
 
+	/** Kills in {@code region}, whose spot is decided from the region alone. */
 	LocationKills(int region, int kills)
 	{
+		this(region, null, kills);
+	}
+
+	LocationKills(int region, String spot, int kills)
+	{
 		this.region = region;
+		this.spot = spot;
 		this.kills = kills;
 	}
 }

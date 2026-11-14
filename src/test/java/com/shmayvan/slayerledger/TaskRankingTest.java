@@ -132,7 +132,7 @@ public class TaskRankingTest
 			LootPriceMode.GE).get(0);
 		assertTrue(saved.isApproximate());
 		TaskRanking.Entry today = TaskRanking.rank(Collections.singletonList(valued), TaskRanking.Metric.PROFIT,
-			LootPriceMode.GE, current).get(0);
+			LootPriceMode.GE, current, HiddenLoot.NONE).get(0);
 		assertEquals(Long.valueOf(195L), today.getRatePerHour());
 		assertFalse(today.isApproximate());
 	}
@@ -367,7 +367,7 @@ public class TaskRankingTest
 		current.put(6, 500L);
 
 		TaskRanking.Entry today = TaskRanking.rank(Collections.singletonList(valued),
-			TaskRanking.Metric.PROFIT_PER_KILL, LootPriceMode.GE, current).get(0);
+			TaskRanking.Metric.PROFIT_PER_KILL, LootPriceMode.GE, current, HiddenLoot.NONE).get(0);
 		// (2 x 1,000 - 500) / 10 kills.
 		assertEquals(Long.valueOf(150L), today.getRatePerHour());
 		assertFalse(today.isApproximate());
@@ -499,7 +499,7 @@ public class TaskRankingTest
 	private static List<TaskRanking.Entry> rank(List<LedgerRecord> records, TaskRanking.Metric metric,
 		LootPriceMode mode)
 	{
-		return TaskRanking.rank(records, metric, mode, null);
+		return TaskRanking.rank(records, metric, mode, null, HiddenLoot.NONE);
 	}
 
 	/** A completed record that tracked the whole assignment of 10. */

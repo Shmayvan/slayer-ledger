@@ -42,7 +42,7 @@ public class HarnessSessionEndTest
 	/** Plays and kills two of the ten (two kills, one bones). */
 	private void playAndKillTwo()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.setRemaining(8);
 		harness.lootOnNextTick(ItemID.BONES, 1);
 		harness.tick();
@@ -54,7 +54,7 @@ public class HarnessSessionEndTest
 		playAndKillTwo();
 		harness.logout();
 
-		assertEquals(SessionTracker.State.PAUSED, harness.sessionState());
+		assertEquals(SessionTracker.State.LOGGED_OUT, harness.sessionState());
 		SessionSnapshot active = harness.activeSession(ACCOUNT);
 		assertNotNull("persisted in case the client is closed", active);
 		assertEquals(2, active.getKills());
@@ -63,12 +63,13 @@ public class HarnessSessionEndTest
 		assertTrue("no record on logout", harness.records(ACCOUNT).isEmpty());
 
 		harness.loginAndSettle(ACCOUNT);
-		assertEquals("kept in memory, paused", SessionTracker.State.PAUSED, harness.sessionState());
-		assertTrue(harness.canPlay());
-		assertTrue(harness.play());
+		assertEquals("kept in memory, logged out", SessionTracker.State.LOGGED_OUT, harness.sessionState());
+		assertTrue(harness.tracker().isTaskObserved());
+		// The next task kill restarts it.
 		harness.setRemaining(7);
 		harness.tick();
-		harness.stop();
+		assertEquals(SessionTracker.State.RUNNING, harness.sessionState());
+		harness.endTask();
 
 		LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		assertTrue(record.isPartial());
@@ -89,13 +90,15 @@ public class HarnessSessionEndTest
 
 		harness.startUp();
 		harness.loginAndSettle(ACCOUNT);
-		assertEquals("restored as paused", SessionTracker.State.PAUSED, harness.sessionState());
+		assertEquals("restored as logged out", SessionTracker.State.LOGGED_OUT, harness.sessionState());
 		assertTrue(harness.tracker().isRestoredPending());
-		assertTrue(harness.play());
+		// The next task kill restarts it; its loot arrives after the kill.
 		harness.setRemaining(7);
+		harness.tick();
+		assertEquals(SessionTracker.State.RUNNING, harness.sessionState());
 		harness.lootOnNextTick(ItemID.ABYSSAL_WHIP, 1);
 		harness.tick();
-		harness.stop();
+		harness.endTask();
 
 		LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		assertEquals(sessionId, record.getId());
@@ -118,7 +121,7 @@ public class HarnessSessionEndTest
 
 		harness.startUp();
 		harness.ticks(PluginHarness.SETTLE_TICKS);
-		assertEquals("restored after the plugin is turned back on", SessionTracker.State.PAUSED,
+		assertEquals("restored after the plugin is turned back on", SessionTracker.State.LOGGED_OUT,
 			harness.sessionState());
 		assertEquals(2, harness.tracker().getKills());
 		assertTrue(harness.records(ACCOUNT).isEmpty());
@@ -178,35 +181,38 @@ public class HarnessSessionEndTest
 	}
 
 	@Test
-	public void worldHopPausesTheSessionWithoutSavingIt()
+	public void worldHopKeepsTheSessionRunningWithoutSavingIt()
 	{
 		playAndKillTwo();
 		harness.hop();
 		harness.ticks(PluginHarness.SETTLE_TICKS);
 
-		assertEquals(SessionTracker.State.PAUSED, harness.sessionState());
+		assertEquals("a hop is not a stop", SessionTracker.State.RUNNING, harness.sessionState());
 		assertTrue(harness.records(ACCOUNT).isEmpty());
-		assertTrue(harness.play());
-		assertEquals(SessionTracker.State.RUNNING, harness.sessionState());
+		assertNull(harness.activeSession(ACCOUNT));
 	}
 
 	@Test
-	public void stopSavesAPartialRecordOnce()
+	public void endTaskSavesAPartialRecordOnce()
 	{
 		playAndKillTwo();
-		harness.stop();
+		harness.endTask();
 
 		LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		assertTrue(record.isPartial());
 		assertEquals(2, record.getKills());
 		assertEquals(SessionTracker.State.IDLE, harness.sessionState());
+		assertEquals(SessionTracker.Status.ENDED, harness.status());
 
 		harness.ticks(3);
 		harness.logout();
 		harness.clientShutdown();
 		harness.shutDown();
 		assertEquals(1, harness.records(ACCOUNT).size());
-		assertNull(harness.activeSession(ACCOUNT));
+		// Only the Ended assignment's marker is kept, never a second session.
+		SessionSnapshot marker = harness.activeSession(ACCOUNT);
+		assertTrue(marker.isEndedMarker());
+		assertEquals(0, marker.getKills());
 	}
 
 	@Test
@@ -230,16 +236,16 @@ public class HarnessSessionEndTest
 	{
 		harness.lootOnNextTick(ItemID.ABYSSAL_WHIP, 1);
 		harness.tick();
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.lootOnNextTick(ItemID.BONES, 1);
 		harness.tick();
 		harness.pause();
 		harness.lootOnNextTick(ItemID.ABYSSAL_WHIP, 2);
 		harness.tick();
 		harness.postLoot(ItemID.ABYSSAL_WHIP, 3);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.postLoot(ItemID.BONES, 2);
-		harness.stop();
+		harness.endTask();
 		harness.lootOnNextTick(ItemID.ABYSSAL_WHIP, 4);
 		harness.tick();
 
@@ -251,14 +257,14 @@ public class HarnessSessionEndTest
 	@Test
 	public void pickpocketLootIsNotCounted()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.chat(ChatMessageType.SPAM, "You pick the H.A.M. Member's pocket.");
 		// The server sends the pickpocket's NPC loot on that tick.
 		harness.lootOnNextTick(ItemID.ABYSSAL_WHIP, 1);
 		harness.tick();
 		harness.lootOnNextTick(ItemID.BONES, 1);
 		harness.tick();
-		harness.stop();
+		harness.endTask();
 
 		LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		assertNull(record.getLoot().get(ItemID.ABYSSAL_WHIP));

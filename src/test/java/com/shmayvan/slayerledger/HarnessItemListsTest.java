@@ -94,19 +94,12 @@ public class HarnessItemListsTest
 		harness.loginAndSettle(ACCOUNT);
 		assertFalse("no lists without a session", onEdt(() -> harness.ui().isLiveItemListsShown()));
 
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.ticks(2);
 		assertTrue(onEdt(() -> harness.ui().isLiveItemListsShown()));
-		assertEquals("closed at first", "Supplies used (0) | Show",
-			onEdt(() -> harness.ui().getLiveSupplies().getHeaderText()));
-		assertEquals("Loot received (0) | Show", onEdt(() -> harness.ui().getLiveLoot().getHeaderText()));
-		assertTrue(liveSupplies().isEmpty());
-
-		harness.onEdt(() ->
-		{
-			harness.ui().getLiveSupplies().toggle();
-			harness.ui().getLiveLoot().toggle();
-		});
+		// Flat sub-headers with their values, always open.
+		assertEquals("Supplies used | 0", onEdt(() -> harness.ui().getLiveSupplies().getHeaderText()));
+		assertEquals("Loot | 0", onEdt(() -> harness.ui().getLiveLoot().getHeaderText()));
 		assertEquals(Collections.singletonList("None"), liveSupplies());
 		assertEquals(Collections.singletonList("None"), liveLoot());
 
@@ -116,7 +109,7 @@ public class HarnessItemListsTest
 		harness.postLoot(ItemID.RUNE_PLATEBODY, 1);
 		harness.postLoot(ItemID.BONES, 3);
 		harness.ticks(2);
-		assertEquals("Supplies used (2) | Hide", onEdt(() -> harness.ui().getLiveSupplies().getHeaderText()));
+		assertEquals("Supplies used | 3,600", onEdt(() -> harness.ui().getLiveSupplies().getHeaderText()));
 		// One dose shows the potion without a number; the tooltip says it is a dose.
 		assertEquals(Arrays.asList("Prayer potion | " + ItemID._4DOSEPRAYERRESTORE, "Shark | " + ItemID.SHARK + " x2"),
 			liveSupplies());
@@ -140,7 +133,7 @@ public class HarnessItemListsTest
 			"Bones | " + ItemID.BONES + " x3"), liveLoot());
 		assertTooltips(liveLootTooltips(), "Value (high alch): 78,000 gp", "Value (high alch): 3 gp");
 
-		harness.stop();
+		harness.endTask();
 		assertFalse("hidden once the session ends", onEdt(() ->
 		{
 			harness.panel().refresh();
@@ -167,18 +160,18 @@ public class HarnessItemListsTest
 			harness.ui().getHistory().clickRow(0);
 			return harness.ui().getHistory().getDetailsText(0);
 		});
-		assertEquals(Arrays.asList(SlayerLedgerPanel.ITEMS_AT_CURRENT_PRICES, "Supplies used (2)",
+		assertEquals(Arrays.asList(SlayerLedgerPanel.ITEMS_AT_CURRENT_PRICES, "Supplies used | 14.7K",
 			"Item " + ItemID._4DOSEPRAYERRESTORE + " | " + ItemID._4DOSEPRAYERRESTORE + " x6",
-			"Item " + ItemID.SHARK + " | " + ItemID.SHARK + " x3", "Loot received (1)",
+			"Item " + ItemID.SHARK + " | " + ItemID.SHARK + " x3", "Loot received | 50K",
 			"Item " + ItemID.RUNE_PLATEBODY + " | " + ItemID.RUNE_PLATEBODY), beforeNames);
 		assertEquals("no client read on the EDT (getImage is not one)", calls, harness.pluginCallCount());
 
 		harness.drain();
 		assertTrue("names were looked up through ItemManager", harness.pluginCallCount() > calls);
 		// At 50,000 gp on the GE, alching the platebody doesn't pay: no alch border.
-		assertEquals(Arrays.asList(SlayerLedgerPanel.ITEMS_AT_CURRENT_PRICES, "Supplies used (2)",
+		assertEquals(Arrays.asList(SlayerLedgerPanel.ITEMS_AT_CURRENT_PRICES, "Supplies used | 14.7K",
 			"Prayer potion | " + ItemID._4DOSEPRAYERRESTORE + " x6", "Shark | " + ItemID.SHARK + " x3",
-			"Loot received (1)", "Rune platebody | " + ItemID.RUNE_PLATEBODY), details(0));
+			"Loot received | 50K", "Rune platebody | " + ItemID.RUNE_PLATEBODY), details(0));
 		assertTooltips(onEdt(() -> harness.ui().getHistory().getDetailsTooltips(0, "Supplies used")),
 			"Quantity: 6 doses<br>Value (GE): 12,000 gp", "Quantity: 3<br>Value (GE): 2,700 gp");
 		assertTooltips(onEdt(() -> harness.ui().getHistory().getDetailsTooltips(0, "Loot received")),
@@ -191,6 +184,67 @@ public class HarnessItemListsTest
 		harness.onEdt(() -> harness.ui().getHistory().clickRow(0));
 		harness.drain();
 		assertEquals(calls, harness.pluginCallCount());
+	}
+
+	/**
+	 * a potion counted under its 3-dose variant until a 4-dose one was first seen mid-session, then under that,
+	 * is one cell in the live supplies grid, with the 4-dose icon and both doses.
+	 */
+	@Test
+	public void theLiveGridShowsAPotionUnderTwoVariantsAsOneCell()
+	{
+		harness.defineItem(ItemID._2DOSEPRAYERRESTORE, "Prayer potion(2)", 4_000, 60, DRINK);
+		harness.setInventory(item(ItemID._3DOSEPRAYERRESTORE, 1));
+		harness.setTask(42, "Abyssal demons", 10, 10);
+		harness.loginAndSettle(ACCOUNT);
+		assertTrue(harness.startNow());
+
+		// A dose of the 3-dose potion: counted as the 3-dose one, the most doses seen so far.
+		harness.setInventory(item(ItemID._2DOSEPRAYERRESTORE, 1));
+		harness.ticks(2);
+		// A 4-dose potion appears (not a use), then a dose of it: counted as the 4-dose one.
+		harness.setInventory(item(ItemID._2DOSEPRAYERRESTORE, 1), item(ItemID._4DOSEPRAYERRESTORE, 1));
+		harness.ticks(2);
+		harness.setInventory(item(ItemID._2DOSEPRAYERRESTORE, 1), item(ItemID._3DOSEPRAYERRESTORE, 1));
+		harness.ticks(2);
+
+		assertEquals("the session holds both ids", 2, harness.tracker().activeSummary().getSupplies().itemIds().size());
+		assertEquals(Collections.singletonList("Prayer potion | " + ItemID._4DOSEPRAYERRESTORE + " x2"),
+			liveSupplies());
+		// 1 dose at 6,000 per 3 and 1 at 8,000 per 4.
+		assertTooltips(onEdt(() -> harness.ui().getLiveSupplies().getCellTooltips()),
+			"Quantity: 2 doses<br>Value (GE): 4,000 gp");
+		assertEquals("Supplies used | 4,000", onEdt(() -> harness.ui().getLiveSupplies().getHeaderText()));
+	}
+
+	/** a saved task holding one potion under two ids shows it as one cell in its details; the file is unchanged. */
+	@Test
+	public void theHistoryGridShowsAPotionUnderTwoVariantsAsOneCell() throws IOException
+	{
+		assertTrue(harness.ledgerDirectory().isDirectory() || harness.ledgerDirectory().mkdirs());
+		int four = ItemID._4DOSEPRAYERRESTORE;
+		int three = ItemID._3DOSEPRAYERRESTORE;
+		String json = "{\"schemaVersion\":2,\"records\":[{\"schemaVersion\":2,\"id\":\"potions\","
+			+ "\"monster\":\"Abyssal demons\",\"initialAmount\":10,\"kills\":10,\"activeMillis\":60000,"
+			+ "\"startedAt\":1000,\"endedAt\":2000,\"completed\":true,\"partial\":false,"
+			+ "\"supplies\":{\"" + three + "\":5,\"" + four + "\":7,\"" + ItemID.SHARK + "\":1},"
+			+ "\"supplyDoses\":{\"" + three + "\":3,\"" + four + "\":4},"
+			+ "\"unitGePrices\":{\"" + three + "\":6000,\"" + four + "\":8000,\"" + ItemID.SHARK + "\":800},"
+			+ "\"lootGeValue\":0,\"lootHaValue\":0,\"suppliesGeValue\":24800,\"suppliesHaValue\":0}]}";
+		Files.write(harness.ledgerDirectory().toPath().resolve(ACCOUNT + ".json"),
+			json.getBytes(StandardCharsets.UTF_8));
+		harness.loginAndSettle(ACCOUNT);
+		harness.onEdt(() -> harness.ui().getHistory().clickRow(0));
+		harness.drain();
+
+		// 5 doses at 6,000 per 3 and 7 at 8,000 per 4: 24,000.
+		assertEquals(Arrays.asList(SlayerLedgerPanel.ITEMS_AT_CURRENT_PRICES, "Supplies used | 24.8K",
+			"Prayer potion | " + four + " x12", "Shark | " + ItemID.SHARK, "Loot received | 0", "None"), details(0));
+		assertTooltips(onEdt(() -> harness.ui().getHistory().getDetailsTooltips(0, "Supplies used")),
+			"Quantity: 12 doses<br>Value (GE): 24,000 gp", "Quantity: 1<br>Value (GE): 800 gp");
+		LedgerRecord saved = harness.onlyRecord(ACCOUNT);
+		assertEquals("what is saved keeps both ids", Long.valueOf(5), saved.getSupplies().get(three));
+		assertEquals(Long.valueOf(7), saved.getSupplies().get(four));
 	}
 
 	@Test
@@ -246,7 +300,7 @@ public class HarnessItemListsTest
 		harness.drain();
 
 		List<String> lines = details(0);
-		// Price line, "Supplies used (0)", "None", "Loot received (12)", all 12 icons: no "+N more".
+		// Price line, "Supplies used | 0", "None", "Loot received | 7,800", all 12 icons: no "+N more".
 		assertEquals(lines.toString(), 16, lines.size());
 		assertEquals("highest value first", "Item 20012 | 20012", lines.get(4));
 		assertEquals("Item 20001 | 20001", lines.get(15));

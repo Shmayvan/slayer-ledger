@@ -72,7 +72,7 @@ public class TaskTimeEstimateTest
 		assertTrue(TaskTimeEstimate.averageKillMillis(Long.MAX_VALUE, TaskTimeEstimate.MIN_KILLS).getAsLong() > 0);
 		// The panel still formats a saturated estimate.
 		assertTrue(LiveSessionSection.timeLeftText(Long.MAX_VALUE, TaskTimeEstimate.MIN_KILLS, Integer.MAX_VALUE)
-			.startsWith("Time left: ~"));
+			.startsWith("~"));
 	}
 
 	@Test
@@ -95,17 +95,17 @@ public class TaskTimeEstimateTest
 	@Test
 	public void panelTextEstimatesThenCountsDown()
 	{
-		assertEquals(LiveSessionSection.TIME_LEFT_ESTIMATING, LiveSessionSection.timeLeftText(MINUTE, 2, 50));
-		assertEquals(LiveSessionSection.TIME_LEFT_ESTIMATING, LiveSessionSection.timeLeftText(30_000, 5, 50));
-		assertEquals("Time left: ~20m", LiveSessionSection.timeLeftText(5 * MINUTE, 10, 40));
-		assertEquals("Time left: ~1h 08m", LiveSessionSection.timeLeftText(45 * MINUTE, 60, 90));
+		assertEquals(LiveSessionSection.TIME_LEFT_UNKNOWN, LiveSessionSection.timeLeftText(MINUTE, 2, 50));
+		assertEquals(LiveSessionSection.TIME_LEFT_UNKNOWN, LiveSessionSection.timeLeftText(30_000, 5, 50));
+		assertEquals("~20m", LiveSessionSection.timeLeftText(5 * MINUTE, 10, 40));
+		assertEquals("~1h 08m", LiveSessionSection.timeLeftText(45 * MINUTE, 60, 90));
 	}
 
 	@Test
 	public void panelTextAfterCompletionOrWithoutTask()
 	{
-		assertEquals(LiveSessionSection.TIME_LEFT_NONE, LiveSessionSection.timeLeftText(10 * MINUTE, 40, 0));
-		assertEquals("no task: nothing to estimate even with no kills", LiveSessionSection.TIME_LEFT_NONE,
+		assertEquals(LedgerHistory.NO_VALUE, LiveSessionSection.timeLeftText(10 * MINUTE, 40, 0));
+		assertEquals("no task: nothing to estimate even with no kills", LedgerHistory.NO_VALUE,
 			LiveSessionSection.timeLeftText(0, 0, 0));
 	}
 

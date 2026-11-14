@@ -73,7 +73,7 @@ public class HarnessStreakHintTest
 	public void shownShortOnTheSecondLineAndInFullInItsTooltip()
 	{
 		harness.loginAndSettle(ACCOUNT);
-		assertEquals(Arrays.asList("Kraken · 3 left", "Konar · bonus in 3"), taskBoxRows());
+		assertEquals(Arrays.asList("Kraken", "Konar · 3 left · bonus in 3"), taskBoxRows());
 		assertEquals("Next bonus: task 50 (in 3)", hint());
 	}
 
@@ -109,7 +109,7 @@ public class HarnessStreakHintTest
 	public void justCompletedTaskShowsTheNewStreak()
 	{
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.completeTask(18);
 		harness.tick();
 		assertEquals("streak 48, no task yet", "Next bonus: task 50 (in 2)", hint());

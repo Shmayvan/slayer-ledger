@@ -10,11 +10,11 @@ import java.util.function.Consumer;
 /**
  * The names the shown history needs from the plugin (split from {@link LedgerHistoryModel}): the player's region
  * names and item names, which are asked for and which could not be found, and the nature rune's GE price for the alch
- * hint (it comes with the item names).
+ * hint (it comes with the item names); with the bundled Slayer spot table, the locations they name.
  *
  * <p>Threading: EDT only, like the model that owns it. It only keeps the names and asks for missing ones, each once;
- * the model decides what an arrival means (dropping the statistics, re-checking the chat preview) and tells its
- * listener. Callers write through the model.</p>
+ * the model decides what an arrival means (dropping the statistics, re-checking the assignment chat line) and tells
+ * its listener. Callers write through the model.</p>
  */
 final class NameBook
 {
@@ -35,6 +35,8 @@ final class NameBook
 	private final Set<Integer> locationNamesPending = new HashSet<>();
 	/** Regions without a name when last asked; asked again only after the profile changes or one is named. */
 	private final Set<Integer> locationNamesMissing = new HashSet<>();
+	/** The bundled Slayer spot table; {@link SlayerSpots#NONE} until set. */
+	private SlayerSpots spots = SlayerSpots.NONE;
 
 	// Item names
 	/** Item names from the plugin, by item id as tallied. */
@@ -74,6 +76,27 @@ final class NameBook
 	String locationName(Integer region)
 	{
 		return locationNames.get(region);
+	}
+
+	/** Sets the bundled Slayer spot table; {@code null} is {@link SlayerSpots#NONE}. */
+	void setSpots(SlayerSpots spots)
+	{
+		this.spots = spots == null ? SlayerSpots.NONE : spots;
+	}
+
+	/** The bundled Slayer spot table; never {@code null}. */
+	SlayerSpots spots()
+	{
+		return spots;
+	}
+
+	/**
+	 * A saved record's location name as the history shows it ({@link TaskLocation#recordLocation}), with the region
+	 * names known so far, or {@code null} when none is known.
+	 */
+	String recordLocation(LedgerRecord record)
+	{
+		return TaskLocation.recordLocation(record, this::locationName, spots);
 	}
 
 	/** Whether the name of {@code region} is known. */

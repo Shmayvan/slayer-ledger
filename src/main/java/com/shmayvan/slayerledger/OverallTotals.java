@@ -26,8 +26,8 @@ import lombok.Value;
  * ({@link ItemDetails}) at the same prices as the profit; a task saved without item data adds none.
  *
  * <p>Each group also has the figures the By monster and By master groupings show: kills, averages per
- * task, profit per kill and per hour, Slayer XP and Slayer points. The rates follow the Trends rules
- * ({@link TaskRanking}): pooled over the group's task samples ({@link TaskRanking#isTaskSample}) that recorded the
+ * task, profit per kill and per hour, Slayer XP and Slayer points. The rates follow {@link TaskRanking}'s rules:
+ * pooled over the group's task samples ({@link TaskRanking#isTaskSample}) that recorded the
  * figure, an hourly rate only from {@link TaskTimeEstimate#MIN_ACTIVE_MILLIS} of their active time, and Slayer XP only
  * (the {@link SkillXp#SLAYER} entry). A task that didn't record a figure is left out of it rather than counted as 0.
  * By master groups also count the master's assignments per monster ({@link Assignment}): its completed played tasks
@@ -478,8 +478,8 @@ final class OverallTotals
 		}
 
 		/**
-		 * Profit per kill as Trends pools it: the profit of the task samples that have one over their kills, or
-		 * {@code null} without any.
+		 * Profit per kill as {@link TaskRanking} pools it: the profit of the task samples that have one over their
+		 * kills, or {@code null} without any.
 		 */
 		Long getProfitPerKill()
 		{
@@ -487,8 +487,8 @@ final class OverallTotals
 		}
 
 		/**
-		 * Profit per hour as Trends pools it: the profit of the task samples that have one over their active time, or
-		 * {@code null} under {@link TaskTimeEstimate#MIN_ACTIVE_MILLIS} of it.
+		 * Profit per hour as {@link TaskRanking} pools it: the profit of the task samples that have one over their
+		 * active time, or {@code null} under {@link TaskTimeEstimate#MIN_ACTIVE_MILLIS} of it.
 		 */
 		Long getProfitPerHour()
 		{
@@ -519,8 +519,8 @@ final class OverallTotals
 		}
 
 		/**
-		 * Slayer XP per hour as Trends pools it (the task samples with XP over their active time), or {@code null}
-		 * under {@link TaskTimeEstimate#MIN_ACTIVE_MILLIS} of it.
+		 * Slayer XP per hour as {@link TaskRanking} pools it (the task samples with XP over their active time), or
+		 * {@code null} under {@link TaskTimeEstimate#MIN_ACTIVE_MILLIS} of it.
 		 */
 		Long getSlayerXpPerHour()
 		{
@@ -679,7 +679,7 @@ final class OverallTotals
 			taskCount++;
 			activeMillis = saturatedAdd(activeMillis, Math.max(0, record.getActiveMillis()));
 			kills = saturatedAdd(kills, record.getKills());
-			// The rates pool only the task samples, as Trends does (a task with no active time adds none).
+			// The rates pool only the task samples, as TaskRanking does (a task with no active time adds none).
 			boolean sample = TaskRanking.isTaskSample(record);
 			if (sample)
 			{
@@ -706,7 +706,7 @@ final class OverallTotals
 			{
 				xp = saturatedAdd(xp, SkillXp.total(recordXp));
 				xpSampleCount++;
-				// As Trends: XP recorded without a Slayer entry means no Slayer XP was gained.
+				// As TaskRanking: XP recorded without a Slayer entry means no Slayer XP was gained.
 				Long slayer = recordXp.get(SkillXp.SLAYER);
 				long slayerValue = slayer == null ? 0 : Math.max(0, slayer);
 				slayerXp = saturatedAdd(slayerXp, slayerValue);

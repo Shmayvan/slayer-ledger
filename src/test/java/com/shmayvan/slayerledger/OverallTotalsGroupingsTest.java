@@ -66,13 +66,13 @@ public class OverallTotalsGroupingsTest
 		assertEquals(Long.valueOf(20_000L), group.getSlayerXpPerHour());
 		assertTrue("By monster counts no assignments", group.getAssignments().isEmpty());
 
-		// The same figures as the Trends list.
+		// The same figures as the advisor's ranking.
 		assertEquals(TaskRanking.rank(Arrays.asList(first, old, untimed), TaskRanking.Metric.PROFIT,
-			LootPriceMode.GE, TODAY).get(0).getRatePerHour(), group.getProfitPerHour());
+			LootPriceMode.GE, TODAY, HiddenLoot.NONE).get(0).getRatePerHour(), group.getProfitPerHour());
 		assertEquals(TaskRanking.rank(Arrays.asList(first, old, untimed), TaskRanking.Metric.PROFIT_PER_KILL,
-			LootPriceMode.GE, TODAY).get(0).getRatePerHour(), group.getProfitPerKill());
+			LootPriceMode.GE, TODAY, HiddenLoot.NONE).get(0).getRatePerHour(), group.getProfitPerKill());
 		assertEquals(TaskRanking.rank(Arrays.asList(first, old, untimed), TaskRanking.Metric.XP,
-			LootPriceMode.GE, TODAY).get(0).getRatePerHour(), group.getSlayerXpPerHour());
+			LootPriceMode.GE, TODAY, HiddenLoot.NONE).get(0).getRatePerHour(), group.getSlayerXpPerHour());
 	}
 
 	@Test

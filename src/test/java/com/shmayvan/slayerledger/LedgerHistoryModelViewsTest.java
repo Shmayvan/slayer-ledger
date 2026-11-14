@@ -1,18 +1,21 @@
 package com.shmayvan.slayerledger;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
-import com.google.gson.Gson;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.Executor;
@@ -22,7 +25,8 @@ import org.junit.Test;
 /**
  * The derived views {@link LedgerHistoryModel} works out for the panel: each is worked out once and cached
  * until what it comes from changes (the records, how they are valued, item names or its own inputs), and the listener
- * is told what changed. The panel's harness tests cover how they are shown.
+ * is told what changed; the background ones, the advisor's plan among them, keep only the result of the
+ * latest inputs. The panel's harness tests cover how they are shown.
  */
 public class LedgerHistoryModelViewsTest
 {
@@ -35,6 +39,8 @@ public class LedgerHistoryModelViewsTest
 	private final List<Set<Integer>> priceRequests = new ArrayList<>();
 	private final List<Set<Integer>> nameRequests = new ArrayList<>();
 	private final List<LedgerHistoryModel.Change> changes = new ArrayList<>();
+	/** The assignment chat lines posted. */
+	private final List<String> posted = new ArrayList<>();
 	/** Background views queued here while {@link #holdBackground}; otherwise worked out at once. */
 	private final Deque<Runnable> backgroundTasks = new ArrayDeque<>();
 	private boolean holdBackground;
@@ -58,11 +64,11 @@ public class LedgerHistoryModelViewsTest
 		tracker = new SessionTracker(() -> 1_000_000L);
 		model = new LedgerHistoryModel(tracker, LootPriceMode.GE, regions ->
 		{
-		}, priceRequests::add, nameRequests::add, line ->
-		{
-		}, pace ->
+		}, priceRequests::add, nameRequests::add, posted::add, pace ->
 		{
 		}, background, Runnable::run);
+		// The records below have profit but no XP: the badge ranks by profit/h under this metric.
+		model.setTaskAdvisor(true, AdvisorMetric.PROFIT_PER_HOUR);
 		model.setListener(changes::add);
 	}
 
@@ -104,7 +110,7 @@ public class LedgerHistoryModelViewsTest
 		model.setLootPriceMode(LootPriceMode.HIGH_ALCH);
 		model.setLootPriceMode(LootPriceMode.HIGH_ALCH);
 		model.addItemNames(Collections.singleton(WHIP), Collections.singletonMap(WHIP, "Abyssal whip"), null);
-		model.setTaskAdvisor(true, TaskRanking.Metric.XP);
+		model.setTaskAdvisor(true, AdvisorMetric.FASTEST_FINISH);
 		model.clearRecords(ACCOUNT, "Loading");
 		assertEquals(Arrays.asList(LedgerHistoryModel.Change.RECORDS, LedgerHistoryModel.Change.ASSIGNMENTS,
 			LedgerHistoryModel.Change.LOOT_PRICE_MODE, LedgerHistoryModel.Change.ITEM_NAMES,
@@ -178,30 +184,6 @@ public class LedgerHistoryModelViewsTest
 		assertEquals("the records changed", 5, model.getOverallTotalsBuildCount());
 	}
 
-	@Test
-	public void theTrendsListAndChartAreWorkedOutOncePerRecordsAndPricing()
-	{
-		model.setRecords(ACCOUNT, Collections.singletonList(demons("a", 1)));
-		List<TaskRanking.Entry> ranking = model.ranking(TaskRanking.Metric.PROFIT);
-		assertEquals(1, ranking.size());
-		assertSame(ranking, model.ranking(TaskRanking.Metric.PROFIT));
-		assertEquals(1, model.getRankingBuildCount());
-		model.ranking(TaskRanking.Metric.XP);
-		assertEquals("another metric", 2, model.getRankingBuildCount());
-
-		model.setLootPriceMode(LootPriceMode.HIGH_ALCH);
-		assertNotSame(ranking, model.ranking(TaskRanking.Metric.PROFIT));
-		assertEquals(3, model.getRankingBuildCount());
-
-		List<TaskChart.Monster> monsters = model.chartMonsters(TaskRanking.Metric.PROFIT);
-		assertSame(monsters, model.chartMonsters(TaskRanking.Metric.PROFIT));
-		List<TaskChart.Point> points = model.chartPoints(monsters.get(0), TaskRanking.Metric.PROFIT);
-		assertEquals(1, points.size());
-		assertSame(points, model.chartPoints(monsters.get(0), TaskRanking.Metric.PROFIT));
-		model.setRecords(ACCOUNT, Arrays.asList(demons("a", 1), demons("b", 2)));
-		assertEquals(2, model.chartPoints(monsters.get(0), TaskRanking.Metric.PROFIT).size());
-	}
-
 	/** Runs the queued background views, oldest first; their results reach the model at once (the test is the EDT). */
 	private void runBackground()
 	{
@@ -217,18 +199,18 @@ public class LedgerHistoryModelViewsTest
 		holdBackground = true;
 		model.setRecords(ACCOUNT, Collections.singletonList(demons("a", 1)));
 		changes.clear();
-		assertNull("being worked out", model.ranking(TaskRanking.Metric.PROFIT));
-		assertNull("asked again: still being worked out", model.ranking(TaskRanking.Metric.PROFIT));
+		assertNull("being worked out", model.overallTotals(OverallTotals.Grouping.ALL));
+		assertNull("asked again: still being worked out", model.overallTotals(OverallTotals.Grouping.ALL));
 		assertEquals("queued once", 1, backgroundTasks.size());
-		assertEquals(1, model.getRankingBuildCount());
+		assertEquals(1, model.getOverallTotalsBuildCount());
 		assertTrue(changes.isEmpty());
 
 		runBackground();
 		assertEquals(Collections.singletonList(LedgerHistoryModel.Change.VIEWS), changes);
-		List<TaskRanking.Entry> ranking = model.ranking(TaskRanking.Metric.PROFIT);
-		assertEquals(1, ranking.size());
-		assertSame(ranking, model.ranking(TaskRanking.Metric.PROFIT));
-		assertEquals(1, model.getRankingBuildCount());
+		List<OverallTotals.Entry> totals = model.overallTotals(OverallTotals.Grouping.ALL);
+		assertEquals(1, totals.size());
+		assertSame(totals, model.overallTotals(OverallTotals.Grouping.ALL));
+		assertEquals(1, model.getOverallTotalsBuildCount());
 	}
 
 	@Test
@@ -253,15 +235,15 @@ public class LedgerHistoryModelViewsTest
 		assertEquals(2, model.getOverallTotalsBuildCount());
 
 		// Another mode while the totals are worked out: the result for the previous mode is dropped too.
-		assertNull(model.ranking(TaskRanking.Metric.PROFIT));
+		assertNull(model.overallTotals(OverallTotals.Grouping.MASTER));
 		model.setLootPriceMode(LootPriceMode.HIGH_ALCH);
-		assertNull(model.ranking(TaskRanking.Metric.PROFIT));
+		assertNull(model.overallTotals(OverallTotals.Grouping.MASTER));
 		changes.clear();
 		backgroundTasks.poll().run();
 		assertTrue(changes.isEmpty());
 		backgroundTasks.poll().run();
 		assertEquals(Collections.singletonList(LedgerHistoryModel.Change.VIEWS), changes);
-		assertNotNull(model.ranking(TaskRanking.Metric.PROFIT));
+		assertNotNull(model.overallTotals(OverallTotals.Grouping.MASTER));
 	}
 
 	/**
@@ -305,18 +287,18 @@ public class LedgerHistoryModelViewsTest
 		assertNotSame(advice, again);
 
 		// Another goal: the previous goal's advice is not shown meanwhile.
-		model.setTaskAdvisor(true, TaskRanking.Metric.XP);
+		model.setTaskAdvisor(true, AdvisorMetric.FASTEST_FINISH);
 		assertNull(model.advice());
 		runBackground();
 
 		// After shutDown, results still on their way are dropped and nothing new is queued.
 		model.setRecords(ACCOUNT, board(2));
-		assertNull(model.ranking(TaskRanking.Metric.PROFIT));
+		assertNull(model.overallTotals(OverallTotals.Grouping.ALL));
 		model.shutDown();
 		changes.clear();
 		runBackground();
 		assertTrue(changes.isEmpty());
-		assertNull(model.ranking(TaskRanking.Metric.PROFIT));
+		assertNull(model.overallTotals(OverallTotals.Grouping.ALL));
 		assertTrue(backgroundTasks.isEmpty());
 	}
 
@@ -357,19 +339,19 @@ public class LedgerHistoryModelViewsTest
 	public void aResultForInputsLeftBeforeItArrivesIsDropped()
 	{
 		model.setRecords(ACCOUNT, Collections.singletonList(demons("a", 1)));
-		List<TaskRanking.Entry> profit = model.ranking(TaskRanking.Metric.PROFIT);
-		assertNotNull(profit);
+		List<OverallTotals.Entry> overall = model.overallTotals(OverallTotals.Grouping.ALL);
+		assertNotNull(overall);
 		holdBackground = true;
-		assertNull("XP is queued", model.ranking(TaskRanking.Metric.XP));
-		assertSame("back to Profit: kept", profit, model.ranking(TaskRanking.Metric.PROFIT));
-		int builds = model.getRankingBuildCount();
+		assertNull("By master is queued", model.overallTotals(OverallTotals.Grouping.MASTER));
+		assertSame("back to Overall: kept", overall, model.overallTotals(OverallTotals.Grouping.ALL));
+		int builds = model.getOverallTotalsBuildCount();
 		changes.clear();
 
-		// The XP result arrives after the player went back to Profit: dropped, and nothing is redrawn.
+		// The By master result arrives after the player went back to Overall: dropped, and nothing is redrawn.
 		runBackground();
 		assertTrue(changes.isEmpty());
-		assertSame(profit, model.ranking(TaskRanking.Metric.PROFIT));
-		assertEquals(builds, model.getRankingBuildCount());
+		assertSame(overall, model.overallTotals(OverallTotals.Grouping.ALL));
+		assertEquals(builds, model.getOverallTotalsBuildCount());
 		assertTrue(backgroundTasks.isEmpty());
 	}
 
@@ -385,7 +367,8 @@ public class LedgerHistoryModelViewsTest
 		model.advice();
 		assertEquals(1, model.getAdviceBuildCount());
 
-		model.setTaskAdvisor(true, TaskRanking.Metric.XP);
+		// Fastest finish ranks by Slayer XP/h: another goal.
+		model.setTaskAdvisor(true, AdvisorMetric.FASTEST_FINISH);
 		model.advice();
 		assertEquals("another goal", 2, model.getAdviceBuildCount());
 		model.setLootPriceMode(LootPriceMode.HIGH_ALCH);
@@ -395,45 +378,242 @@ public class LedgerHistoryModelViewsTest
 		model.advice();
 		assertEquals("the records changed", 4, model.getAdviceBuildCount());
 
-		model.setTaskAdvisor(false, TaskRanking.Metric.XP);
+		// Profit per hour and Cheapest both rank by profit/h: one goal, worked out once.
+		model.setTaskAdvisor(true, AdvisorMetric.PROFIT_PER_HOUR);
+		model.advice();
+		assertEquals(5, model.getAdviceBuildCount());
+		model.setTaskAdvisor(true, AdvisorMetric.CHEAPEST);
+		model.advice();
+		assertEquals("the same goal", 5, model.getAdviceBuildCount());
+
+		model.setTaskAdvisor(false, AdvisorMetric.CHEAPEST);
 		assertNull("off", model.advice());
-		assertEquals(4, model.getAdviceBuildCount());
+		assertEquals(5, model.getAdviceBuildCount());
+	}
+
+	/**
+	 * A completed task of 10 Abyssal demons at the Smoke Dungeon with melee: with a cannon in 5 minutes for 50K of
+	 * coins, else in 10 minutes for 200K.
+	 */
+	private static LedgerRecord setup(String id, boolean cannon)
+	{
+		LedgerRecord record = new LedgerRecord();
+		record.setId(id);
+		record.setCreatureId(DEMONS);
+		record.setMonster("Abyssal demons");
+		record.setKills(10);
+		record.setActiveMillis((cannon ? 5 : 10) * MINUTE);
+		record.setCompleted(true);
+		long loot = cannon ? 50_000L : 200_000L;
+		record.setLootGeValue(loot);
+		record.setLootHaValue(loot);
+		record.setSuppliesGeValue(0L);
+		record.setSpotId(TestSpots.SMOKE_ID);
+		SetupTags.detected(cannon, SetupStyle.MELEE, GearFocus.UNKNOWN, SetupOverrides.NONE).copyTo(record);
+		return SavedItems.withItems(record);
+	}
+
+	/** Three tasks of each {@link #setup}. */
+	private static List<LedgerRecord> setups()
+	{
+		List<LedgerRecord> records = new ArrayList<>();
+		for (int i = 0; i < 3; i++)
+		{
+			records.add(setup("plain" + i, false));
+			records.add(setup("cannon" + i, true));
+		}
+		return records;
 	}
 
 	@Test
-	public void theLuckMeterWaitsForItemNamesAndIsWorkedOutOncePerChange()
+	public void thePlanIsWorkedOutInTheBackgroundOncePerInputsThenTellsTheListener()
 	{
-		assertNull("no data without a source", model.luckTasks());
-		assertEquals(LuckView.State.UNAVAILABLE, model.luck("Abyssal demons").getState());
+		model.setSpots(TestSpots.TABLE);
+		model.setTaskAdvisor(true, AdvisorMetric.FASTEST_FINISH);
+		tracker.observe("Abyssal demons", DEMONS, 20, false);
+		assertNull("no records loaded", model.plan());
+		assertEquals(0, model.getPlanBuildCount());
 
-		LedgerHistoryModel withMeter = new LedgerHistoryModel(tracker, LootPriceMode.GE, regions ->
+		holdBackground = true;
+		model.setRecords(ACCOUNT, setups());
+		assertNull("being worked out", model.plan());
+		assertNull(model.plan());
+		assertEquals("queued once, by the records", 1, model.getPlanBuildCount());
+		// Today's prices arrive (the loot's coins): the plan at them is asked for, and the one on its way is stale.
+		model.addCurrentPrices(priceRequests.get(priceRequests.size() - 1), SavedItems.todaysPrices());
+		assertNull(model.plan());
+		assertEquals(2, model.getPlanBuildCount());
+		assertEquals(2, backgroundTasks.size());
+		changes.clear();
+
+		runBackground();
+		assertEquals("told once, for the plan kept", Collections.singletonList(LedgerHistoryModel.Change.VIEWS),
+			changes);
+		TaskPlan plan = model.plan();
+		assertEquals(20, plan.getKillsLeft());
+		assertEquals(AdvisorMetric.FASTEST_FINISH, plan.getMetric());
+		assertTrue("the faster setup", plan.getRecommendation().isCannon());
+		assertFalse(plan.getCounterpart().isCannon());
+		assertEquals(TestSpots.SMOKE_ID, plan.getRecommendation().getSpot());
+		assertSame("nothing changed", plan, model.plan());
+		model.refreshLive();
+		assertSame(plan, model.plan());
+		assertEquals(2, model.getPlanBuildCount());
+
+		// The metric: the plan by profit per hour picks the other setup.
+		model.setTaskAdvisor(true, AdvisorMetric.PROFIT_PER_HOUR);
+		assertNull("the other metric's plan is worked out", model.plan());
+		runBackground();
+		assertFalse("1.2M an hour against 600K", model.plan().getRecommendation().isCannon());
+		assertEquals(3, model.getPlanBuildCount());
+
+		// A kill: the plan for the kills left, asked for by the live check.
+		tracker.observe("Abyssal demons", DEMONS, 19, false);
+		model.refreshLive();
+		runBackground();
+		assertEquals(19, model.plan().getKillsLeft());
+		assertEquals(4, model.getPlanBuildCount());
+
+		// No task: no plan, and nothing is worked out.
+		tracker.observe(null, SessionTracker.NO_CREATURE, 0, false);
+		model.refreshLive();
+		assertNull(model.plan());
+		assertEquals(4, model.getPlanBuildCount());
+	}
+
+	@Test
+	public void aPlanForOlderInputsIsDropped()
+	{
+		holdBackground = true;
+		tracker.observe("Abyssal demons", DEMONS, 20, false);
+		model.setRecords(ACCOUNT, setups());
+		// A kill before the first plan is back: the plan for 19 kills left is asked for too.
+		tracker.observe("Abyssal demons", DEMONS, 19, false);
+		model.refreshLive();
+		assertEquals(2, backgroundTasks.size());
+		changes.clear();
+
+		backgroundTasks.poll().run();
+		assertTrue("the plan for 20 kills left tells no one", changes.isEmpty());
+		assertNull("and is not shown", model.plan());
+		backgroundTasks.poll().run();
+		assertEquals(Collections.singletonList(LedgerHistoryModel.Change.VIEWS), changes);
+		assertEquals(19, model.plan().getKillsLeft());
+		assertEquals(2, model.getPlanBuildCount());
+
+		// Another account's records: the first account's plan is never shown while the new one is worked out.
+		model.setRecords(ACCOUNT + 1, setups().subList(0, 2));
+		assertNull(model.plan());
+		runBackground();
+		assertEquals(2, model.plan().getAllSetups().getTasks());
+	}
+
+	@Test
+	public void thePlanShownStaysThroughAKillButTheChatLineWaitsForTheExactOne()
+	{
+		model.setSpots(TestSpots.TABLE);
+		tracker.observe("Abyssal demons", DEMONS, 20, false);
+		model.setRecords(ACCOUNT, setups());
+		model.addCurrentPrices(priceRequests.get(priceRequests.size() - 1), SavedItems.todaysPrices());
+		TaskPlan twenty = model.plan();
+		assertEquals(20, twenty.getKillsLeft());
+		assertSame(twenty, model.exactPlan());
+
+		// A kill: the plan for 19 kills left is worked out in the background, and the one for 20 is still shown.
+		holdBackground = true;
+		tracker.observe("Abyssal demons", DEMONS, 19, false);
+		model.refreshLive();
+		assertSame("kept while the new one is worked out", twenty, model.plan());
+		assertNull("no plan for 19 kills left yet", model.exactPlan());
+
+		// A chat line waits for the exact plan, so it never names the older kills left.
+		model.requestAssignmentLine(ACCOUNT, DEMONS, "Abyssal demons");
+		assertTrue(posted.isEmpty());
+		assertTrue(model.isAssignmentLinePending());
+		runBackground();
+		assertEquals(1, posted.size());
+		assertTrue(posted.get(0), posted.get(0).startsWith("<colHIGHLIGHT>Abyssal demons x19:<colNORMAL>"));
+		assertEquals(19, model.plan().getKillsLeft());
+
+		// Another metric, "Loot price" mode or task keeps nothing: no plan is shown until its own is back.
+		model.setTaskAdvisor(true, AdvisorMetric.FASTEST_FINISH);
+		assertNull("another metric", model.plan());
+		runBackground();
+		assertNotNull(model.plan());
+		model.setLootPriceMode(LootPriceMode.HIGH_ALCH);
+		assertNull("another mode", model.plan());
+		runBackground();
+		assertNotNull(model.plan());
+		tracker.observe("Gargoyles", 46, 20, false);
+		model.refreshLive();
+		assertNull("another task", model.plan());
+	}
+
+	@Test
+	public void aSkippedOrBlockedEntryWorksOutNoNewPlan()
+	{
+		model.setSpots(TestSpots.TABLE);
+		tracker.observe("Abyssal demons", DEMONS, 20, false);
+		model.setRecords(ACCOUNT, setups());
+		model.addCurrentPrices(priceRequests.get(priceRequests.size() - 1), SavedItems.todaysPrices());
+		TaskPlan plan = model.plan();
+		assertNotNull(plan);
+		int builds = model.getPlanBuildCount();
+
+		// The entries are no input of the plan: the same plan, and nothing worked out.
+		assertTrue(model.setAssignments(ACCOUNT, Collections.singletonList(skipped("s", 2))));
+		assertSame(plan, model.plan());
+		assertSame(plan, model.exactPlan());
+		model.refreshLive();
+		assertEquals(builds, model.getPlanBuildCount());
+
+		// New records are.
+		model.setRecords(ACCOUNT, setups());
+		assertEquals(builds + 1, model.getPlanBuildCount());
+		assertNotSame(plan, model.plan());
+	}
+
+	@Test
+	public void potionNamesJoinAPotionsDoseVariantsInThePlan()
+	{
+		final int prayer4 = 2_434;
+		final int prayer3 = 139;
+		List<LedgerRecord> records = new ArrayList<>();
+		for (int i = 0; i < 3; i++)
 		{
-		}, priceRequests::add, nameRequests::add, line ->
-		{
-		}, pace ->
-		{
-		}, background, Runnable::run);
-		withMeter.setLuckMeterSource(() -> LuckMeter.load(new Gson(), LuckMeter.SNAPSHOT_RESOURCE));
-		withMeter.setRecords(ACCOUNT, Collections.singletonList(demons("a", 1)));
-		assertEquals(Collections.singletonList("Abyssal demons"), withMeter.luckTasks());
-		assertSame(withMeter.luckTasks(), withMeter.luckTasks());
+			// 8 doses of the 4-dose potion and 3 of the 3-dose one, as a task whose potion's key moved.
+			LedgerRecord record = setup("p" + i, false);
+			Map<Integer, Long> supplies = new HashMap<>();
+			supplies.put(prayer4, 8L);
+			supplies.put(prayer3, 3L);
+			record.setSupplies(supplies);
+			Map<Integer, Integer> doses = new HashMap<>();
+			doses.put(prayer4, 4);
+			doses.put(prayer3, 3);
+			record.setSupplyDoses(doses);
+			records.add(record);
+		}
+		tracker.observe("Abyssal demons", DEMONS, 20, false);
+		model.setRecords(ACCOUNT, records);
+		assertTrue("the potions' names are asked for", nameRequests.get(nameRequests.size() - 1)
+			.containsAll(Arrays.asList(prayer4, prayer3)));
+		List<TaskPlan.BringItem> apart = model.plan().getRecommendation().getBring();
+		assertEquals("each on its own: 4 and 2 potions", 2, apart.size());
 
-		LuckView loading = withMeter.luck("Abyssal demons");
-		assertEquals(LuckView.State.NAMES_LOADING, loading.getState());
-		assertEquals(Collections.singleton(WHIP), nameRequests.get(nameRequests.size() - 1));
-		assertSame("nothing arrived", loading, withMeter.luck("Abyssal demons"));
-		assertEquals(1, withMeter.getLuckBuildCount());
+		Map<Integer, String> names = new HashMap<>();
+		names.put(prayer4, "Prayer potion(4)");
+		names.put(prayer3, "Prayer potion(3)");
+		model.addItemNames(new HashSet<>(names.keySet()), names, null);
+		List<TaskPlan.BringItem> joined = model.plan().getRecommendation().getBring();
+		assertEquals(1, joined.size());
+		assertEquals(prayer4, joined.get(0).getItemId());
+		assertEquals("11 doses a task: 5.5 potions for 20 kills, rounded up", 6, joined.get(0).getQuantity());
+		assertEquals(2, model.getPlanBuildCount());
 
-		withMeter.addItemNames(Collections.singleton(WHIP), Collections.singletonMap(WHIP, "Abyssal whip"), null);
-		LuckView shown = withMeter.luck("Abyssal demons");
-		assertEquals(LuckView.State.SUMMARY, shown.getState());
-		assertEquals(1, shown.getSummary().getTaskCount());
-		assertSame(shown, withMeter.luck("Abyssal demons"));
-		assertEquals(2, withMeter.getLuckBuildCount());
-
-		withMeter.setRecords(ACCOUNT, Collections.emptyList());
-		assertEquals(LuckView.State.NO_SAMPLES, withMeter.luck("Abyssal demons").getState());
-		assertEquals("the records changed", 3, withMeter.getLuckBuildCount());
+		// Other names don't change the families: the plan isn't worked out again.
+		model.addItemNames(Collections.singleton(WHIP), Collections.singletonMap(WHIP, "Abyssal whip"), null);
+		model.plan();
+		assertEquals(2, model.getPlanBuildCount());
 	}
 
 	@Test
@@ -445,8 +625,9 @@ public class LedgerHistoryModelViewsTest
 		assertEquals(2, rows.size());
 		assertEquals("newest first", "t", rows.get(0).getEntry().getId());
 		assertEquals("Abyssal demons", rows.get(0).getMonster());
-		assertNotNull(rows.get(0).getStatus());
-		assertNotNull(rows.get(0).getTooltip());
+		// The row carries its entry, the monster and the tooltip; the panel reads the outcome, date and master from the
+		// entry.
+		assertTrue(rows.get(0).getTooltip(), rows.get(0).getTooltip().startsWith("<html>Abyssal demons<br>Skipped"));
 		assertSame(rows, model.assignmentRows());
 		assertEquals(1, model.getAssignmentRowsBuildCount());
 
@@ -456,29 +637,36 @@ public class LedgerHistoryModelViewsTest
 	}
 
 	@Test
-	public void whatToBringIsWorkedOutOncePerStatisticsKillsLeftAndItemNames()
+	public void theTaskStatisticsAreKeptUntilTheirRecordsChangeNotWhenOnlyTheValuationDoes()
 	{
 		model.setRecords(ACCOUNT, Collections.singletonList(demons("a", 1)));
-		TaskStatistics stats = model.taskStatistics(DEMONS, "Abyssal demons", null);
-		WhatToBring bring = model.whatToBring(stats, 20);
-		assertNotNull(bring);
-		assertEquals("Item " + SHARK, bring.getRows().get(0).getName());
-		assertEquals("x10", bring.getRows().get(0).quantityText());
-		assertSame(bring, model.whatToBring(stats, 20));
-		assertEquals(1, model.getWhatToBringBuildCount());
+		int builds = model.getTaskStatisticsBuildCount();
+		TaskStatistics stats = demonStats();
+		assertEquals(1, stats.getSampleCount());
+		assertSame(stats, demonStats());
+		assertEquals(builds + 1, model.getTaskStatisticsBuildCount());
 
-		model.whatToBring(stats, 10);
-		assertEquals("other kills left", 2, model.getWhatToBringBuildCount());
-
-		model.addItemNames(Collections.singleton(SHARK), Collections.singletonMap(SHARK, "Shark"), null);
-		assertEquals("Shark", model.whatToBring(stats, 10).getRows().get(0).getName());
-		assertEquals("named", 3, model.getWhatToBringBuildCount());
-
+		// They value nothing: another Loot price mode, today's prices or hidden loot keep them.
+		long valuation = model.valuationVersion();
 		model.setLootPriceMode(LootPriceMode.HIGH_ALCH);
-		TaskStatistics restated = model.taskStatistics(DEMONS, "Abyssal demons", null);
-		assertNotSame("the statistics were dropped", stats, restated);
-		model.whatToBring(restated, 10);
-		assertEquals(4, model.getWhatToBringBuildCount());
+		model.addCurrentPrices(Collections.singleton(WHIP), Collections.singletonMap(WHIP, 2_000_000L));
+		model.setGroundItemsHidden(GroundItemsHidden.parse("Abyssal whip", ""));
+		model.addItemNames(Collections.singleton(WHIP), Collections.singletonMap(WHIP, "Abyssal whip"), null);
+		assertTrue("the whip is hidden", model.hiddenLoot().leavesOutAny(Collections.singleton(WHIP)));
+		model.endCurrentPricesWait();
+		assertTrue("the valuation changed", model.valuationVersion() > valuation);
+		assertSame("the statistics were kept", stats, demonStats());
+		assertEquals(builds + 1, model.getTaskStatisticsBuildCount());
+
+		model.setRecords(ACCOUNT, Arrays.asList(demons("b", 2), demons("a", 1)));
+		assertEquals("new records", 2, demonStats().getSampleCount());
+		assertEquals(builds + 2, model.getTaskStatisticsBuildCount());
+	}
+
+	/** The Abyssal demons task's statistics from every location, as the live card asks for them. */
+	private TaskStatistics demonStats()
+	{
+		return model.taskStatistics(DEMONS, "Abyssal demons", TaskSelection.ANY, null);
 	}
 
 	@Test

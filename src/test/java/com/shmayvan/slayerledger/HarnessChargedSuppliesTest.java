@@ -57,7 +57,7 @@ public class HarnessChargedSuppliesTest
 	@Test
 	public void wornJewelleryTabletsAndSaltAreCountedAndValued()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		// Teleports from the equipment tab: a glory charge, the dueling ring's last charge (it crumbles) and a combat
 		// bracelet charge.
 		harness.setWorn(EquipmentInventorySlot.AMULET, ItemID.AMULET_OF_GLORY_3, 1);
@@ -67,7 +67,7 @@ public class HarnessChargedSuppliesTest
 		harness.setInventory(item(ItemID.POH_TABLET_VARROCKTELEPORT, 4), item(ItemID.SLAYER_BAG_OF_SALT, 48));
 		harness.tick();
 
-		harness.stop();
+		harness.endTask();
 		LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		Map<Integer, Long> supplies = record.getSupplies();
 		assertEquals(1L, used(supplies, ItemID.AMULET_OF_GLORY_6));
@@ -88,7 +88,7 @@ public class HarnessChargedSuppliesTest
 	@Test
 	public void unequippingAndPausingAreNotCounted()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		// Taking the amulet off into the inventory moves it between tracked containers.
 		harness.setWorn(EquipmentInventorySlot.AMULET, -1, 0);
 		harness.setInventory(item(ItemID.POH_TABLET_VARROCKTELEPORT, 5), item(ItemID.SLAYER_BAG_OF_SALT, 50),
@@ -99,7 +99,7 @@ public class HarnessChargedSuppliesTest
 			item(ItemID.AMULET_OF_GLORY_3, 1));
 		harness.tick();
 
-		harness.stop();
+		harness.endTask();
 		Map<Integer, Long> supplies = harness.onlyRecord(ACCOUNT).getSupplies();
 		assertEquals(Collections.emptyMap(), supplies == null ? Collections.emptyMap() : supplies);
 	}
@@ -107,7 +107,7 @@ public class HarnessChargedSuppliesTest
 	@Test
 	public void jewelleryBankedFromTheEquipmentIsNotCounted()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.openInterface(InterfaceID.BANKMAIN);
 		harness.setWorn(EquipmentInventorySlot.AMULET, -1, 0);
 		harness.setWorn(EquipmentInventorySlot.GLOVES, -1, 0);
@@ -115,7 +115,7 @@ public class HarnessChargedSuppliesTest
 		harness.closeInterface(InterfaceID.BANKMAIN);
 		harness.ticks(SupplyExclusions.INTERFACE_TICKS + 1);
 
-		harness.stop();
+		harness.endTask();
 		Map<Integer, Long> supplies = harness.onlyRecord(ACCOUNT).getSupplies();
 		assertEquals(0L, used(supplies, ItemID.AMULET_OF_GLORY_6));
 		assertEquals(0L, used(supplies, ItemID.JEWL_BRACELET_OF_COMBAT_6));

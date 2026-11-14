@@ -26,6 +26,15 @@ public class SuperiorSpawnMessageTest
 	}
 
 	@Test
+	public void matchesJagexColourMarkup()
+	{
+		// As the game sends it since November 2026.
+		assertTrue(SuperiorSpawnMessage.matches(true, "@mes_hl_red@A superior foe has appeared...</col>"));
+		assertTrue(SuperiorSpawnMessage.matches(true, "@red@A superior foe has appeared..."));
+		assertFalse(SuperiorSpawnMessage.matches(true, "@mes_hl_red@Someone said: A superior foe has appeared...</col>"));
+	}
+
+	@Test
 	public void otherTextDoesNotMatch()
 	{
 		assertFalse(SuperiorSpawnMessage.matches(true, "A superior foe has appeared"));

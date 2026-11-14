@@ -1,8 +1,7 @@
 package com.shmayvan.slayerledger;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicLong;
@@ -11,9 +10,9 @@ import org.junit.Rule;
 import org.junit.Test;
 
 /**
- * The current task's historical estimate as wired in the panel ({@link PluginHarness}): the History lines for
- * the kills left, the cache cleared by the "Loot price" mode and today's prices, and the time-left fallback until
- * the live pace is reliable. {@link TaskStatisticsTest} covers the averages.
+ * The current task's per-task statistics as wired in the plugin ({@link PluginHarness}): the live card's
+ * time-left fallback until the live pace is reliable, and, since they value nothing, kept when today's prices
+ * or the "Loot price" mode change. The History estimate that showed their values went with the advisor card. {@link TaskStatisticsTest} covers the averages.
  */
 public class HarnessTaskStatisticsTest
 {
@@ -62,27 +61,16 @@ public class HarnessTaskStatisticsTest
 		harness.setTrackerClock(now::get);
 	}
 
-	private String estimateText()
+	/**
+	 * The current task's statistics as the live card's time left and the overlay's pace read them: of the session's
+	 * version and cannon use, at its location ({@link LedgerHistoryModel#currentLocation}).
+	 */
+	private TaskStatistics stats()
 	{
-		String[] text = new String[1];
-		harness.onEdt(() ->
-		{
-			harness.panel().refresh();
-			text[0] = harness.ui().getHistoryEstimate().getText();
-		});
-		return text[0];
-	}
-
-	/** The History estimate's tooltip after a refresh. */
-	private String estimateTooltip()
-	{
-		String[] tooltip = new String[1];
-		harness.onEdt(() ->
-		{
-			harness.panel().refresh();
-			tooltip[0] = harness.ui().getHistoryEstimate().getTooltip();
-		});
-		return tooltip[0];
+		TaskStatistics[] stats = new TaskStatistics[1];
+		harness.onEdt(() -> stats[0] = harness.historyModel().taskStatistics(42, "Abyssal demons",
+			harness.tracker().getCurrentTaskSelection(), harness.historyModel().currentLocation()));
+		return stats[0];
 	}
 
 	private String[] timeLeft()
@@ -98,106 +86,61 @@ public class HarnessTaskStatisticsTest
 	}
 
 	@Test
-	public void showsIdleAssignmentEstimateAndUsesHistoryForLiveTimeFallback()
+	public void theStatisticsFeedTheLiveTimeLeftUntilTheLivePaceIsReliable()
 	{
 		start(10, 10, prior());
 
-		String estimate = estimateText();
-		assertNotNull(estimate);
-		assertEquals("History (1 task) | 10 kills ~0:10:00 | Loot (GE): 100K | Supplies: 10K", estimate);
-		String[] tooltip = new String[1];
-		harness.onEdt(() -> tooltip[0] = harness.ui().getHistoryEstimate().getTooltip());
-		assertTrue(tooltip[0], tooltip[0].contains("Average task duration"));
+		TaskStatistics stats = stats();
+		assertEquals(1, stats.getSampleCount());
+		assertEquals(Long.valueOf(MINUTE), stats.getMillisPerKill());
+		assertEquals("10K of manta rays (200) over 10 kills", 20d, stats.getSuppliesPerKill().get(SavedItems.SUPPLY),
+			1e-9);
 
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		String[] time = timeLeft();
 		assertEquals("Time left: ~10m", time[0]);
 		assertTrue(time[1], time[1].contains("Historical estimate"));
 		assertTrue(time[1], time[1].contains("after 3 kills and 1 minute"));
-		assertEquals("still shown while running (owner decision)", "History (1 task) | 10 kills ~0:10:00 | "
-			+ "Loot (GE): 100K | Supplies: 10K", estimateText());
 	}
 
 	@Test
-	public void idleEstimateUsesTheKillsLeftNotTheAssignedSize()
+	public void aPriceOrLootPriceModeChangeKeepsTheStatistics()
 	{
-		// For example after a partial save at 3 of 10, or kills made before Play.
-		start(7, 10, prior());
-
-		assertEquals("History (1 task) | 7 kills ~0:07:00 | Loot (GE): 70K | Supplies: 7,000", estimateText());
-	}
-
-	@Test
-	public void theEstimateIsAtTodaysPricesInTheLootPriceMode()
-	{
-		// Saved at 2,000 gp a bone; 3,000 gp today.
 		harness.defineItem(ItemID.DRAGON_BONES, "Dragon bones", 3_000, 5_000);
-		LedgerRecord prior = prior();
-		prior.setLoot(Collections.singletonMap(ItemID.DRAGON_BONES, 10L));
-		prior.setUnitGePrices(Collections.singletonMap(ItemID.DRAGON_BONES, 2_000L));
-		prior.setUnitHaPrices(Collections.singletonMap(ItemID.DRAGON_BONES, 5_000L));
-		prior.setLootGeValue(20_000L);
-		prior.setLootHaValue(50_000L);
-		// No supplies used: supplies are revalued from the (empty) tally, as in the history.
-		prior.setSupplies(null);
-		prior.setSuppliesGeValue(0L);
-		start(10, 10, prior);
-		// The lookup is queued for the client thread, and its answer for the EDT.
-		harness.drain();
-		assertEquals("History (1 task) | 10 kills ~0:10:00 | Loot (GE): 30K | Supplies: 0", estimateText());
-		String[] tooltip = new String[1];
-		harness.onEdt(() -> tooltip[0] = harness.ui().getHistoryEstimate().getTooltip());
-		assertTrue(tooltip[0], tooltip[0].contains("GP averages use today's prices in GE mode"));
-		assertFalse(tooltip[0], tooltip[0].contains("saved prices"));
-
-		harness.setLootPriceMode(LootPriceMode.HIGH_ALCH);
-		assertEquals("History (1 task) | 10 kills ~0:10:00 | Loot (HA): 50K | Supplies: 0", estimateText());
-	}
-
-	@Test
-	public void theTooltipShowsProfitPerKillUnderLootAndSupplies()
-	{
 		start(10, 10, prior());
-		assertTrue(estimateTooltip(), estimateTooltip().contains("<br>Loot per kill: 10K gp"
-			+ "<br>Supplies per kill: 1,000 gp<br>Profit per kill: 9,000 gp<br>"));
+		assertTrue(harness.startNow());
+		timeLeft();
+		TaskStatistics stats = stats();
+		long[] before = new long[2];
+		harness.onEdt(() ->
+		{
+			before[0] = harness.historyModel().getTaskStatisticsBuildCount();
+			before[1] = harness.historyModel().valuationVersion();
+		});
 
-		// Loot at the Loot price setting, supplies at GE.
+		// Another Loot price mode, then a price arriving: the history is valued again, the statistics not.
 		harness.setLootPriceMode(LootPriceMode.HIGH_ALCH);
-		assertTrue(estimateTooltip(), estimateTooltip().contains("<br>Profit per kill: 19K gp<br>"));
-	}
-
-	@Test
-	public void profitPerKillIsApproximateALossOrUnknownLikeItsParts()
-	{
-		// Saved with its totals only, with a supply price unavailable: no loot, supplies marked ~.
-		LedgerRecord prior = prior();
-		prior.setLoot(null);
-		prior.setSupplies(null);
-		prior.setUnitGePrices(null);
-		prior.setUnitHaPrices(null);
-		prior.setLootGeValue(0L);
-		prior.setSuppliesUnpricedItems(1);
-		start(10, 10, prior);
-		assertTrue(estimateTooltip(), estimateTooltip().contains("<br>Loot per kill: 0 gp"
-			+ "<br>Supplies per kill: ~1,000 gp<br>Profit per kill: ~-1,000 gp<br>"));
-
-		// A task saved before values were tracked: no GP averages at all.
-		LedgerRecord legacy = prior();
-		legacy.setLootGeValue(null);
-		legacy.setLootHaValue(null);
-		legacy.setSuppliesGeValue(null);
-		harness.onEdt(() -> harness.historyModel().setRecords(PluginHarness.ACCOUNT,
-			Collections.singletonList(legacy)));
 		harness.drain();
-		assertTrue(estimateTooltip(), estimateTooltip().contains("<br>Loot per kill: -<br>Supplies per kill: -"
-			+ "<br>Profit per kill: -<br>"));
+		harness.onEdt(() -> harness.historyModel().addCurrentPrices(Collections.singleton(ItemID.DRAGON_BONES),
+			Collections.singletonMap(ItemID.DRAGON_BONES, 3_500L)));
+		harness.drain();
+		assertEquals("Time left: ~10m", timeLeft()[0]);
+		assertSame(stats, stats());
+		long[] after = new long[2];
+		harness.onEdt(() ->
+		{
+			after[0] = harness.historyModel().getTaskStatisticsBuildCount();
+			after[1] = harness.historyModel().valuationVersion();
+		});
+		assertTrue("the valuation changed", after[1] > before[1]);
+		assertEquals("not worked out again", before[0], after[0]);
 	}
 
 	@Test
 	public void livePaceTakesOverAfterThreeKillsAndOneMinute()
 	{
 		start(10, 10, prior());
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		assertEquals("Time left: ~10m", timeLeft()[0]);
 
 		// 3 kills in 30 seconds: not yet a minute of active time, so still the history (1 minute a kill, 7 left).
@@ -207,7 +150,6 @@ public class HarnessTaskStatisticsTest
 		String[] time = timeLeft();
 		assertEquals("Time left: ~7m", time[0]);
 		assertTrue(time[1], time[1].contains("Historical estimate"));
-		assertEquals("History (1 task) | 7 kills ~0:07:00 | Loot (GE): 70K | Supplies: 7,000", estimateText());
 
 		// 3 kills in 90 seconds: 30 seconds a kill, 7 left.
 		now.addAndGet(MINUTE);

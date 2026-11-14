@@ -19,10 +19,12 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 /**
- * The ledger and active-session JSON, pinned byte for byte. The expected strings below were produced by the
- * build before the session value objects (SessionLoot, SessionCounters, the Summary builder) were introduced, from the
- * same scenario, so a refactor of how a session is modelled can't change what is written to disk. Every field of
- * {@link LedgerRecord} and {@link SessionSnapshot} is set at least once.
+ * The ledger and active-session JSON, pinned byte for byte. The 1.x strings below were produced by the build
+ * before the session value objects (SessionLoot, SessionCounters, the Summary builder) were introduced, from the same
+ * scenario, so a refactor of how a session is modelled can't change what is written to disk. Every 1.x field of
+ * {@link LedgerRecord} and {@link SessionSnapshot} is set at least once. A 2.0 record is the 1.x record at
+ * version 3 with its boss flag and setup tags after the 1.x fields; {@link LedgerStoreSetupTest} pins every 2.0
+ * field.
  */
 public class SessionJsonFormatTest
 {
@@ -41,8 +43,8 @@ public class SessionJsonFormatTest
 	/** Task-completion counters when the snapshot was taken. */
 	private static final int[] COUNTERS = {3, 0, 1};
 
-	/** A completed record from the scenario, values captured, as {@link LedgerStore} writes it inside the file. */
-	private static final String RECORD_JSON =
+	/** A completed record from the scenario, values captured, as a 1.x build wrote it inside the file. */
+	private static final String RECORD_JSON_1X =
 		"{\"schemaVersion\":2,\"id\":\"session-1\",\"monster\":\"Abyssal Sire\",\"creatureId\":-7,"
 		+ "\"initialAmount\":6,\"originalAmount\":6,\"kills\":6,\"activeMillis\":91000,"
 		+ "\"startedAt\":1700000000000,\"endedAt\":1700000091000,\"completed\":true,\"partial\":false,"
@@ -59,8 +61,8 @@ public class SessionJsonFormatTest
 		+ "\"bossKillCounts\":[{\"boss\":\"Abyssal Sire\",\"firstKc\":10,\"lastKc\":11,\"kills\":2}],"
 		+ "\"xpGained\":{\"HITPOINTS\":700,\"SLAYER\":2500},\"locationRegion\":12850,"
 		+ "\"location\":\"Catacombs of Kourend\"}";
-	/** The scenario's snapshot taken mid-session, as the active-session file. */
-	private static final String SNAPSHOT_JSON =
+	/** The scenario's snapshot taken mid-session, as a 1.x build wrote the active-session file (version 2). */
+	private static final String SNAPSHOT_JSON_1X =
 		"{\"schemaVersion\":2,\"sessionId\":\"session-1\",\"accountHash\":123456789,"
 		+ "\"monster\":\"Abyssal Sire\",\"creatureId\":-7,\"initialAmount\":6,\"originalAmount\":6,"
 		+ "\"kills\":4,\"activeMillis\":61000,\"startedAt\":1700000000000,\"savedAt\":1700000061005,"
@@ -73,8 +75,16 @@ public class SessionJsonFormatTest
 		+ "\"bossKillCounts\":[{\"boss\":\"Abyssal Sire\",\"firstKc\":10,\"lastKc\":11,\"kills\":2}],"
 		+ "\"xpGained\":{\"HITPOINTS\":700,\"SLAYER\":2500},\"locationKills\":[{\"region\":12850,"
 		+ "\"kills\":2},{\"region\":12851,\"kills\":2}]}";
-	/** The snapshot above saved as a partial record (it could not be restored). */
-	private static final String PARTIAL_JSON =
+	/**
+	 * The same snapshot as this build writes it (version 3): the 1.x fields unchanged, then the segment fields.
+	 * It was taken while running, so its open segment closes when it is saved; its assignment was first seen at the
+	 * start.
+	 */
+	private static final String SNAPSHOT_JSON = "{\"schemaVersion\":3"
+		+ SNAPSHOT_JSON_1X.substring("{\"schemaVersion\":2".length(), SNAPSHOT_JSON_1X.length() - 1)
+		+ ",\"trackingState\":\"RUNNING\",\"segmentClosedAt\":1700000061005,\"assignedAt\":1700000000000}";
+	/** The snapshot above saved as a partial record (it could not be restored), as a 1.x build wrote it. */
+	private static final String PARTIAL_JSON_1X =
 		"{\"schemaVersion\":2,\"id\":\"session-1\",\"monster\":\"Abyssal Sire\",\"creatureId\":-7,"
 		+ "\"initialAmount\":6,\"originalAmount\":6,\"kills\":4,\"activeMillis\":61000,"
 		+ "\"startedAt\":1700000000000,\"endedAt\":1700000061005,\"completed\":false,\"partial\":true,"
@@ -86,6 +96,34 @@ public class SessionJsonFormatTest
 		+ "\"pet\":\"RECEIVED\"}],\"bossKillCounts\":[{\"boss\":\"Abyssal Sire\",\"firstKc\":10,"
 		+ "\"lastKc\":11,\"kills\":2}],\"xpGained\":{\"HITPOINTS\":700,\"SLAYER\":2500},"
 		+ "\"locationRegion\":12850,\"location\":\"Catacombs\"}";
+	/**
+	 * The boss flag and the detected setup tags this build adds after the 1.x fields of the scenario's
+	 * records: no boss kills (the scenario is a boss task, its own pool), no cannonballs, and the style and gear Unknown
+	 * until phase 5 detects them.
+	 */
+	private static final String DETECTED_TAGS = ",\"bossKills\":false,"
+		+ "\"detectedCannon\":false,\"detectedStyle\":\"UNKNOWN\",\"detectedGear\":\"UNKNOWN\"}";
+	/**
+	 * What a 1.x record of the scenario becomes when it is migrated: no boss kills (a boss task), its
+	 * cannon estimated from its cannonballs (none), and its style Unknown, since its only XP is Hitpoints and Slayer.
+	 */
+	private static final String MIGRATED_TAGS = ",\"bossKills\":false,\"detectedCannon\":false,\"cannonEstimated\":true,"
+		+ "\"detectedStyle\":\"UNKNOWN\",\"detectedGear\":\"UNKNOWN\"}";
+	/** The completed record as this build writes it: version 3, the 1.x fields, then its detected tags. */
+	private static final String RECORD_JSON = twoPointO(RECORD_JSON_1X, DETECTED_TAGS);
+	/**
+	 * The partial record as this build writes it. Now no location name is saved, and its region is the one its
+	 * kills decide: the scenario's two regions tie (its snapshot was read without the spot table), so the most recent.
+	 */
+	private static final String PARTIAL_JSON = twoPointO(PARTIAL_JSON_1X.replace(
+		"\"locationRegion\":12850,\"location\":\"Catacombs\"", "\"locationRegion\":12851"), DETECTED_TAGS);
+
+	/** A 1.x record's JSON at version 3 with {@code tail} (the setup members and the closing brace) after its fields. */
+	private static String twoPointO(String oneX, String tail)
+	{
+		assertEquals(true, oneX.startsWith("{\"schemaVersion\":2,") && oneX.endsWith("}"));
+		return "{\"schemaVersion\":3," + oneX.substring("{\"schemaVersion\":2,".length(), oneX.length() - 1) + tail;
+	}
 
 	@Rule
 	public TemporaryFolder temp = new TemporaryFolder();
@@ -130,14 +168,43 @@ public class SessionJsonFormatTest
 		assertEquals(SessionTracker.RestoreResult.RESTORED, tracker.restore(saved, COUNTERS.clone()));
 
 		SessionSnapshot again = SessionSnapshot.fromSummary(tracker.summary(), COUNTERS, saved.getSavedAt());
-		// Restoring starts a new active stretch; nothing else of the session changes.
-		assertEquals(SNAPSHOT_JSON, gson.toJson(again));
+		// A restored session is Logged out until its next kill; nothing else of the session changes.
+		assertEquals(SNAPSHOT_JSON.replace("\"trackingState\":\"RUNNING\"", "\"trackingState\":\"LOGGED_OUT\""),
+			gson.toJson(again));
+	}
+
+	@Test
+	public void aOneXActiveFileStillRestores() throws IOException
+	{
+		assertEquals(true, dir.mkdirs());
+		File file = new File(dir, ACCOUNT + ".active.json");
+		Files.write(file.toPath(), SNAPSHOT_JSON_1X.getBytes(StandardCharsets.UTF_8));
+		SessionSnapshot saved = store.readActive(ACCOUNT);
+		assertNotNull("a version 2 file is read", saved);
+		assertEquals(false, saved.isEndedMarker());
+
+		now.set(START + 120_000);
+		SessionTracker tracker = new SessionTracker(now::get);
+		tracker.observe("Abyssal Sire", BOSS_TASK, 2, 6, TaskContext.assignment(8, 3, "Catacombs"), REGION, false);
+		assertEquals(SessionTracker.RestoreResult.RESTORED, tracker.restore(saved, COUNTERS.clone()));
+		assertEquals(SessionTracker.State.LOGGED_OUT, tracker.getState());
+		assertEquals(4, tracker.getKills());
+		assertEquals(61_000, tracker.getActiveMillis());
+
+		// Without the segment fields its last segment closed when it was saved, and its assignment was first seen by
+		// this login: a kill backdated before them is clamped to the later, the login's first reading.
+		now.addAndGet(10_000);
+		tracker.observe("Abyssal Sire", BOSS_TASK, 1, 6, TaskContext.assignment(8, 3, "Catacombs"), REGION, false,
+			KillPairing.of(START, null));
+		assertEquals(SessionTracker.State.RUNNING, tracker.getState());
+		assertEquals(5, tracker.getKills());
+		assertEquals(61_000 + 10_000, tracker.getActiveMillis());
 	}
 
 	@Test
 	public void ledgerFileIsRewrittenByteForByte() throws IOException
 	{
-		String fixture = "{\"schemaVersion\":2,\"records\":[" + RECORD_JSON + "," + PARTIAL_JSON + "]}";
+		String fixture = "{\"schemaVersion\":3,\"records\":[" + RECORD_JSON + "," + PARTIAL_JSON + "]}";
 		assertEquals(true, dir.mkdirs());
 		File file = new File(dir, ACCOUNT + ".json");
 		Files.write(file.toPath(), fixture.getBytes(StandardCharsets.UTF_8));
@@ -147,6 +214,25 @@ public class SessionJsonFormatTest
 		store.write(ACCOUNT, records);
 
 		assertEquals(fixture, new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8));
+	}
+
+	@Test
+	public void aOneXLedgerFileIsMigratedAndWrittenBackWithEvery1xFieldUnchanged() throws IOException
+	{
+		String fixture = "{\"schemaVersion\":2,\"records\":[" + RECORD_JSON_1X + "," + PARTIAL_JSON_1X + "]}";
+		assertEquals(true, dir.mkdirs());
+		File file = new File(dir, ACCOUNT + ".json");
+		Files.write(file.toPath(), fixture.getBytes(StandardCharsets.UTF_8));
+
+		List<LedgerRecord> records = store.load(ACCOUNT);
+		assertEquals(2, records.size());
+		assertEquals("reading changes nothing on disk", fixture,
+			new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8));
+		store.write(ACCOUNT, records);
+
+		assertEquals("{\"schemaVersion\":3,\"records\":[" + twoPointO(RECORD_JSON_1X, MIGRATED_TAGS) + ","
+			+ twoPointO(PARTIAL_JSON_1X, MIGRATED_TAGS) + "]}",
+			new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8));
 	}
 
 	@Test
@@ -223,6 +309,7 @@ public class SessionJsonFormatTest
 				return canonicalId == WHIP ? 72_000 : canonicalId == SHARK ? 150 : 0;
 			}
 		});
+		// A name of its own: 1.x saved its region's name; only the player's "Edit location" sets one.
 		record.setLocation("Catacombs of Kourend");
 		return record;
 	}
@@ -235,7 +322,7 @@ public class SessionJsonFormatTest
 		final TaskContext assignment = TaskContext.assignment(8, 3, "Catacombs");
 		tracker.observe("Abyssal Sire", BOSS_TASK, 6, 6, assignment, REGION, false);
 		tracker.observeXp(xp(1_000, 500));
-		assertEquals(true, tracker.play(ACCOUNT));
+		assertEquals(true, tracker.startNow(ACCOUNT));
 		now.addAndGet(60_000);
 		tracker.observe("Abyssal Sire", BOSS_TASK, 4, 6, assignment, REGION, false);
 		tracker.observe("Abyssal Sire", BOSS_TASK, 2, 6, assignment, REGION + 1, false);

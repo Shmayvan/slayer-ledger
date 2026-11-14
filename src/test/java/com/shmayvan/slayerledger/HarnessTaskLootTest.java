@@ -102,7 +102,7 @@ public class HarnessTaskLootTest
 	{
 		harness.loginAndSettle(ACCOUNT);
 		assertNull("nothing to show yet", liveLines());
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		assertNull(liveLines());
 
 		loot(ItemID.ABYSSAL_WHIP, 1, ItemID.KONAR_KEY, 2, HARD_CLUE, 1);
@@ -116,7 +116,7 @@ public class HarnessTaskLootTest
 			"Notable drops:", "  Abyssal whip: 1.5M"), liveLines());
 		assertEquals(1, sessionDrops().size());
 
-		harness.stop();
+		harness.endTask();
 		assertNull("hidden once the session ends", liveLines());
 		LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		assertEquals(Long.valueOf(2), record.getLoot().get(ItemID.KONAR_KEY));
@@ -135,22 +135,31 @@ public class HarnessTaskLootTest
 	}
 
 	/**
-	 * Notable drops are priced through ItemManager only while loot is recorded: never for loot while idle, but still
-	 * while running and for the final kill's loot in the held-completion grace window.
+	 * Notable drops are priced through ItemManager only while loot may be kept: never for loot while no task is
+	 * assigned, but while one waits for its first kill (buffered, V2 plan 4.1), while running and for the final kill's
+	 * loot in the held-completion grace window.
 	 */
 	@Test
 	public void notableDropsArePricedOnlyWhileLootIsRecorded()
 	{
-		harness.setTask(TASK, "Abyssal demons", 2, 50);
+		harness.setRemaining(0);
 		harness.loginAndSettle(ACCOUNT);
 		final int idleLookups = harness.itemPriceLookups(ItemID.ABYSSAL_WHIP);
 		loot(ItemID.ABYSSAL_WHIP, 1);
-		assertEquals("no price lookup for loot while idle", idleLookups,
+		assertEquals("no price lookup for loot while no task is assigned", idleLookups,
 			harness.itemPriceLookups(ItemID.ABYSSAL_WHIP));
 
-		assertTrue(harness.play());
+		harness.setTask(TASK, "Abyssal demons", 2, 50);
+		harness.tick();
 		loot(ItemID.ABYSSAL_WHIP, 1);
-		assertTrue("priced while running", harness.itemPriceLookups(ItemID.ABYSSAL_WHIP) > idleLookups);
+		final int waitingLookups = harness.itemPriceLookups(ItemID.ABYSSAL_WHIP);
+		assertTrue("priced while the task waits for its first kill: the loot is buffered",
+			waitingLookups > idleLookups);
+
+		assertTrue(harness.startNow());
+		assertEquals("Play drops the buffer", 0, sessionDrops().size());
+		loot(ItemID.ABYSSAL_WHIP, 1);
+		assertTrue("priced while running", harness.itemPriceLookups(ItemID.ABYSSAL_WHIP) > waitingLookups);
 		assertEquals(1, sessionDrops().size());
 
 		harness.setRemaining(1);
@@ -172,7 +181,7 @@ public class HarnessTaskLootTest
 	public void thresholdBoundaryAndChangingTheSetting()
 	{
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 
 		loot(ItemID.RUNE_PLATEBODY, 1, ItemID.RUNE_FULL_HELM, 1);
 		assertEquals("exactly the threshold is notable; 1 gp below is not", 1, sessionDrops().size());
@@ -201,12 +210,12 @@ public class HarnessTaskLootTest
 	{
 		harness.loginAndSettle(ACCOUNT);
 		harness.chat(ChatMessageType.GAMEMESSAGE, PET_TEXT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.pause();
 		harness.chat(ChatMessageType.GAMEMESSAGE, PET_TEXT);
 		assertTrue("not counted while paused or idle", sessionDrops().isEmpty());
 
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.chat(ChatMessageType.PUBLICCHAT, PET_TEXT);
 		assertTrue("not a game message", sessionDrops().isEmpty());
 		harness.chat(ChatMessageType.GAMEMESSAGE, PET_TEXT);
@@ -214,7 +223,7 @@ public class HarnessTaskLootTest
 			"You have a funny feeling like you would have been followed...");
 		assertEquals(Arrays.asList("Notable drops:", "  Pet (already owned)", "  Pet"), liveLines());
 
-		harness.stop();
+		harness.endTask();
 		List<NotableDrop> drops = harness.onlyRecord(ACCOUNT).getNotableDrops();
 		assertEquals(2, drops.size());
 		assertEquals(NotableDrop.Pet.RECEIVED, drops.get(0).getPet());
@@ -226,7 +235,7 @@ public class HarnessTaskLootTest
 	{
 		harness.setTask(TASK, "Abyssal demons", 1, 50);
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.completeTask();
 		harness.tick();
 		assertTrue(harness.tracker().hasPendingCompletion());
@@ -246,7 +255,7 @@ public class HarnessTaskLootTest
 	public void activeSessionKeepsItsNotableDropsAcrossARestart()
 	{
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		loot(ItemID.ABYSSAL_WHIP, 1, HARD_CLUE, 1);
 		harness.logout();
 		harness.shutDown();
@@ -258,12 +267,12 @@ public class HarnessTaskLootTest
 		harness.setGePrice(ItemID.ABYSSAL_WHIP, 1_000_000);
 		harness.startUp();
 		harness.loginAndSettle(ACCOUNT);
-		assertEquals(SessionTracker.State.PAUSED, harness.sessionState());
+		assertEquals(SessionTracker.State.LOGGED_OUT, harness.sessionState());
 		assertEquals(Arrays.asList("Clues: 1 hard", "Notable drops:", "  Abyssal whip: 1.5M"), liveLines());
 
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		loot(ItemID.ABYSSAL_WHIP, 1);
-		harness.stop();
+		harness.endTask();
 		List<NotableDrop> drops = harness.onlyRecord(ACCOUNT).getNotableDrops();
 		assertEquals(2, drops.size());
 		assertEquals(Long.valueOf(1_500_000), drops.get(0).getGeValue());

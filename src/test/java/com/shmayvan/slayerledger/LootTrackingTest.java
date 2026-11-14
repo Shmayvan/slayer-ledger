@@ -86,7 +86,7 @@ public class LootTrackingTest
 	private void startDemonTask()
 	{
 		tracker.observe("Abyssal demons", DEMON_ID, 50, 150, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 	}
 
 	// ---- Tracker ----
@@ -96,13 +96,13 @@ public class LootTrackingTest
 	{
 		tracker.observe("Abyssal demons", DEMON_ID, 50, 150, false);
 		assertFalse("idle", tracker.addLoot(tally(BONES, 1)));
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		assertTrue(tracker.addLoot(tally(BONES, 1, ItemValuation.COINS, 300)));
 		tracker.pause();
 		assertFalse("paused", tracker.addLoot(tally(BONES, 5)));
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		assertTrue(tracker.addLoot(tally(BONES, 1)));
-		tracker.autoPause();
+		tracker.loggedOut();
 		assertFalse("auto-paused", tracker.addLoot(tally(BONES, 5)));
 
 		ItemTally loot = tracker.getLoot();
@@ -132,7 +132,7 @@ public class LootTrackingTest
 		startDemonTask();
 		tracker.addLoot(tally(BONES, 3));
 		tracker.stopAndReset();
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		assertTrue(tracker.getLoot().isEmpty());
 		assertTrue(tracker.activeSummary().getLoot().isEmpty());
 	}
@@ -157,7 +157,7 @@ public class LootTrackingTest
 		tracker.addLoot(tally(BONES, 4, ItemValuation.COINS, 1_000));
 		now += 30_000;
 		tracker.observe("Abyssal demons", DEMON_ID, 46, 150, false);
-		tracker.autoPause();
+		tracker.loggedOut();
 		return SessionSnapshot.fromSummary(tracker.activeSummary(), COUNTERS, now);
 	}
 
@@ -195,7 +195,7 @@ public class LootTrackingTest
 		tracker.observe("Abyssal demons", DEMON_ID, 46, 150, false);
 		assertEquals(SessionTracker.RestoreResult.RESTORED, tracker.restore(s, COUNTERS));
 		assertTrue(tracker.getLoot().isEmpty());
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		tracker.addLoot(tally(BONES, 1));
 		assertEquals(1, tracker.getLoot().get(BONES));
 	}
@@ -209,7 +209,7 @@ public class LootTrackingTest
 		assertEquals(SessionTracker.RestoreResult.RESTORED, restored.restore(s, COUNTERS));
 		assertEquals(4, restored.getLoot().get(BONES));
 		assertFalse("restored session is paused", restored.addLoot(tally(BONES, 10)));
-		assertTrue(restored.play(ACCOUNT));
+		assertTrue(restored.startNow(ACCOUNT));
 		restored.addLoot(tally(BONES, 1, RUNE_SCIMITAR, 1));
 
 		LedgerRecord record = LedgerRecord.fromSummary(restored.stopAndReset(), true);
@@ -224,7 +224,7 @@ public class LootTrackingTest
 		SessionSnapshot s = snapshotWithLoot();
 		SessionTracker other = new SessionTracker(() -> now);
 		other.observe("Abyssal demons", DEMON_ID, 46, 150, false);
-		other.play(ACCOUNT);
+		other.startNow(ACCOUNT);
 		other.addLoot(tally(RUNE_SCIMITAR, 9));
 		other.stopAndReset();
 		assertEquals(SessionTracker.RestoreResult.RESTORED, other.restore(s, COUNTERS));
@@ -256,7 +256,7 @@ public class LootTrackingTest
 		tracker.observe("Abyssal demons", DEMON_ID, 46, 150, false);
 		assertTrue(tracker.activeSessionStillMatches(logout, COUNTERS));
 		assertEquals(4, tracker.getLoot().get(BONES));
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		tracker.addLoot(tally(BONES, 2));
 		assertEquals(6, tracker.getLoot().get(BONES));
 	}
@@ -375,11 +375,12 @@ public class LootTrackingTest
 		store.append(ACCOUNT, record);
 
 		String json = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
-		assertTrue(json, json.startsWith("{\"schemaVersion\":2,"));
+		assertTrue(json, json.startsWith("{\"schemaVersion\":" + LedgerStore.FILE_SCHEMA_VERSION + ","));
 		List<LedgerRecord> loaded = store.load(ACCOUNT);
 		assertEquals(2, loaded.size());
 		assertNull(loaded.get(0).getLoot());
-		assertEquals(1, loaded.get(0).getSchemaVersion());
+		// Migrated when it was read for the append, so it was written back at the current version.
+		assertEquals(LedgerRecord.CURRENT_SCHEMA_VERSION, loaded.get(0).getSchemaVersion());
 		assertEquals(Long.valueOf(10), loaded.get(1).getLoot().get(BONES));
 		assertEquals(Long.valueOf(1_000), loaded.get(1).getLootGeValue());
 	}

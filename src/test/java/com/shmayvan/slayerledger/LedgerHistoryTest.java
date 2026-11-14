@@ -120,9 +120,9 @@ public class LedgerHistoryTest
 			record("g1", "Gargoyles", 1L),
 			record("k1", "Kurask", 2L),
 			record("g2", "Gargoyles", 3L)));
-		assertEquals(Arrays.asList("g2", "g1"), ids(new HistoryFilter("Gargoyles", null, null).apply(sorted, NO_NAMES)));
-		assertEquals(Collections.singletonList("k1"), ids(new HistoryFilter("Kurask", null, null).apply(sorted, NO_NAMES)));
-		assertTrue(new HistoryFilter("Hydras", null, null).apply(sorted, NO_NAMES).isEmpty());
+		assertEquals(Arrays.asList("g2", "g1"), ids(new HistoryFilter("Gargoyles", null, null).apply(sorted, SlayerSpots.NONE, NO_NAMES)));
+		assertEquals(Collections.singletonList("k1"), ids(new HistoryFilter("Kurask", null, null).apply(sorted, SlayerSpots.NONE, NO_NAMES)));
+		assertTrue(new HistoryFilter("Hydras", null, null).apply(sorted, SlayerSpots.NONE, NO_NAMES).isEmpty());
 	}
 
 	@Test
@@ -131,14 +131,14 @@ public class LedgerHistoryTest
 		List<LedgerRecord> sorted = LedgerHistory.sortNewestFirst(Arrays.asList(
 			record("g1", "Gargoyles", 1L),
 			record("k1", "Kurask", 2L)));
-		assertEquals(Arrays.asList("k1", "g1"), ids(new HistoryFilter(null, null, null).apply(sorted, NO_NAMES)));
+		assertEquals(Arrays.asList("k1", "g1"), ids(new HistoryFilter(null, null, null).apply(sorted, SlayerSpots.NONE, NO_NAMES)));
 	}
 
 	@Test
 	public void unnamedRecordsMatchTheUnknownFilter()
 	{
 		List<LedgerRecord> records = Arrays.asList(record("x", null, 1L), record("y", "", 2L), record("z", "Kurask", 3L));
-		assertEquals(Arrays.asList("x", "y"), ids(new HistoryFilter(LedgerHistory.UNKNOWN_MONSTER, null, null).apply(records, NO_NAMES)));
+		assertEquals(Arrays.asList("x", "y"), ids(new HistoryFilter(LedgerHistory.UNKNOWN_MONSTER, null, null).apply(records, SlayerSpots.NONE, NO_NAMES)));
 	}
 
 	// ---- Formatting ----
@@ -194,15 +194,17 @@ public class LedgerHistoryTest
 		assertEquals("no overflow", "2562047788015h 13m", LedgerHistory.formatKillTime(Long.MAX_VALUE));
 	}
 
+	/** Only a partial task names its status: its tooltip says so; a completed one's says nothing. */
 	@Test
-	public void statusIsCompletedOrPartial()
+	public void onlyAPartialTasksTooltipNamesItsStatus()
 	{
 		LedgerRecord r = record("1", "Kurask", 1L);
 		r.setCompleted(true);
-		assertEquals("Completed", LedgerHistory.status(r));
+		assertFalse(savedTooltip(r), savedTooltip(r).contains(LedgerHistory.PARTIAL));
+		assertFalse(savedTooltip(r), savedTooltip(r).contains("Completed"));
 		r.setCompleted(false);
 		r.setPartial(true);
-		assertEquals("Partial", LedgerHistory.status(r));
+		assertTrue(savedTooltip(r), savedTooltip(r).startsWith("<html>Kurask<br>" + LedgerHistory.PARTIAL_NOTE + "<br>"));
 	}
 
 	@Test
@@ -262,10 +264,34 @@ public class LedgerHistoryTest
 		return HistoryPricing.value(r, LootPriceMode.GE, null);
 	}
 
-	/** {@code r}'s history tooltip at the prices saved with it, without a location line. */
+	/** {@code r}'s Task history row tooltip at the prices saved with it, without a location line or an end time. */
 	private static String savedTooltip(LedgerRecord r)
 	{
-		return LedgerHistory.rowTooltip(r, saved(r), null);
+		return tooltip(r, saved(r));
+	}
+
+	/** {@code r}'s Task history row tooltip at {@code v}, without a location line or an end time. */
+	private static String tooltip(LedgerRecord r, HistoryPricing.Values v)
+	{
+		return LedgerHistory.historyRowTooltip(r, v, null, LedgerHistory.NO_VALUE);
+	}
+
+	/** The loot value as Task history shows it: the Loot received sub-header of a task's details. */
+	private static String loot(HistoryPricing.Values v)
+	{
+		return LedgerFormat.amount(v.getLootValue(), v.isLootApproximate());
+	}
+
+	/** The supplies value as Task history shows it: the Supplies used sub-header of a task's details. */
+	private static String supplies(HistoryPricing.Values v)
+	{
+		return LedgerFormat.amount(v.getSuppliesGe(), v.isSuppliesApproximate());
+	}
+
+	/** The profit as a Task history row shows it, signed. */
+	private static String profit(HistoryPricing.Values v)
+	{
+		return LedgerFormat.signed(v.getProfit(), v.isProfitApproximate());
 	}
 
 	@Test
@@ -280,6 +306,10 @@ public class LedgerHistoryTest
 		assertEquals("-", LedgerHistory.formatGp(null, false));
 		assertEquals("-", LedgerHistory.formatGp(null, true));
 		assertEquals("~1.23M gp", LedgerHistory.formatGp(1_234_567L, true));
+		// No trailing zeros (DESIGN_PRINCIPLES 5.5), in every compact amount: gp, history amounts, XP rows, drops.
+		assertEquals("1M gp", LedgerHistory.formatGp(1_000_000));
+		assertEquals("58K", LedgerHistory.formatAmount(58_000L, false));
+		assertEquals("~10K", LedgerHistory.formatAmount(10_000L, true));
 		assertEquals("1,234,567 gp", LedgerHistory.formatGpExact(1_234_567));
 	}
 
@@ -302,10 +332,10 @@ public class LedgerHistoryTest
 		assertNull(LedgerHistory.suppliesGe(old));
 		assertNull(LedgerHistory.profitGe(old));
 		HistoryPricing.Values today = HistoryPricing.value(old, LootPriceMode.GE, Collections.emptyMap());
-		assertEquals("Loot (GE): -", LedgerHistory.formatLoot(today));
-		assertEquals("Supplies: -", LedgerHistory.formatSupplies(today));
-		assertEquals("Profit (GE): -", LedgerHistory.formatProfit(today));
-		assertFalse(LedgerHistory.rowTooltip(old, today, null).contains("0 gp"));
+		assertEquals("-", loot(today));
+		assertEquals("-", supplies(today));
+		assertEquals("-", profit(today));
+		assertFalse(tooltip(old, today).contains("0 gp"));
 	}
 
 	@Test
@@ -314,9 +344,9 @@ public class LedgerHistoryTest
 		LedgerRecord r = valued(1_234_567L, null);
 		assertEquals(Long.valueOf(0), LedgerHistory.suppliesGe(r));
 		assertEquals(Long.valueOf(1_234_567), LedgerHistory.profitGe(r));
-		assertEquals("Loot (GE): 1.23M", LedgerHistory.formatLoot(saved(r)));
-		assertEquals("Supplies: 0", LedgerHistory.formatSupplies(saved(r)));
-		assertEquals("Profit (GE): 1.23M", LedgerHistory.formatProfit(saved(r)));
+		assertEquals("1.23M", loot(saved(r)));
+		assertEquals("0", supplies(saved(r)));
+		assertEquals("+1.23M", profit(saved(r)));
 	}
 
 	@Test
@@ -324,8 +354,8 @@ public class LedgerHistoryTest
 	{
 		LedgerRecord r = valued(50_000L, 400_000L);
 		assertEquals(Long.valueOf(-350_000), LedgerHistory.profitGe(r));
-		assertEquals("Profit (GE): -350K", LedgerHistory.formatProfit(saved(r)));
-		assertEquals("Supplies: 400K", LedgerHistory.formatSupplies(saved(r)));
+		assertEquals("-350K", profit(saved(r)));
+		assertEquals("400K", supplies(saved(r)));
 	}
 
 	@Test
@@ -333,9 +363,9 @@ public class LedgerHistoryTest
 	{
 		LedgerRecord r = valued(10_000L, 2_000L);
 		r.setSuppliesUnpricedItems(2);
-		assertEquals("Loot (GE): 10K", LedgerHistory.formatLoot(saved(r)));
-		assertEquals("Supplies: ~2,000", LedgerHistory.formatSupplies(saved(r)));
-		assertEquals("Profit (GE): ~8,000", LedgerHistory.formatProfit(saved(r)));
+		assertEquals("10K", loot(saved(r)));
+		assertEquals("~2,000", supplies(saved(r)));
+		assertEquals("~+8,000", profit(saved(r)));
 		String tooltip = savedTooltip(r);
 		assertTrue(tooltip, tooltip.contains("Some prices were unavailable (loot: 0, supplies: 2)"));
 		assertTrue(tooltip, tooltip.contains("Loot: 10,000 gp GE, 10,000 gp high alch"));
@@ -343,8 +373,8 @@ public class LedgerHistoryTest
 
 		r.setSuppliesUnpricedItems(null);
 		r.setLootUnpricedItems(1);
-		assertEquals("Loot (GE): ~10K", LedgerHistory.formatLoot(saved(r)));
-		assertEquals("Supplies: 2,000", LedgerHistory.formatSupplies(saved(r)));
+		assertEquals("~10K", loot(saved(r)));
+		assertEquals("2,000", supplies(saved(r)));
 		assertTrue(savedTooltip(r).contains("(loot: 1, supplies: 0), so totals may be too low"));
 
 		// One item both looted and used as a supply is listed on each side, not added up to a total.
@@ -362,7 +392,7 @@ public class LedgerHistoryTest
 		r.setLootHaValue(12_000L);
 		r.setSupplies(Collections.singletonMap(2, 1L));
 
-		String saved = LedgerHistory.rowTooltip(r, HistoryPricing.value(r, LootPriceMode.GE, null));
+		String saved = tooltip(r, HistoryPricing.value(r, LootPriceMode.GE, null));
 		assertFalse("no saved-prices line", saved.contains("Prices:"));
 		assertFalse(saved, saved.contains("Loot value ("));
 		assertTrue(saved, saved.contains("Profit: 8,000 gp GE"));
@@ -371,33 +401,33 @@ public class LedgerHistoryTest
 		todayGe.put(1, 7_000L);
 		todayGe.put(2, 2_000L);
 		HistoryPricing.Values today = HistoryPricing.value(r, LootPriceMode.HIGH_ALCH, todayGe);
-		String current = LedgerHistory.rowTooltip(r, today);
+		String current = tooltip(r, today);
 		assertTrue(current, current.contains("<br>" + LedgerHistory.CURRENT_PRICES));
 		assertTrue(current, current.contains("Loot: 14,000 gp GE, 12,000 gp high alch"));
 		assertTrue(current, current.contains("Loot value (High alch): 12,000 gp"));
 		assertTrue(current, current.contains("Profit: 10,000 gp (loot at high alch, supplies at GE)"));
-		assertEquals("Loot (HA): 12K", LedgerHistory.formatLoot(today));
-		assertEquals("Profit (HA): 10K", LedgerHistory.formatProfit(today));
+		assertEquals("12K", loot(today));
+		assertEquals("+10K", profit(today));
 
 		// Saved without per-item prices: still valued from its items at today's prices.
 		r.setUnitGePrices(null);
 		r.setUnitHaPrices(null);
 		HistoryPricing.Values revalued = HistoryPricing.value(r, LootPriceMode.GE, todayGe);
-		String older = LedgerHistory.rowTooltip(r, revalued);
+		String older = tooltip(r, revalued);
 		assertTrue(older, older.contains("<br>" + LedgerHistory.CURRENT_PRICES));
 		assertFalse(older, older.contains(LedgerHistory.SAVED_TOTALS));
-		assertEquals("Loot (GE): 14K", LedgerHistory.formatLoot(revalued));
-		assertEquals("Profit (GE): 12K", LedgerHistory.formatProfit(revalued));
+		assertEquals("14K", loot(revalued));
+		assertEquals("+12K", profit(revalued));
 
 		// Saved without items: today's prices can't revalue it, so it keeps its saved totals.
 		r.setLoot(null);
 		r.setSupplies(null);
 		HistoryPricing.Values kept = HistoryPricing.value(r, LootPriceMode.GE, todayGe);
-		String old = LedgerHistory.rowTooltip(r, kept);
+		String old = tooltip(r, kept);
 		assertTrue(old, old.contains("<br>" + LedgerHistory.SAVED_TOTALS));
 		assertFalse(old, old.contains(LedgerHistory.CURRENT_PRICES));
-		assertEquals("Loot (GE): ~10K", LedgerHistory.formatLoot(kept));
-		assertEquals("Profit (GE): ~8,000", LedgerHistory.formatProfit(kept));
+		assertEquals("~10K", loot(kept));
+		assertEquals("~+8,000", profit(kept));
 	}
 
 	@Test
@@ -406,19 +436,18 @@ public class LedgerHistoryTest
 		assertEquals("GE", LedgerHistory.priceLabel(LootPriceMode.GE));
 		assertEquals("HA", LedgerHistory.priceLabel(LootPriceMode.HIGH_ALCH));
 		assertEquals("null counts as GE", "GE", LedgerHistory.priceLabel(null));
-		assertEquals("Loot (GE): ", LedgerHistory.lootLabel(LootPriceMode.GE));
-		assertEquals("Loot (HA): ", LedgerHistory.lootLabel(LootPriceMode.HIGH_ALCH));
 		assertEquals("Profit (GE): ", LedgerHistory.profitLabel(LootPriceMode.GE));
 		assertEquals("Profit (HA): ", LedgerHistory.profitLabel(LootPriceMode.HIGH_ALCH));
 
-		// The ~ comes after the label, as before.
+		// In High alch the loot is its high alch value and the supplies stay at GE; the ~ of an unpriced supply carries
+		// to the profit, before its sign.
 		LedgerRecord r = valued(10_000L, 2_000L);
 		r.setLootHaValue(9_000L);
 		r.setSuppliesUnpricedItems(1);
 		HistoryPricing.Values ha = HistoryPricing.value(r, LootPriceMode.HIGH_ALCH, null);
-		assertEquals("Loot (HA): 9,000", LedgerHistory.formatLoot(ha));
-		assertEquals("Supplies: ~2,000", LedgerHistory.formatSupplies(ha));
-		assertEquals("Profit (HA): ~7,000", LedgerHistory.formatProfit(ha));
+		assertEquals("9,000", loot(ha));
+		assertEquals("~2,000", supplies(ha));
+		assertEquals("~+7,000", profit(ha));
 	}
 
 	// ---- Superiors and bank trips ----
@@ -444,13 +473,63 @@ public class LedgerHistoryTest
 		r.setBankTrips(0);
 		r.setDeaths(1);
 		String tooltip = savedTooltip(r);
-		assertTrue(tooltip, tooltip.startsWith("<html>Loot: 10,000 gp GE"));
+		// The values right after the head (which ends with the XP), the counts last.
+		assertTrue(tooltip, tooltip.contains("<br>XP: -<br>Loot: 10,000 gp GE"));
 		assertTrue(tooltip, tooltip.endsWith("<br>Superiors: 2<br>Bank trips: 0<br>Deaths: 1</html>"));
 		assertEquals(1, tooltip.split("<html>", -1).length - 1);
 
 		LedgerRecord old = record("old", "Kurask", 1_000L);
-		assertEquals("<html>" + LedgerHistory.NOT_VALUED + "<br>Superiors: -<br>Bank trips: -<br>Deaths: -</html>",
-			LedgerHistory.rowTooltip(old, HistoryPricing.value(old, LootPriceMode.GE, Collections.emptyMap()), null));
+		String oldTooltip = tooltip(old, HistoryPricing.value(old, LootPriceMode.GE, Collections.emptyMap()));
+		assertTrue(oldTooltip, oldTooltip.endsWith("<br>XP: -<br>" + LedgerHistory.NOT_VALUED
+			+ "<br>Superiors: -<br>Bank trips: -<br>Deaths: -</html>"));
+	}
+
+	/**
+	 * A Task history row's tooltip in look A: first what the two-line row has no room for (the full
+	 * name, the date and time, the exact active time, the kills, the XP), then the details.
+	 */
+	@Test
+	public void historyRowTooltipStartsWithWhatTheRowHasNoRoomFor()
+	{
+		LedgerRecord r = valued(10_000L, 2_000L);
+		r.setMonster("Thermonuclear <smoke> devil");
+		r.setOriginalAmount(10);
+		r.setActiveMillis(60 * 60_000L + 5_400L);
+		r.setCompleted(true);
+		r.setXpGained(Collections.singletonMap("SLAYER", 40_100L));
+		String tooltip = LedgerHistory.historyRowTooltip(r, saved(r), "Smoke Dungeon", "10/28/26, 3:01 PM");
+		// The row shows "1 h" (LedgerFormat.duration); the tooltip the exact time.
+		assertEquals("<html>Thermonuclear &lt;smoke&gt; devil<br>10/28/26, 3:01 PM<br>Active: 1:00:05<br>Kills: 10 / 10"
+			+ "<br>XP: 40.1K (40K/h)<br>Loot: 10,000 gp GE, 10,000 gp high alch<br>Supplies: 2,000 gp GE, 2,000 gp"
+			+ " high alch<br>Profit: 8,000 gp GE<br>Location: Smoke Dungeon<br>Superiors: -<br>Bank trips: -"
+			+ "<br>Deaths: -</html>", tooltip);
+		assertEquals(1, tooltip.split("<html>", -1).length - 1);
+
+		// A partial task says so; one saved before XP was tracked says "XP: -".
+		LedgerRecord partial = record("p", "Kurask", 1_000L);
+		String partialTip = LedgerHistory.historyRowTooltip(partial, saved(partial), null, "-");
+		assertTrue(partialTip, partialTip.startsWith("<html>Kurask<br>" + LedgerHistory.PARTIAL_NOTE
+			+ "<br>-<br>Active: 0:00:00<br>Kills: 10<br>XP: -<br>" + LedgerHistory.NOT_VALUED));
+	}
+
+	/** The values tooltip of a saved task's item lists' sub-headers: its row tooltip's first lines. */
+	@Test
+	public void theItemListsValuesTooltipIsTheRowsValues()
+	{
+		LedgerRecord r = valued(10_000L, 2_000L);
+		assertEquals("<html>Loot: 10,000 gp GE, 10,000 gp high alch<br>Supplies: 2,000 gp GE, 2,000 gp high alch"
+			+ "<br>Profit: 8,000 gp GE</html>", LedgerHistory.valuesTooltip(saved(r)));
+		LedgerRecord old = record("old", "Kurask", 1_000L);
+		assertEquals("<html>" + LedgerHistory.NOT_VALUED + "</html>", LedgerHistory.valuesTooltip(saved(old)));
+	}
+
+	@Test
+	public void shortDateIsTheLocalizedShortDateWithoutTheTime()
+	{
+		ZoneId zone = ZoneId.of("Europe/London");
+		LedgerRecord r = record("1", "Kurask", Instant.parse("2026-07-04T23:30:00Z").toEpochMilli());
+		assertEquals("7/5/26, a day later in London",
+			"7/5/26", LedgerHistory.formatEndedAt(r, LedgerHistory.shortDate(zone).withLocale(Locale.US)));
 	}
 
 	@Test
@@ -458,8 +537,9 @@ public class LedgerHistoryTest
 	{
 		LedgerRecord r = record("a", "Kurask", 1_000L);
 		r.setNote("Barrage <b>& burst</b>");
-		assertEquals("<html>" + LedgerHistory.NOT_VALUED + "<br>Superiors: -<br>Bank trips: -<br>Deaths: -"
-			+ "<br>Note: Barrage &lt;b&gt;&amp; burst&lt;/b&gt;</html>", savedTooltip(r));
+		String tooltip = savedTooltip(r);
+		assertTrue(tooltip, tooltip.endsWith("<br>XP: -<br>" + LedgerHistory.NOT_VALUED
+			+ "<br>Superiors: -<br>Bank trips: -<br>Deaths: -<br>Note: Barrage &lt;b&gt;&amp; burst&lt;/b&gt;</html>"));
 	}
 
 	@Test

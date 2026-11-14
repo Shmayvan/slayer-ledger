@@ -196,7 +196,7 @@ public class PluginHarnessSelfTest
 		harness.startUp();
 		harness.setTask(42, "Abyssal demons", 1, 3);
 		harness.loginAndSettle(PluginHarness.ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 
 		List<String> lootSeen = new ArrayList<>();
 		EventBus.Subscriber recorder = harness.eventBus.register(ServerNpcLoot.class, loot -> lootSeen.add(

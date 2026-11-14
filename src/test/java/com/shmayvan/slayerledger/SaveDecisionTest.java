@@ -79,7 +79,7 @@ public class SaveDecisionTest
 	{
 		SessionTracker tracker = new SessionTracker(() -> 0L);
 		tracker.observe("Abyssal demons", 1, 10, false);
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		SessionTracker.Summary summary = tracker.stopAndReset();
 		assertEquals(Action.PROMPT, SaveDecision.decide(summary, EndReason.PLAYER_STOP, true));
 		assertEquals(Action.SAVE_PARTIAL_WITH_NOTICE, SaveDecision.decide(summary, EndReason.SYSTEM, true));

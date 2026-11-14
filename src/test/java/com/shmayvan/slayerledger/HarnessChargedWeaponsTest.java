@@ -17,10 +17,11 @@ import org.junit.Rule;
 import org.junit.Test;
 
 /**
- * Blowpipe and trident use as wired in the plugin ({@link PluginHarness}): shots and casts read from the local
- * player's animation, frame and spotanims with the worn weapon and cape on GameTick and counted only while RUNNING;
- * the dart type learned from the check message and kept in the RSProfile config; loading, charging and unloading
- * kept out of the supplies diff; and the panel's "Check your blowpipe" hint. {@link ChargedWeaponUsageTest},
+ * Blowpipe, trident and powered staff (Sanguinesti staff, Tumeken's shadow) use as wired in the plugin
+ * ({@link PluginHarness}): shots and casts read from the local player's animation, frame and spotanims with the worn
+ * weapon and cape on GameTick and counted only while RUNNING; the dart type learned from the check message and kept in
+ * the RSProfile config; loading, charging and unloading kept out of the supplies diff; and the panel's "Check your
+ * blowpipe" hint. {@link ChargedWeaponUsageTest},
  * {@link BlowpipeMessageTest} and {@link ChargeExclusionsTest} cover the rules themselves.
  */
 public class HarnessChargedWeaponsTest
@@ -40,6 +41,8 @@ public class HarnessChargedWeaponsTest
 		harness.defineItem(ItemID.DEATHRUNE, "Death rune", 200, 0, null, null, null, null, "Drop");
 		harness.defineItem(ItemID.CHAOSRUNE, "Chaos rune", 80, 0, null, null, null, null, "Drop");
 		harness.defineItem(ItemID.FIRERUNE, "Fire rune", 5, 0, null, null, null, null, "Drop");
+		harness.defineItem(ItemID.BLOODRUNE, "Blood rune", 300, 0, null, null, null, null, "Drop");
+		harness.defineItem(ItemID.SOULRUNE, "Soul rune", 250, 0, null, null, null, null, "Drop");
 		harness.setInventory();
 		harness.startUp();
 		harness.setTask(42, "Abyssal demons", 10, 10);
@@ -49,7 +52,7 @@ public class HarnessChargedWeaponsTest
 	/** Stops the session and returns the saved record's supplies. */
 	private Map<Integer, Long> stopAndGetSupplies()
 	{
-		harness.stop();
+		harness.endTask();
 		Map<Integer, Long> supplies = harness.onlyRecord(ACCOUNT).getSupplies();
 		return supplies == null ? Collections.emptyMap() : supplies;
 	}
@@ -90,7 +93,7 @@ public class HarnessChargedWeaponsTest
 		// Before Play: not counted.
 		blowpipeShots(3);
 
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		// No cape-slot device: a dart per shot; 2/3 of a scale per shot.
 		blowpipeShots(3);
 		// A frame other than 0 is the same shot still playing.
@@ -113,7 +116,7 @@ public class HarnessChargedWeaponsTest
 		harness.setWorn(EquipmentInventorySlot.WEAPON, ItemID.TOXIC_BLOWPIPE_LOADED, 1);
 		harness.setWorn(EquipmentInventorySlot.CAPE, ItemID.SKILLCAPE_MAX, 1);
 		harness.chat(ChatMessageType.GAMEMESSAGE, RUNE_DART_CHECK);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		// 80% saved: 0.2 darts per shot.
 		blowpipeShots(10);
 
@@ -127,7 +130,7 @@ public class HarnessChargedWeaponsTest
 	public void tridentCastsCountTheirChargeMaterials()
 	{
 		harness.setWorn(EquipmentInventorySlot.WEAPON, ItemID.TOTS_CHARGED, 1);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.setAnimation(AnimationID.HUMAN_CASTWAVE_STAFF, 0);
 		harness.setSpotAnims(SpotanimID.SLAYER_TOTS_CASTING);
 		harness.tick();
@@ -145,12 +148,94 @@ public class HarnessChargedWeaponsTest
 		assertEquals(4, supplies.size());
 	}
 
+	/** One tick on which a cast starts ({@code animationId} at frame 0 with the cast graphic {@code graphic}). */
+	private void cast(int animationId, int graphic)
+	{
+		harness.setAnimation(animationId, 0);
+		harness.setSpotAnims(graphic);
+		harness.tick();
+		harness.setAnimation(-1, 0);
+		harness.setSpotAnims();
+	}
+
+	@Test
+	public void poweredStaffCastsCountTheirChargeRunes()
+	{
+		// Blood runes in the inventory are not what the staff uses: they must not change, or be counted twice.
+		harness.setInventory(item(ItemID.BLOODRUNE, 100));
+		harness.setWorn(EquipmentInventorySlot.WEAPON, ItemID.SANGUINESTI_STAFF, 1);
+		harness.tick();
+		assertTrue(harness.startNow());
+		cast(AnimationID.HUMAN_CASTWAVE_STAFF, SpotanimID.SANGUINESTI_STAFF_CASTING);
+		cast(AnimationID.HUMAN_CASTWAVE_STAFF_WALKMERGE, SpotanimID.SANGUINESTI_STAFF_CASTING);
+		// Another weapon's graphic is not a Sanguinesti cast.
+		cast(AnimationID.HUMAN_CASTWAVE_STAFF, SpotanimID.SLAYER_TOTS_CASTING);
+
+		harness.setWorn(EquipmentInventorySlot.WEAPON, ItemID.TUMEKENS_SHADOW, 1);
+		cast(AnimationID.TOA_SOT_CAST_B, SpotanimID.TUMEKENS_SHADOW_CASTING);
+		// The wave-staff animation is not a shadow cast.
+		cast(AnimationID.HUMAN_CASTWAVE_STAFF, SpotanimID.TUMEKENS_SHADOW_CASTING);
+		harness.pause();
+		cast(AnimationID.TOA_SOT_CAST_B, SpotanimID.TUMEKENS_SHADOW_CASTING);
+
+		harness.endTask();
+		final LedgerRecord record = harness.onlyRecord(ACCOUNT);
+		final Map<Integer, Long> supplies = record.getSupplies();
+		assertEquals("2 per Sanguinesti cast", 4L, used(supplies, ItemID.BLOODRUNE));
+		assertEquals("2 per shadow cast", 2L, used(supplies, ItemID.SOULRUNE));
+		assertEquals("5 per shadow cast", 5L, used(supplies, ItemID.CHAOSRUNE));
+		assertEquals(3, supplies.size());
+		// 4 * 300 + 2 * 250 + 5 * 80.
+		assertEquals(Long.valueOf(1_200 + 500 + 400), record.getSuppliesGeValue());
+	}
+
+	@Test
+	public void chargingAPoweredStaffIsNotCountedTwice()
+	{
+		harness.setInventory(item(ItemID.SANGUINESTI_STAFF_UNCHARGED, 1), item(ItemID.BLOODRUNE, 1_000));
+		harness.tick();
+		assertTrue(harness.startNow());
+		// 500 charges take 1,000 blood runes.
+		harness.clickUseOn(ItemID.BLOODRUNE, ItemID.SANGUINESTI_STAFF_UNCHARGED);
+		harness.tick();
+		harness.setInventory(item(ItemID.SANGUINESTI_STAFF, 1));
+		harness.tick();
+		harness.showObjectbox("You apply 500 charges to your Sanguinesti staff.");
+		harness.ticks(ChargeExclusions.CONFIRM_GRACE_TICKS + 1);
+		harness.showObjectbox(null);
+
+		// The shadow's "Charge" option takes its soul and chaos runes.
+		harness.setInventory(item(ItemID.SANGUINESTI_STAFF, 1), item(ItemID.TUMEKENS_SHADOW_UNCHARGED, 1),
+			item(ItemID.SOULRUNE, 200), item(ItemID.CHAOSRUNE, 500));
+		harness.tick();
+		harness.clickMenu("Charge", ItemID.TUMEKENS_SHADOW_UNCHARGED);
+		harness.setInventory(item(ItemID.SANGUINESTI_STAFF, 1), item(ItemID.TUMEKENS_SHADOW, 1));
+		harness.tick();
+		harness.showObjectbox("You apply 100 charges to your Tumeken's shadow.");
+		harness.ticks(ChargeExclusions.CONFIRM_GRACE_TICKS + 1);
+		harness.showObjectbox(null);
+
+		// After the window, a cast counts its charge, and blood runes used from the inventory count again.
+		harness.setWorn(EquipmentInventorySlot.WEAPON, ItemID.SANGUINESTI_STAFF, 1);
+		harness.setInventory(item(ItemID.TUMEKENS_SHADOW, 1), item(ItemID.BLOODRUNE, 10));
+		harness.tick();
+		cast(AnimationID.HUMAN_CASTWAVE_STAFF, SpotanimID.SANGUINESTI_STAFF_CASTING);
+		harness.setInventory(item(ItemID.TUMEKENS_SHADOW, 1), item(ItemID.BLOODRUNE, 7));
+		harness.tick();
+
+		final Map<Integer, Long> supplies = stopAndGetSupplies();
+		assertEquals("one cast and 3 from the inventory", 5L, used(supplies, ItemID.BLOODRUNE));
+		assertEquals(0L, used(supplies, ItemID.SOULRUNE));
+		assertEquals(0L, used(supplies, ItemID.CHAOSRUNE));
+		assertEquals(1, supplies.size());
+	}
+
 	@Test
 	public void loadingAndUnloadingDartsIsNotCountedTwice()
 	{
 		harness.setInventory(item(ItemID.RUNE_DART, 100), item(ItemID.TOXIC_BLOWPIPE_LOADED, 1));
 		harness.tick();
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		// Loading the inventory's darts into the blowpipe.
 		harness.clickUseOn(ItemID.RUNE_DART, ItemID.TOXIC_BLOWPIPE_LOADED);
 		harness.setInventory(item(ItemID.TOXIC_BLOWPIPE_LOADED, 1));
@@ -184,7 +269,7 @@ public class HarnessChargedWeaponsTest
 		harness.setInventory(item(ItemID.TOTS_UNCHARGED, 1), item(ItemID.DEATHRUNE, 100),
 			item(ItemID.CHAOSRUNE, 100), item(ItemID.FIRERUNE, 500));
 		harness.tick();
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.clickUseOn(ItemID.FIRERUNE, ItemID.TOTS_UNCHARGED);
 		// The number input is answered; 100 charges use all the runes.
 		harness.tick();
@@ -216,7 +301,7 @@ public class HarnessChargedWeaponsTest
 		harness.startUp();
 		harness.ticks(PluginHarness.SETTLE_TICKS);
 		harness.setWorn(EquipmentInventorySlot.WEAPON, ItemID.TOXIC_BLOWPIPE_LOADED, 1);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		blowpipeShots(1);
 
 		// Out of darts: shots count scales only until the type is known again.
@@ -239,7 +324,7 @@ public class HarnessChargedWeaponsTest
 	public void theCheckHintShowsWhileDartsCannotBeCounted()
 	{
 		harness.setWorn(EquipmentInventorySlot.WEAPON, ItemID.TOXIC_BLOWPIPE_LOADED, 1);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.tick();
 		assertFalse("no shot yet", dartHintShown());
 		blowpipeShot();
@@ -248,7 +333,7 @@ public class HarnessChargedWeaponsTest
 		harness.pause();
 		harness.tick();
 		assertFalse("hidden while paused", dartHintShown());
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		blowpipeShot();
 		assertTrue(dartHintShown());
 
@@ -268,7 +353,7 @@ public class HarnessChargedWeaponsTest
 		harness.setWorn(EquipmentInventorySlot.WEAPON, ItemID.TOXIC_BLOWPIPE_LOADED, 1);
 		blowpipeShot();
 		assertTrue(dartHintShown());
-		harness.stop();
+		harness.endTask();
 		harness.tick();
 		assertFalse("hidden once stopped", dartHintShown());
 	}

@@ -125,8 +125,8 @@ final class SwingLookup
 	}
 
 	/**
-	 * A history-style line ({@link SlayerLedgerPanel#historyLine}): the texts of {@code line}'s labels, left to right,
-	 * joined by {@code " | "}.
+	 * A line of labels (a panel holding only labels, such as a text on the left and a value on the right): their texts,
+	 * left to right, joined by {@code " | "}.
 	 */
 	static String lineText(Component line)
 	{

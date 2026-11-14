@@ -43,7 +43,7 @@ public class HarnessSupplyExclusionsTest
 	/** Stops the session and returns the saved record's supplies. */
 	private Map<Integer, Long> stopAndGetSupplies()
 	{
-		harness.stop();
+		harness.endTask();
 		Map<Integer, Long> supplies = harness.onlyRecord(ACCOUNT).getSupplies();
 		return supplies == null ? Collections.emptyMap() : supplies;
 	}
@@ -56,13 +56,13 @@ public class HarnessSupplyExclusionsTest
 	@Test
 	public void foodEatenWhileRunningIsCountedAndPriced()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		inventory(8, 5);
 		harness.tick();
 		inventory(8, 4);
 		harness.tick();
 
-		harness.stop();
+		harness.endTask();
 		LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		assertEquals(2L, used(record.getSupplies(), ItemID.SHARK));
 		assertEquals(1L, used(record.getSupplies(), ItemID.LOBSTER));
@@ -74,7 +74,7 @@ public class HarnessSupplyExclusionsTest
 	{
 		inventory(9, 5);
 		harness.tick();
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		inventory(8, 5);
 		harness.tick();
 		harness.pause();
@@ -82,7 +82,7 @@ public class HarnessSupplyExclusionsTest
 		harness.tick();
 		// Eaten between the last tick and Play: Play takes a fresh baseline, so this is not counted either.
 		inventory(6, 5);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		inventory(5, 5);
 		harness.tick();
 
@@ -92,7 +92,7 @@ public class HarnessSupplyExclusionsTest
 	@Test
 	public void nothingIsCountedWhileTheBankIsOpenOrJustAfter()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.openInterface(InterfaceID.BANKMAIN);
 		inventory(3, 0);
 		harness.tick();
@@ -111,7 +111,7 @@ public class HarnessSupplyExclusionsTest
 	@Test
 	public void bankOpenedAndClosedBetweenTicksStillExcludesTheTick()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.openInterface(InterfaceID.BANKMAIN);
 		harness.closeInterface(InterfaceID.BANKMAIN);
 		inventory(4, 5);
@@ -124,7 +124,7 @@ public class HarnessSupplyExclusionsTest
 	@Test
 	public void otherInterfacesDoNotExclude()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.openInterface(InterfaceID.INVENTORY);
 		inventory(9, 5);
 		harness.tick();
@@ -134,7 +134,7 @@ public class HarnessSupplyExclusionsTest
 	@Test
 	public void droppedItemIsNotASupplyButOthersOnTheSameTickAre()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.clickMenu("Drop", ItemID.SHARK);
 		inventory(9, 4);
 		harness.tick();
@@ -151,7 +151,7 @@ public class HarnessSupplyExclusionsTest
 	@Test
 	public void otherMenuOptionsDoNotExclude()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.clickMenu("Eat", ItemID.SHARK);
 		inventory(9, 5);
 		harness.tick();
@@ -161,7 +161,7 @@ public class HarnessSupplyExclusionsTest
 	@Test
 	public void nothingIsCountedAroundTheLocalPlayersDeath()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.localPlayerDies();
 		inventory(0, 0);
 		harness.ticks(SupplyExclusions.DEATH_TICKS + 1);
@@ -171,7 +171,7 @@ public class HarnessSupplyExclusionsTest
 	@Test
 	public void suppliesCountAgainAfterTheDeathWindow()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.localPlayerDies();
 		inventory(0, 0);
 		harness.ticks(SupplyExclusions.DEATH_TICKS + 1);
@@ -185,7 +185,7 @@ public class HarnessSupplyExclusionsTest
 	@Test
 	public void anotherActorsDeathDoesNotExclude()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.otherActorDies();
 		inventory(9, 5);
 		harness.tick();

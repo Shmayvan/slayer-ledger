@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -24,7 +25,8 @@ import lombok.Value;
  *     <li>One row per item id as tallied (a noted drop is its own row). Quantities in doses, bites or charges (ids in
  *     the supply doses, see {@link LedgerRecord#getSupplyDoses()}) show as "N doses", "N bites" or "N charges"; the
  *     word comes from {@link SupplyTracker#MULTI_BITE_FOOD} and {@link SupplyTracker#CHARGED_ITEMS}, any other is a
- *     potion. Their names drop the "(4)" dose or charge suffix of the item they are keyed by.</li>
+ *     potion. Their names drop the "(4)" dose or charge suffix of the item they are keyed by. The live and history
+ *     supplies grids show one row per potion ({@link #supplyGridRows}).</li>
  *     <li>Supplies are valued at GE prices, per dose, bite or charge ({@link ItemValuation#total(ItemTally, Map, Map)});
  *     loot in the {@link LootPriceMode}, with a GE price of 0 at high alch ({@link LootPricing}). The values are the
  *     same per-item amounts the totals add up. An item without the price shows as unavailable in its tooltip.</li>
@@ -296,6 +298,105 @@ final class ItemDetails
 		return rows;
 	}
 
+	/**
+	 * The supplies grid's rows (the live task's and a history task's details): {@link #supplyRows} with each
+	 * potion family's rows merged into one. A record can hold one potion under two ids, because a potion is counted
+	 * under the variant with the most doses seen so far ({@link SupplyTracker}), and that moves when a higher-dose
+	 * variant is first seen mid-task: Prayer potion as 139 (3 doses) and 2434 (4 doses), say. The merged row has the
+	 * family's doses summed, the id with the most doses in one potion (on a tie the lower id), whose icon, unit prices
+	 * and doses per potion it shows, and the rows' values summed; with some of them unpriced it is marked approximate,
+	 * with all of them unpriced it has none. The family is {@link #potionFamily}, the advisor's rule
+	 * ({@link TaskPlanner#potionFamilies}); a potion whose name isn't known yet stays on its own until it is. What is
+	 * saved is not changed. Sorted by {@link #BY_VALUE}.
+	 */
+	List<Row> supplyGridRows(ItemNames names)
+	{
+		final List<Row> rows = supplyRows(names);
+		final Map<String, List<Row>> families = new TreeMap<>();
+		final List<Row> result = new ArrayList<>(rows.size());
+		for (Row row : rows)
+		{
+			final String family = row.getUnit() == Unit.DOSES ? potionFamily(row.getItemId(), names) : null;
+			if (family == null)
+			{
+				result.add(row);
+			}
+			else
+			{
+				families.computeIfAbsent(family, k -> new ArrayList<>()).add(row);
+			}
+		}
+		for (List<Row> family : families.values())
+		{
+			result.add(family.size() == 1 ? family.get(0) : merged(family, names));
+		}
+		result.sort(BY_VALUE);
+		return result;
+	}
+
+	/** One row for a potion family's rows ({@link #supplyGridRows}). */
+	private static Row merged(List<Row> family, ItemNames names)
+	{
+		Row shown = family.get(0);
+		long quantity = 0;
+		long value = 0;
+		int priced = 0;
+		for (Row row : family)
+		{
+			final int doses = row.getDosesPerItem() == null ? 0 : row.getDosesPerItem();
+			final int shownDoses = shown.getDosesPerItem() == null ? 0 : shown.getDosesPerItem();
+			if (doses > shownDoses || doses == shownDoses && row.getItemId() < shown.getItemId())
+			{
+				shown = row;
+			}
+			quantity = saturatedAdd(quantity, row.getQuantity());
+			if (row.getValue() != null)
+			{
+				value = saturatedAdd(value, row.getValue());
+				priced++;
+			}
+		}
+		return shown.toBuilder()
+			.name(displayName(shown.getItemId(), names, true))
+			.quantity(quantity)
+			.value(priced == 0 ? null : value)
+			.approximate(priced > 0 && priced < family.size())
+			.build();
+	}
+
+	/**
+	 * A potion's family, the advisor's rule ({@link TaskPlanner#potionFamilies}): for an id counted in doses (in a
+	 * record's supply doses, {@link LedgerRecord#getSupplyDoses}) that is a potion (not the bites or charges of
+	 * {@link #doseUnit}) and whose name {@code names} knows, that name without its dose suffix ({@link #displayName}),
+	 * lower case, as {@link SupplyTracker} names a potion's family: "Prayer potion(4)" and "Prayer potion(3)" are both
+	 * "prayer potion". {@code null} otherwise; the caller checks that the id is counted in doses.
+	 */
+	static String potionFamily(int itemId, ItemNames names)
+	{
+		if (names == null || doseUnit(itemId) != Unit.DOSES)
+		{
+			return null;
+		}
+		final String name = names.name(itemId);
+		if (name == null || name.trim().isEmpty())
+		{
+			return null;
+		}
+		return displayName(itemId, names, true).trim().toLowerCase(Locale.ROOT);
+	}
+
+	private static long saturatedAdd(long left, long right)
+	{
+		try
+		{
+			return Math.addExact(left, right);
+		}
+		catch (ArithmeticException e)
+		{
+			return right >= 0 ? Long.MAX_VALUE : Long.MIN_VALUE;
+		}
+	}
+
 	/** The loot, valued in {@code mode} ({@link LootPricing}), sorted by {@link #BY_VALUE}, with the alch hint. */
 	List<Row> lootRows(LootPriceMode mode, ItemNames names)
 	{
@@ -379,7 +480,7 @@ final class ItemDetails
 		{
 			return Unit.BITES;
 		}
-		if (SupplyTracker.CHARGED_ITEMS.containsKey(itemId))
+		if (SupplyTracker.CHARGED_ITEMS.containsKey(itemId) || SlayerBracelets.BRACELETS.contains(itemId))
 		{
 			return Unit.CHARGES;
 		}

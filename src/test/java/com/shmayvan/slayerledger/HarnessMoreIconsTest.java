@@ -15,9 +15,9 @@ import org.junit.Rule;
 import org.junit.Test;
 
 /**
- * The task icons as wired in the plugin: Task history rows, Skipped / blocked rows, the Luck meter's Task
- * choices, Trends' List rows and Monster choices, through the {@code ItemManager.getImage} fake on the EDT, and the
- * masters' faces in Overall totals' By master. Variants and cannon tasks show their task's icon, unknown tasks an
+ * The task icons as wired in the plugin: Task history rows and Skipped / blocked rows, through the
+ * {@code ItemManager.getImage} fake on the EDT, and the masters' faces in Overall totals' By master. (The live task
+ * card's icon is {@link HarnessLiveCardTest}'s.) Variants and cannon tasks show their task's icon, unknown tasks an
  * empty slot of the same size; nothing widens the sidebar; nothing is asked for while a section is closed or by the
  * refresh timer.
  */
@@ -41,8 +41,8 @@ public class HarnessMoreIconsTest
 		harness.onEdt(() -> harness.historyModel().setRecords(PluginHarness.ACCOUNT, versions(1)));
 		harness.drain();
 
-		assertEquals(Arrays.asList("Dust devils | Completed", "Deviant spectres | Completed",
-			"Dust devils (cannon) | Completed", UNKNOWN + " | Completed"),
+		assertEquals(Arrays.asList("Dust devils", "Deviant spectres",
+			"Dust devils (cannon)", UNKNOWN),
 			onEdt(() -> harness.ui().getHistory().getTitleTexts()));
 		// A Catacombs variant and a cannon task show their task's icon; an unknown task an empty slot of the same size.
 		assertEquals(Arrays.asList(DUST_DEVIL, SPECTRE, DUST_DEVIL, EMPTY),
@@ -94,95 +94,6 @@ public class HarnessMoreIconsTest
 	}
 
 	@Test
-	public void luckMeterTaskChoicesShowTheirIcons()
-	{
-		harness.startUp();
-		harness.loginAndSettle(PluginHarness.ACCOUNT);
-		List<LedgerRecord> records = Arrays.asList(monster("Abyssal demons"), monster("Dust devils"));
-		// The meter counts tasks with loot data.
-		records.forEach(record -> record.setLoot(Collections.emptyMap()));
-		harness.onEdt(() -> harness.historyModel().setRecords(PluginHarness.ACCOUNT, records));
-		harness.drain();
-		// The history rows have asked for theirs; the closed Luck meter asks for none.
-		int before = harness.itemImageRequests();
-		harness.onEdt(() -> harness.panel().refresh());
-		harness.drain();
-		assertEquals("closed: no icons", before, harness.itemImageRequests());
-		assertEquals(Collections.emptyList(), onEdt(() -> harness.ui().getLuckMeter().getTaskIcons()));
-
-		harness.onEdt(() -> harness.ui().getLuckMeter().clickTitle());
-		harness.drain();
-		assertEquals(Arrays.asList("Abyssal demons | " + ItemID.SLAYERGUIDE_ABYSSALDEMON + SLOT,
-			"Dust devils | " + DUST_DEVIL), onEdt(() -> harness.ui().getLuckMeter().getTaskIcons()));
-		// Each task's icon once: painting the choices again asks for none.
-		assertEquals(before + 2, harness.itemImageRequests());
-		onEdt(() -> harness.ui().getLuckMeter().getTaskIcons());
-		harness.onEdt(() -> harness.panel().refresh());
-		harness.drain();
-		assertEquals(before + 2, harness.itemImageRequests());
-
-		int width = onEdt(() -> harness.ui().getLuckMeter().getTaskPreferredWidth());
-		assertTrue("wants " + width, width <= PluginPanel.PANEL_WIDTH);
-	}
-
-	@Test
-	public void trendsRowsAndMonsterChoicesShowTheirTasksIcon()
-	{
-		harness.startUp();
-		harness.loginAndSettle(PluginHarness.ACCOUNT);
-		List<LedgerRecord> records = versions(2);
-		int before = harness.itemImageRequests();
-		harness.onEdt(() ->
-		{
-			harness.historyModel().setRecords(PluginHarness.ACCOUNT, records);
-			harness.ui().getTrends().setMetric(TaskRanking.Metric.XP);
-			harness.panel().refresh();
-		});
-		harness.drain();
-		// The history rows ask for theirs; Trends, closed, for none.
-		int afterHistory = harness.itemImageRequests();
-		harness.onEdt(() -> harness.panel().refresh());
-		harness.drain();
-		assertEquals(afterHistory, harness.itemImageRequests());
-		assertTrue(afterHistory > before);
-
-		harness.onEdt(() -> harness.ui().getTrends().clickTitle());
-		harness.drain();
-		List<String> rows = onEdt(() -> harness.ui().getTrends().getRows());
-		assertEquals(rows.toString(), 4, rows.size());
-		List<String> icons = onEdt(() -> harness.ui().getTrends().getRowIcons());
-		for (int i = 0; i < rows.size(); i++)
-		{
-			assertEquals(rows.get(i), expectedIcon(rows.get(i)), icons.get(i));
-		}
-		// One per List row with a known task: the unknown task's empty slot asks for none.
-		assertEquals(afterHistory + 3, harness.itemImageRequests());
-		harness.onEdt(() -> harness.panel().refresh());
-		harness.drain();
-		assertEquals("the refresh timer asks for none", afterHistory + 3, harness.itemImageRequests());
-
-		harness.onEdt(() -> harness.ui().getTrends().clickView(TrendsSection.View.CHART));
-		harness.drain();
-		List<String> choices = onEdt(() -> harness.ui().getTrends().getMonsterIcons());
-		assertEquals(choices.toString(), 4, choices.size());
-		for (String choice : choices)
-		{
-			String label = choice.substring(0, choice.indexOf(" | "));
-			assertEquals(choice, label + " | " + expectedIcon(label), choice);
-		}
-		// Each task's icon once (Dust devils and its cannon group share one).
-		int afterChart = harness.itemImageRequests();
-		assertEquals(afterHistory + 3 + 2, afterChart);
-		onEdt(() -> harness.ui().getTrends().getMonsterIcons());
-		harness.onEdt(() -> harness.panel().refresh());
-		harness.drain();
-		assertEquals(afterChart, harness.itemImageRequests());
-
-		int width = onEdt(() -> harness.ui().getTrends().getPreferredWidth());
-		assertTrue("wants " + width, width <= PluginPanel.PANEL_WIDTH);
-	}
-
-	@Test
 	public void byMasterNamesShowTheMastersFace()
 	{
 		harness.startUp();
@@ -229,19 +140,9 @@ public class HarnessMoreIconsTest
 		assertTrue("wants " + width, width <= PluginPanel.PANEL_WIDTH);
 	}
 
-	/** The icon a Trends name shows: its task's, from the name without a cannon suffix; an empty slot otherwise. */
-	private static String expectedIcon(String row)
-	{
-		if (row.contains("Dust devils"))
-		{
-			return DUST_DEVIL;
-		}
-		return row.contains("Deviant spectres") ? SPECTRE : EMPTY;
-	}
-
 	/**
 	 * {@code count} completed Konar tasks each of Dust devils, Deviant spectres (an Aberrant spectres task), Dust
-	 * devils with a cannon and {@link #UNKNOWN}, newest first in that order, with Slayer XP for Trends.
+	 * devils with a cannon and {@link #UNKNOWN}, newest first in that order, with Slayer XP.
 	 */
 	private static List<LedgerRecord> versions(int count)
 	{

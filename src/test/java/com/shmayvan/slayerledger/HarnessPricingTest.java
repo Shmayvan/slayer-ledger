@@ -42,7 +42,7 @@ public class HarnessPricingTest
 	/** Plays a session that loots bones and dragon bones (GE 2,100, high alch 5,001). */
 	private void loot()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.postLoot(ItemID.BONES, 1);
 		harness.postLoot(ItemID.DRAGON_BONES, 1);
 		harness.ticks(2);
@@ -59,7 +59,7 @@ public class HarnessPricingTest
 		return text.get();
 	}
 
-	/** The only history row: "Loot | Supplies | Profit | tooltip". */
+	/** The only history row: "profit | tooltip" (the row shows the profit; the tooltip the loot and supplies). */
 	private String historyRow()
 	{
 		AtomicReference<List<String>> rows = new AtomicReference<>();
@@ -72,26 +72,32 @@ public class HarnessPricingTest
 	public void lootPriceSettingChangesLiveValuesAndHistoryWithoutRestart()
 	{
 		loot();
-		assertEquals("Loot (GE): 2,100 gp | Supplies: 0 gp | Profit (GE): 2,100 gp", liveValues());
+		assertEquals("Loot: 2,100 | Supplies: 0 | Profit: +2,100", liveValues());
 
 		harness.setLootPriceMode(LootPriceMode.HIGH_ALCH);
 		harness.tick();
-		assertEquals("Loot (HA): 5,001 gp | Supplies: 0 gp | Profit (HA): 5,001 gp", liveValues());
+		assertEquals("Loot: 5,001 | Supplies: 0 | Profit: +5,001", liveValues());
+		AtomicReference<String> tooltip = new AtomicReference<>();
+		harness.onEdt(() -> tooltip.set(harness.ui().getValuesTooltip()));
+		assertTrue("the tooltip names the Loot price mode: " + tooltip.get(),
+			tooltip.get().contains("Loot value (High alch): 5,001 gp"));
 
-		harness.stop();
+		harness.endTask();
 		LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		assertEquals("the record keeps both GE and high alch", Long.valueOf(2_100), record.getLootGeValue());
 		assertEquals(Long.valueOf(5_001), record.getLootHaValue());
-		assertTrue(historyRow(), historyRow().startsWith("Loot (HA): 5,001 | Supplies: 0 | Profit (HA): 5,001 | "));
+		assertTrue(historyRow(), historyRow().startsWith("+5,001 | "));
 		assertTrue(historyRow(), historyRow().contains("Loot value (High alch): 5,001 gp"));
+		assertTrue(historyRow(), historyRow().contains("<br>Supplies: 0 gp GE"));
 
 		harness.setLootPriceMode(LootPriceMode.GE);
-		assertTrue(historyRow(), historyRow().startsWith("Loot (GE): 2,100 | Supplies: 0 | Profit (GE): 2,100 | "));
+		assertTrue(historyRow(), historyRow().startsWith("+2,100 | "));
+		assertTrue(historyRow(), historyRow().contains("Loot: 2,100 gp GE"));
 		assertFalse(historyRow(), historyRow().contains("Loot value ("));
 	}
 
 	@Test
-	public void aSavedTaskIsRevaluedAtTodaysPricesInTheHistoryTrendsAndTotals()
+	public void aSavedTaskIsRevaluedAtTodaysPricesInTheHistoryAndTotals()
 	{
 		// Saved at 40,000 gp for the seed and 500 gp a shark; 50,000 gp and 900 gp today.
 		harness.defineItem(ItemID.RANARR_SEED, "Ranarr seed", 50_000, 20);
@@ -109,25 +115,24 @@ public class HarnessPricingTest
 		{
 			harness.historyModel().setRecords(ACCOUNT, Collections.singletonList(record));
 			harness.ui().getOverallTotals().clickTitle();
-			harness.ui().getTrends().clickTitle();
 		});
 		// The lookup is queued for the client thread, and its answer for the EDT.
 		harness.drain();
 		assertTrue("prices are looked up through ItemManager", harness.pluginCallCount() > calls);
 
 		String row = historyRow();
-		assertTrue(row, row.startsWith("Loot (GE): 50K | Supplies: 9,000 | Profit (GE): 41K | "));
+		assertTrue(row, row.startsWith("+41K | "));
+		assertTrue(row, row.contains("<br>Supplies: 9,000 gp GE"));
 		assertTrue(row, row.contains(LedgerHistory.CURRENT_PRICES));
 		assertTrue("high alch unchanged", row.contains("Loot: 50,000 gp GE, 20 gp high alch"));
 		assertFalse("no saved prices are shown", row.contains("40,000") || row.contains("35,000"));
-		assertEquals(Collections.singletonList("1. Abyssal demons | 41K gp/h (n=1)"), trendsRows());
-		assertTrue(totalsRows().toString(), totalsRows().get(0).contains("Profit (GE): | 41K (n=1)"));
+		assertTrue(totalsRows().toString(), totalsRows().get(0).contains("\nProfit (GE) | +41K\n"));
 
 		// High alch: the loot at its saved high alch value, the supplies still at today's GE price.
 		harness.setLootPriceMode(LootPriceMode.HIGH_ALCH);
-		assertTrue(historyRow(), historyRow().startsWith("Loot (HA): 20 | Supplies: 9,000 | Profit (HA): -8,980 | "));
-		assertEquals(Collections.singletonList("1. Abyssal demons | -8,980 gp/h (n=1)"), trendsRows());
-		assertTrue(totalsRows().toString(), totalsRows().get(0).contains("Profit (HA): | -8,980 (n=1)"));
+		assertTrue(historyRow(), historyRow().startsWith("-8,980 | "));
+		assertTrue(historyRow(), historyRow().contains("Loot value (High alch): 20 gp"));
+		assertTrue(totalsRows().toString(), totalsRows().get(0).contains("\nProfit (HA) | -8,980\n"));
 
 		// Looked up once: the same tasks again ask for nothing, even after today's price changes.
 		harness.setGePrice(ItemID.RANARR_SEED, 60_000);
@@ -136,15 +141,6 @@ public class HarnessPricingTest
 		harness.drain();
 		assertEquals(calls, harness.pluginCallCount());
 		assertTrue(historyRow(), historyRow().contains("Loot: 50,000 gp GE"));
-	}
-
-	private List<String> trendsRows()
-	{
-		AtomicReference<List<String>> rows = new AtomicReference<>();
-		// Worked out off the EDT.
-		harness.drain();
-		harness.onEdt(() -> rows.set(harness.ui().getTrends().getRows()));
-		return rows.get();
 	}
 
 	private List<String> totalsRows()
@@ -159,14 +155,15 @@ public class HarnessPricingTest
 	public void todaysPricesCoverNewlySavedTasks()
 	{
 		loot();
-		harness.stop();
+		harness.endTask();
 
 		harness.defineItem(ItemID.RANARR_SEED, "Ranarr seed", 40_000, 20);
-		assertTrue(harness.play());
+		harness.trackAgain();
+		assertTrue(harness.startNow());
 		harness.postLoot(ItemID.RANARR_SEED, 1);
 		harness.tick();
 		int builds = historyListBuilds();
-		harness.stop();
+		harness.endTask();
 		// The save reloads the records; the rows wait for the seed's price and are drawn once.
 		assertEquals(builds + 1, historyListBuilds());
 		AtomicReference<List<String>> rows = new AtomicReference<>();
@@ -177,7 +174,7 @@ public class HarnessPricingTest
 			assertTrue(row, row.contains(LedgerHistory.CURRENT_PRICES));
 			assertFalse("every item was priced", row.contains("~"));
 		}
-		assertTrue(rows.get().toString(), rows.get().stream().anyMatch(r -> r.startsWith("Loot (GE): 40K | ")));
+		assertTrue(rows.get().toString(), rows.get().stream().anyMatch(r -> r.startsWith("+40K | ")));
 	}
 
 	private int historyListBuilds()
@@ -241,7 +238,7 @@ public class HarnessPricingTest
 		harness.setGePrice(ItemID.DRAGON_BONES, 0);
 		loot();
 		int builds = historyListBuilds();
-		harness.stop();
+		harness.endTask();
 		assertTrue("the answer came without the price: wait for it to be looked up again", waiting());
 		assertEquals("nothing drawn unpriced", builds, historyListBuilds());
 
@@ -251,7 +248,7 @@ public class HarnessPricingTest
 		harness.ticks(PriceRetry.INTERVAL_TICKS);
 		assertFalse(waiting());
 		String row = historyRow();
-		assertTrue(row, row.startsWith("Loot (GE): 3,100 | Supplies: 0 | Profit (GE): 3,100 | "));
+		assertTrue(row, row.startsWith("+3,100 | "));
 		assertEquals("drawn once, priced", builds + 1, historyListBuilds());
 	}
 
@@ -262,11 +259,11 @@ public class HarnessPricingTest
 		harness.setGePrice(ItemID.BONES, 0);
 		harness.setGePrice(ItemID.DRAGON_BONES, 0);
 		loot();
-		harness.stop();
+		harness.endTask();
 		assertTrue(waiting());
 		runOutTheWait();
 		assertFalse(waiting());
-		assertTrue(historyRow(), historyRow().startsWith("Loot (GE): ~0 | "));
+		assertTrue(historyRow(), historyRow().startsWith("~0 | "));
 
 		// Waiting again for the same price, until the history is cleared (logging out).
 		List<LedgerRecord> records = harness.records(ACCOUNT);
@@ -284,9 +281,9 @@ public class HarnessPricingTest
 		loot();
 		harness.setGePrice(ItemID.DRAGON_BONES, 0);
 		int builds = historyListBuilds();
-		harness.stop();
+		harness.endTask();
 		assertFalse("a missing price is not waited for", waiting());
-		assertTrue(historyRow(), historyRow().startsWith("Loot (GE): ~100 | Supplies: 0 | Profit (GE): ~100 | "));
+		assertTrue(historyRow(), historyRow().startsWith("~+100 | "));
 		assertEquals("drawn at once", builds + 1, historyListBuilds());
 
 		// Loaded again, the history still doesn't wait for it.
@@ -294,7 +291,7 @@ public class HarnessPricingTest
 		harness.onEdt(() -> harness.historyModel().setRecords(ACCOUNT, records));
 		harness.drain();
 		assertFalse(waiting());
-		assertTrue(historyRow(), historyRow().startsWith("Loot (GE): ~100 | "));
+		assertTrue(historyRow(), historyRow().startsWith("~+100 | "));
 	}
 
 	@Test
@@ -303,19 +300,19 @@ public class HarnessPricingTest
 		loot();
 		// No price for the dragon bones yet; the bones are priced, so the history is drawn without waiting.
 		harness.setGePrice(ItemID.DRAGON_BONES, 0);
-		harness.stop();
+		harness.endTask();
 		String unpriced = historyRow();
-		assertTrue(unpriced, unpriced.startsWith("Loot (GE): ~100 | Supplies: 0 | Profit (GE): ~100 | "));
+		assertTrue(unpriced, unpriced.startsWith("~+100 | "));
 		assertTrue(unpriced, unpriced.contains("Some prices were unavailable (loot: 1, supplies: 0)"));
 
 		harness.setGePrice(ItemID.DRAGON_BONES, 3_000);
 		int builds = historyListBuilds();
 		harness.ticks(PriceRetry.INTERVAL_TICKS - 1);
-		assertTrue("not due yet", historyRow().startsWith("Loot (GE): ~100 | "));
+		assertTrue("not due yet", historyRow().startsWith("~+100 | "));
 		assertEquals(builds, historyListBuilds());
 		harness.tick();
 		String row = historyRow();
-		assertTrue(row, row.startsWith("Loot (GE): 3,100 | Supplies: 0 | Profit (GE): 3,100 | "));
+		assertTrue(row, row.startsWith("+3,100 | "));
 		assertFalse(row, row.contains("Some prices were unavailable"));
 		assertTrue(row, row.contains(LedgerHistory.CURRENT_PRICES));
 		assertEquals("redrawn once", builds + 1, historyListBuilds());
@@ -323,7 +320,7 @@ public class HarnessPricingTest
 		// Found: not looked up or redrawn again.
 		harness.setGePrice(ItemID.DRAGON_BONES, 4_000);
 		harness.ticks(PriceRetry.INTERVAL_TICKS * 3);
-		assertTrue(historyRow(), historyRow().startsWith("Loot (GE): 3,100 | "));
+		assertTrue(historyRow(), historyRow().startsWith("+3,100 | "));
 		assertEquals(builds + 1, historyListBuilds());
 	}
 
@@ -332,7 +329,7 @@ public class HarnessPricingTest
 	{
 		loot();
 		harness.setGePrice(ItemID.DRAGON_BONES, 0);
-		harness.stop();
+		harness.endTask();
 		int builds = historyListBuilds();
 		harness.ticks(PriceRetry.INTERVAL_TICKS * PriceRetry.MAX_ATTEMPTS);
 		assertEquals("a retry that finds nothing redraws nothing", builds, historyListBuilds());
@@ -340,13 +337,13 @@ public class HarnessPricingTest
 		// The cap is reached: a price that turns up later is not looked up by the retry.
 		harness.setGePrice(ItemID.DRAGON_BONES, 3_000);
 		harness.ticks(PriceRetry.INTERVAL_TICKS * 3);
-		assertTrue(historyRow(), historyRow().startsWith("Loot (GE): ~100 | "));
+		assertTrue(historyRow(), historyRow().startsWith("~+100 | "));
 
 		// A change of the saved tasks (here, the same ones loaded again) still asks for it.
 		List<LedgerRecord> records = harness.records(ACCOUNT);
 		harness.onEdt(() -> harness.historyModel().setRecords(ACCOUNT, records));
 		harness.drain();
-		assertTrue(historyRow(), historyRow().startsWith("Loot (GE): 3,100 | "));
+		assertTrue(historyRow(), historyRow().startsWith("+3,100 | "));
 	}
 
 	@Test
@@ -354,18 +351,16 @@ public class HarnessPricingTest
 	{
 		harness.defineItem(ItemID.RANARR_SEED, "Ranarr seed", 50_000, 20);
 		loot();
-		harness.stop();
+		harness.endTask();
 		LedgerRecord saved = harness.onlyRecord(ACCOUNT);
 		harness.onEdt(() -> harness.ui().getOverallTotals().clickTitle());
-		harness.onEdt(() -> harness.ui().getTrends().clickTitle());
-		int[] before = new int[3];
+		int[] before = new int[2];
 		harness.onEdt(() ->
 		{
 			SlayerLedgerPanel panel = harness.panel();
 			PanelProbe ui = harness.ui();
 			before[0] = ui.getHistory().getBuildCount();
 			before[1] = ui.getOverallTotals().getBuildCount();
-			before[2] = ui.getTrends().getBuildCount();
 			List<String> rows = ui.getHistory().getValuesText();
 			// The lookup is queued for the client thread, so it cannot answer inside this EDT task.
 			harness.historyModel().setRecords(ACCOUNT, Arrays.asList(saved, ranarrRecord()));
@@ -374,7 +369,6 @@ public class HarnessPricingTest
 			assertEquals("the previous rows stay", rows, ui.getHistory().getValuesText());
 			assertEquals(before[0], ui.getHistory().getBuildCount());
 			assertEquals(before[1], ui.getOverallTotals().getBuildCount());
-			assertEquals(before[2], ui.getTrends().getBuildCount());
 			assertEquals("the count does not wait", "Saved tasks: 2", ui.getSavedTasksText());
 		});
 
@@ -385,10 +379,9 @@ public class HarnessPricingTest
 			assertFalse(harness.historyModel().isWaitingForCurrentPrices());
 			assertEquals("redrawn once", before[0] + 1, ui.getHistory().getBuildCount());
 			assertEquals(before[1] + 1, ui.getOverallTotals().getBuildCount());
-			assertEquals(before[2] + 1, ui.getTrends().getBuildCount());
 			List<String> rows = ui.getHistory().getValuesText();
 			assertEquals(2, rows.size());
-			assertTrue(rows.toString(), rows.get(0).startsWith("Loot (GE): 50K | "));
+			assertTrue(rows.toString(), rows.get(0).startsWith("+50K | "));
 			for (String row : rows)
 			{
 				assertFalse(row, row.contains("~"));
@@ -401,7 +394,7 @@ public class HarnessPricingTest
 	{
 		harness.defineItem(ItemID.RANARR_SEED, "Ranarr seed", 50_000, 20);
 		loot();
-		harness.stop();
+		harness.endTask();
 		LedgerRecord saved = harness.onlyRecord(ACCOUNT);
 		harness.onEdt(() ->
 		{
@@ -414,12 +407,12 @@ public class HarnessPricingTest
 			assertFalse(harness.historyModel().isWaitingForCurrentPrices());
 			List<String> rows = ui.getHistory().getValuesText();
 			assertEquals("shown without the missing price", 2, rows.size());
-			assertTrue(rows.toString(), rows.get(0).startsWith("Loot (GE): ~0 | "));
+			assertTrue(rows.toString(), rows.get(0).startsWith("~0 | "));
 		});
 
 		// A late answer is still shown.
 		harness.drain();
-		assertTrue(historyValues().get(0), historyValues().get(0).startsWith("Loot (GE): 50K | "));
+		assertTrue(historyValues().get(0), historyValues().get(0).startsWith("+50K | "));
 	}
 
 	@Test
@@ -427,7 +420,7 @@ public class HarnessPricingTest
 	{
 		harness.defineItem(ItemID.RANARR_SEED, "Ranarr seed", 50_000, 20);
 		loot();
-		harness.stop();
+		harness.endTask();
 		LedgerRecord saved = harness.onlyRecord(ACCOUNT);
 		harness.onEdt(() ->
 		{
@@ -448,17 +441,16 @@ public class HarnessPricingTest
 		harness.setLootPriceMode(LootPriceMode.HIGH_ALCH);
 		harness.setGePrice(ItemID.DRAGON_BONES, 0);
 		loot();
-		assertEquals("high alch values are all known", "Loot (HA): 5,001 gp | Supplies: 0 gp | Profit (HA): 5,001 gp",
-			liveValues());
+		assertEquals("high alch values are all known", "Loot: 5,001 | Supplies: 0 | Profit: +5,001", liveValues());
 		AtomicReference<String> tooltip = new AtomicReference<>();
 		harness.onEdt(() -> tooltip.set(harness.ui().getValuesTooltip()));
 		assertTrue(tooltip.get(), tooltip.get().contains("Loot: ~100 gp GE, 5,001 gp high alch"));
 		assertTrue(tooltip.get(), tooltip.get().contains("(loot at high alch: 0, loot at GE: 1, supplies: 0)"));
 
 		// The history at today's prices says the same when today's GE price is missing.
-		harness.stop();
+		harness.endTask();
 		String row = historyRow();
-		assertTrue(row, row.startsWith("Loot (HA): 5,001 | Supplies: 0 | Profit (HA): 5,001 | "));
+		assertTrue(row, row.startsWith("+5,001 | "));
 		assertTrue(row, row.contains("Loot: ~100 gp GE, 5,001 gp high alch"));
 		assertTrue(row, row.contains("(loot at high alch: 0, loot at GE: 1, supplies: 0)"));
 	}

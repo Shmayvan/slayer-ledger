@@ -41,6 +41,8 @@ class SupplyReader
 		EquipmentInventorySlot.AMMO, EquipmentInventorySlot.WEAPON, EquipmentInventorySlot.AMULET,
 		EquipmentInventorySlot.RING, EquipmentInventorySlot.GLOVES
 	};
+	/** What the game appends to a members item's name on a free world (see {@link #classifyItem}). */
+	static final String MEMBERS_SUFFIX = " (Members)";
 
 	private final Client client;
 	private final ItemManager itemManager;
@@ -145,11 +147,18 @@ class SupplyReader
 	/**
 	 * Client thread. Supplies category from the item definition: cannonballs by id, runes by the rune pouch enum (or a
 	 * name ending in " rune"), ammo by equipment slot (ammo, or a stackable weapon such as darts, knives or
-	 * chinchompas), multi-bite food (pies, pizzas and cakes), charged teleport jewellery, the fungicide spray and Slayer
-	 * consumables by id, and teleport tablets, potions and food by name and inventory actions (see
+	 * chinchompas), multi-bite food (pies, pizzas and cakes), charged teleport jewellery, the fungicide spray, Slayer
+	 * consumables and teleport scrolls by id, and teleport tablets, potions and food by name and inventory actions (see
 	 * {@link SupplyTracker#classify}). Noted items and placeholders are never supplies.
 	 *
-	 * @return the category, or {@code null} while a wieldable item's stats are not loaded yet (retried later)
+	 * <p>A members item seen on a free world is not classified: there the game appends {@value #MEMBERS_SUFFIX}
+	 * to its name ({@code ItemComposition.getName}; the client's {@code getMembersName} removes exactly that suffix,
+	 * 1.13.4), so "Prayer potion(4) (Members)" would not read as a potion. {@link SupplyTracker} caches what this
+	 * returns for the plugin's life, so it would stay wrong after a hop to a members world; {@code null} makes it ask
+	 * again once the item's real definition shows. The item can't be used on a free world anyway.</p>
+	 *
+	 * @return the category, or {@code null} while a wieldable item's stats are not loaded yet or a members item is seen
+	 * on a free world (retried later)
 	 */
 	SupplyTracker.ItemInfo classifyItem(int itemId)
 	{
@@ -161,8 +170,13 @@ class SupplyReader
 		final String name = comp.getName();
 		if (SupplyTracker.classifiesById(itemId))
 		{
-			// Decided by id alone: no need to wait for the item stats of wearable jewellery.
+			// Decided by id alone: no need to wait for the item stats of wearable jewellery, and the free-world name of a
+			// members item doesn't matter.
 			return SupplyTracker.classify(itemId, name, comp.getInventoryActions(), false, false, false);
+		}
+		if (name != null && name.endsWith(MEMBERS_SUFFIX))
+		{
+			return null;
 		}
 		final boolean cannonball = itemId == SupplyTracker.CANNONBALL || itemId == SupplyTracker.GRANITE_CANNONBALL;
 		final boolean rune = runePouchRuneIds().contains(itemId) || (name != null && name.endsWith(" rune"));

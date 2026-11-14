@@ -14,13 +14,13 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.SpotanimID;
 
 /**
- * Counts what the toxic blowpipe and the tridents use up, from attacks seen once per game tick. The client exposes
- * no live dart, scale or trident charge count, so (like established Hub plugins) this counts attacks by animation
- * and multiplies by the known per-attack cost. Pure: the plugin reads the local player and worn items on each
- * GameTick into a {@link Tick} and merges the items returned by {@link #update} into the session's supplies. Not
- * thread-safe; the plugin uses it on the client thread only.
+ * Counts what the toxic blowpipe, the tridents and the powered staves (Sanguinesti staff, Tumeken's shadow) use up,
+ * from attacks seen once per game tick. The client exposes no live dart, scale or charge count, so (like established
+ * Hub plugins) this counts attacks by animation and multiplies by the known per-attack cost. Pure: the plugin reads
+ * the local player and worn items on each GameTick into a {@link Tick} and merges the items returned by
+ * {@link #update} into the session's supplies. Not thread-safe; the plugin uses it on the client thread only.
  *
- * <p>Rules (rates from the OSRS Wiki, ids from the RuneLite 1.13.4 gameval constants):</p>
+ * <p>Rules (rates from the OSRS Wiki, checked 2026-11-09; ids from the RuneLite 1.13.4 gameval constants):</p>
  * <ul>
  *     <li>An attack is the local player's attack animation at frame 0 while the matching weapon is worn. At most one
  *     attack counts per tick: a second {@link #update} for the same tick (or an earlier one) returns nothing.</li>
@@ -38,7 +38,20 @@ import net.runelite.api.gameval.SpotanimID;
  *     ({@link #TRIDENT_GRAPHICS}); the animation alone is shared with ordinary wave spells. A cast uses one charge,
  *     valued at what recharging it costs: seas 1 death, 1 chaos, 5 fire runes and 10 coins; swamp 1 death, 1 chaos, 5
  *     fire runes and 1 Zulrah's scale.</li>
+ *     <li><b>Sanguinesti staff</b> ({@link #SANGUINESTI_STAVES}, regular and holy, charged only): a cast is the same
+ *     wave-staff animation at frame 0 with a Sanguinesti cast graphic ({@link #SANGUINESTI_GRAPHICS}). A cast uses one
+ *     charge, which costs {@value #BLOOD_RUNES_PER_SANGUINESTI_CAST} blood runes (OSRS Wiki "Sanguinesti staff": 2 per
+ *     charge since the 22 July 2026 update, 3 before).</li>
+ *     <li><b>Tumeken's shadow</b> ({@link #TUMEKENS_SHADOWS}, charged only): a cast is its own animation
+ *     ({@link #SHADOW_ANIMATIONS}) at frame 0 with its cast graphic ({@link #SHADOW_GRAPHICS}). A cast uses one charge,
+ *     which costs {@value #SOUL_RUNES_PER_SHADOW_CAST} soul runes and {@value #CHAOS_RUNES_PER_SHADOW_CAST} chaos runes
+ *     (OSRS Wiki "Tumeken's shadow"; aether runes can stand in for the soul runes, and are valued as soul runes).</li>
+ *     <li>Which cast graphics count depends on the worn weapon and animation ({@link #castGraphics}), so the plugin only
+ *     looks for those, and {@link Tick#isCastGraphic()} says whether one of them is on the player.</li>
  * </ul>
+ *
+ * <p>The toxic staff of the dead and the serpentine helm are not counted: their Zulrah's scales are used per minute in
+ * combat, not per attack (OSRS Wiki), and the client shows neither that timer nor a charge count.</p>
  */
 final class ChargedWeaponUsage
 {
@@ -63,6 +76,21 @@ final class ChargedWeaponUsage
 	/** Trident cast graphics (spotanims): seas, swamp, and their ornament versions. */
 	static final Set<Integer> TRIDENT_GRAPHICS = ids(SpotanimID.SLAYER_TOTS_CASTING, SpotanimID.TOXIC_TOTS_CASTING,
 		SpotanimID.SLAYER_TOTS_CASTING_ORN_LEAGUES6, SpotanimID.TOXIC_TOTS_CASTING_ORN_LEAGUES6);
+
+	/** Charged Sanguinesti staves: regular and holy. */
+	static final Set<Integer> SANGUINESTI_STAVES = ids(ItemID.SANGUINESTI_STAFF, ItemID.SANGUINESTI_STAFF_OR);
+	/**
+	 * Sanguinesti staff cast graphics (spotanims): the regular one, and the Justiciar-coloured one of the holy staff
+	 * (assumed from its name; either counts for either staff).
+	 */
+	static final Set<Integer> SANGUINESTI_GRAPHICS = ids(SpotanimID.SANGUINESTI_STAFF_CASTING,
+		SpotanimID.SANGUINESTI_STAFF_CASTING_JUSTICIAR);
+	/** Charged Tumeken's shadow. */
+	static final Set<Integer> TUMEKENS_SHADOWS = ids(ItemID.TUMEKENS_SHADOW);
+	/** Tumeken's shadow's cast animation ("SOT" for shadow of Tumeken). */
+	static final Set<Integer> SHADOW_ANIMATIONS = ids(AnimationID.TOA_SOT_CAST_B);
+	/** Tumeken's shadow's cast graphic, the one geheur/weapon-charges counts its casts by. */
+	static final Set<Integer> SHADOW_GRAPHICS = ids(SpotanimID.TUMEKENS_SHADOW_CASTING);
 
 	/** Ava's attractor: 40% of darts lost. */
 	static final Set<Integer> ATTRACTORS = ids(ItemID.ANMA_30_REWARD);
@@ -92,6 +120,9 @@ final class ChargedWeaponUsage
 
 	static final int FIRE_RUNES_PER_CAST = 5;
 	static final int COINS_PER_SEAS_CAST = 10;
+	static final int BLOOD_RUNES_PER_SANGUINESTI_CAST = 2;
+	static final int SOUL_RUNES_PER_SHADOW_CAST = 2;
+	static final int CHAOS_RUNES_PER_SHADOW_CAST = 5;
 
 	/** Last tick handled; a second update for it (or an earlier tick) counts nothing. */
 	private int lastTick = Integer.MIN_VALUE;
@@ -130,8 +161,11 @@ final class ChargedWeaponUsage
 		 * the plugin should pass {@code null} until it has been checked in game.
 		 */
 		Integer quiverAmmoSave;
-		/** Whether a trident cast graphic ({@link #TRIDENT_GRAPHICS}) is on the local player this tick. */
-		boolean tridentGraphic;
+		/**
+		 * Whether one of the worn weapon's cast graphics for this animation ({@link #castGraphics}) is on the local
+		 * player this tick.
+		 */
+		boolean castGraphic;
 		/** The "Ranging/max cape has Vorkath's head upgrade" setting. */
 		boolean vorkathsHeadUpgrade;
 		/** The blowpipe's dart item id from the last check message, or {@link #NO_ITEM} if unknown. */
@@ -147,6 +181,31 @@ final class ChargedWeaponUsage
 			set.add(id);
 		}
 		return Collections.unmodifiableSet(set);
+	}
+
+	/**
+	 * The cast graphics that make {@code animationId} a charged cast of the worn {@code weaponId}: a trident's, a
+	 * Sanguinesti staff's or Tumeken's shadow's while it is worn and the animation is one of its casts; otherwise none.
+	 * The plugin looks for these on the local player and passes the answer as {@link Tick#isCastGraphic()}.
+	 */
+	static Set<Integer> castGraphics(int weaponId, int animationId)
+	{
+		if (TRIDENT_ANIMATIONS.contains(animationId))
+		{
+			if (SEAS_TRIDENTS.contains(weaponId) || SWAMP_TRIDENTS.contains(weaponId))
+			{
+				return TRIDENT_GRAPHICS;
+			}
+			if (SANGUINESTI_STAVES.contains(weaponId))
+			{
+				return SANGUINESTI_GRAPHICS;
+			}
+		}
+		if (SHADOW_ANIMATIONS.contains(animationId) && TUMEKENS_SHADOWS.contains(weaponId))
+		{
+			return SHADOW_GRAPHICS;
+		}
+		return Collections.emptySet();
 	}
 
 	/**
@@ -236,7 +295,7 @@ final class ChargedWeaponUsage
 		{
 			blowpipeShot(tick, used);
 		}
-		else if (tick.isTridentGraphic() && TRIDENT_ANIMATIONS.contains(animationId))
+		else if (tick.isCastGraphic() && TRIDENT_ANIMATIONS.contains(animationId))
 		{
 			if (SEAS_TRIDENTS.contains(weaponId))
 			{
@@ -248,6 +307,15 @@ final class ChargedWeaponUsage
 				tridentCast(used);
 				add(used, ItemID.SNAKEBOSS_SCALE, 1);
 			}
+			else if (SANGUINESTI_STAVES.contains(weaponId))
+			{
+				add(used, ItemID.BLOODRUNE, BLOOD_RUNES_PER_SANGUINESTI_CAST);
+			}
+		}
+		else if (tick.isCastGraphic() && SHADOW_ANIMATIONS.contains(animationId) && TUMEKENS_SHADOWS.contains(weaponId))
+		{
+			add(used, ItemID.SOULRUNE, SOUL_RUNES_PER_SHADOW_CAST);
+			add(used, ItemID.CHAOSRUNE, CHAOS_RUNES_PER_SHADOW_CAST);
 		}
 		return used;
 	}

@@ -4,7 +4,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-import com.google.gson.Gson;
 import java.lang.reflect.Method;
 import java.time.ZoneId;
 import java.util.Arrays;
@@ -100,13 +99,15 @@ public class TaskIconsTest
 	}
 
 	@Test
-	public void everyBundledTaskHasAnIcon()
+	public void everyTaskOfTheBundledSpotTableHasAnIcon()
 	{
-		TaskLocations locations = TaskLocations.load(new Gson(), TaskLocations.SNAPSHOT_RESOURCE);
-		assertNotNull(locations);
-		for (String task : locations.tasks())
+		assertTrue(TestSpots.TABLE.isAvailable());
+		for (SlayerSpots.Spot spot : TestSpots.TABLE.spots())
 		{
-			assertNotNull("No icon: " + task, TaskIcons.itemId(task));
+			for (String task : spot.getTasks())
+			{
+				assertNotNull("No icon: " + task, TaskIcons.itemId(task));
+			}
 		}
 	}
 

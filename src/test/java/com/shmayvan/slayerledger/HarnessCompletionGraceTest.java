@@ -43,10 +43,12 @@ public class HarnessCompletionGraceTest
 		harness.defineItem(ItemID.BONES, "Bones", 100, 1);
 		harness.defineItem(ItemID.ABYSSAL_WHIP, "Abyssal whip", 1_500_000, 72_000);
 		harness.defineItem(ItemID.COINS, "Coins", 1, 1);
+		// The whip is a notable drop; its chat line has its own tests (HarnessChatLinesTest).
+		harness.config.notableDropLine = false;
 		harness.startUp();
 		harness.setTask(TASK, "Abyssal demons", 3, 3);
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.setRemaining(1);
 		harness.lootOnNextTick(ItemID.BONES, 1);
 		harness.tick();
@@ -92,8 +94,9 @@ public class HarnessCompletionGraceTest
 		verify(harness.chatMessageManager, times(1)).queue(message.capture());
 		assertEquals(ChatMessageType.CONSOLE, message.getValue().getType());
 		assertEquals("Slayer Ledger", message.getValue().getName());
-		assertTrue(message.getValue().getRuneLiteFormattedMessage().startsWith("Slayer task complete: 3 Abyssal demons · "));
-		assertTrue(message.getValue().getRuneLiteFormattedMessage().endsWith(" · +1.5M"));
+		assertTrue(message.getValue().getRuneLiteFormattedMessage()
+			.startsWith("<colHIGHLIGHT>Abyssal demons done:<colNORMAL> 3 kills in "));
+		assertTrue(message.getValue().getRuneLiteFormattedMessage().endsWith(", +1.5M. Gz."));
 		verifyNoInteractions(harness.notifier);
 	}
 
@@ -106,7 +109,7 @@ public class HarnessCompletionGraceTest
 
 		ArgumentCaptor<String> message = ArgumentCaptor.forClass(String.class);
 		verify(harness.notifier, times(1)).notify(message.capture());
-		assertTrue(message.getValue().startsWith("Slayer task complete: 3 Abyssal demons · "));
+		assertTrue(message.getValue().startsWith("Abyssal demons done: 3 kills in "));
 	}
 
 	@Test
@@ -142,7 +145,7 @@ public class HarnessCompletionGraceTest
 	public void partialSaveDoesNotPostCompletionSummary()
 	{
 		harness.config.taskCompleteNotification = true;
-		harness.stop();
+		harness.endTask();
 
 		assertTrue(harness.onlyRecord(ACCOUNT).isPartial());
 		verify(harness.chatMessageManager, never()).queue(any(QueuedMessage.class));
@@ -250,8 +253,8 @@ public class HarnessCompletionGraceTest
 		// A new task, and a new session, while the old one is still held.
 		harness.setTask(TASK + 1, "Greater demons", 20, 20);
 		harness.tick();
-		assertTrue(harness.play());
-		harness.stop();
+		assertTrue(harness.startNow());
+		harness.endTask();
 
 		List<LedgerRecord> records = harness.records(ACCOUNT);
 		assertEquals(2, records.size());

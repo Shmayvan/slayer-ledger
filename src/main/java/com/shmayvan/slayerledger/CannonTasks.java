@@ -3,13 +3,14 @@ package com.shmayvan.slayerledger;
 import java.util.Map;
 
 /**
- * Cannon tasks (owner decision): a task counts as a <b>cannon task</b> when any cannonballs, regular or granite
- * ({@link SupplyTracker#CANNONBALL}, {@link SupplyTracker#GRANITE_CANNONBALL}), were fired during it, that is when the
- * session's supplies used hold any. Cannonballs that come back (picked up or unloaded) are taken off the supplies
- * ({@link SessionTracker#addSupplies}), so loading a cannon and picking it up again without firing is not a cannon
- * task. Nothing is stored for it: a saved record is classified from its {@link LedgerRecord#getSupplies supplies}, so
- * every record with supply data is classified the same way, and a record saved before supplies were tracked (no
- * supplies) is a task without a cannon. Pure (no RuneLite types).
+ * Cannon tasks (owner decision): a task counts as a <b>cannon task</b> when its effective Cannon tag is Yes
+ * ({@link SetupTags}, the player's override, else at least half of its kills made while the cannon fired; for a
+ * migrated 1.x record, estimated from its fired cannonballs). See {@link LedgerRecord#cannonTask} and, for the live
+ * session, {@link SessionTracker#getCurrentTaskSelection}. {@link #fired} is the 1.x rule, still the fallback where no
+ * tag or kill context is known: any cannonballs, regular or granite ({@link SupplyTracker#CANNONBALL},
+ * {@link SupplyTracker#GRANITE_CANNONBALL}), fired, that is in the supplies used. Cannonballs that come back (picked up
+ * or unloaded) are taken off the supplies ({@link SessionTracker#addSupplies}), so loading a cannon and picking it up
+ * again without firing fires none. Pure (no RuneLite types).
  *
  * <p>A cannon task is its own group beside the task's other tasks, named with {@link #SUFFIX}, for example
  * "Dust devils (cannon)" or, done on a Catacombs variant, "Deviant spectres (cannon)" ({@link #name}).</p>

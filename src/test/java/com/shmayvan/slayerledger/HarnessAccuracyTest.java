@@ -48,7 +48,7 @@ public class HarnessAccuracyTest
 		harness.setInventory();
 		harness.setTask(TASK, "Abyssal demons", 10, 10);
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 	}
 
 	private void killDrops()
@@ -97,7 +97,7 @@ public class HarnessAccuracyTest
 		killDrops();
 		assertEquals(2, loot().get(ItemID.BONES));
 
-		harness.stop();
+		harness.endTask();
 		LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		assertEquals(Long.valueOf(2), record.getLoot().get(ItemID.BONES));
 		assertEquals(Long.valueOf(6), record.getLoot().get(ItemID.Cert.DRAGON_BONES));
@@ -148,7 +148,7 @@ public class HarnessAccuracyTest
 		ItemTally used = harness.tracker().getSupplies();
 		assertEquals(2, used.get(ItemID.PLAIN_PIZZA));
 		assertEquals(0, used.get(ItemID.HALF_PLAIN_PIZZA));
-		harness.stop();
+		harness.endTask();
 		LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		assertEquals(Long.valueOf(2), record.getSupplies().get(ItemID.PLAIN_PIZZA));
 		assertEquals(Integer.valueOf(2), record.getSupplyDoses().get(ItemID.PLAIN_PIZZA));
@@ -163,11 +163,11 @@ public class HarnessAccuracyTest
 		harness.setInventory(PluginHarness.item(ItemID.HALF_A_MEAT_PIE, 1));
 		harness.setTask(TASK, "Abyssal demons", 10, 10);
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.setInventory(PluginHarness.item(ItemID.PIEDISH, 1));
 		harness.tick();
 
-		harness.stop();
+		harness.endTask();
 		LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		assertEquals(Long.valueOf(1), record.getSupplies().get(ItemID.MEAT_PIE));
 		assertNull("the dish is not a supply", record.getSupplies().get(ItemID.PIEDISH));
@@ -186,10 +186,10 @@ public class HarnessAccuracyTest
 		harness.pause();
 		harness.localPlayerDies();
 		assertEquals("not while paused", 1, harness.tracker().getDeaths());
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.localPlayerDies();
 		assertEquals("Superiors: 0 | Deaths: 2 | Bank trips: 0", countsText());
-		harness.stop();
+		harness.endTask();
 		assertEquals(Integer.valueOf(2), harness.onlyRecord(ACCOUNT).getDeaths());
 	}
 
@@ -206,11 +206,11 @@ public class HarnessAccuracyTest
 
 		harness.startUp();
 		harness.loginAndSettle(ACCOUNT);
-		assertEquals(SessionTracker.State.PAUSED, harness.sessionState());
+		assertEquals(SessionTracker.State.LOGGED_OUT, harness.sessionState());
 		assertEquals(1, harness.tracker().getDeaths());
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.localPlayerDies();
-		harness.stop();
+		harness.endTask();
 		assertEquals(Integer.valueOf(2), harness.onlyRecord(ACCOUNT).getDeaths());
 	}
 

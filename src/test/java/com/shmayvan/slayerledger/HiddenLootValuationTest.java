@@ -15,7 +15,7 @@ import org.junit.Test;
 
 /**
  * Loot Ground Items hides is left out of the loot value: saved tasks ({@link HistoryPricing}) and everything
- * built on them (Trends, Overall totals, the chart, the statistics, the chat line), and the live session
+ * built on them (the monster ranking, Overall totals, the statistics, the chat line), and the live session
  * ({@link SessionValuation}). The records themselves are never changed, so with nothing hidden the values come back.
  */
 public class HiddenLootValuationTest
@@ -168,7 +168,7 @@ public class HiddenLootValuationTest
 	}
 
 	@Test
-	public void trendsTotalsChartAndStatisticsDropByTheHiddenValue()
+	public void rankingAndTotalsDropByTheHiddenValue()
 	{
 		List<LedgerRecord> records = Collections.singletonList(record());
 		// Today's prices are the ones the task was saved with.
@@ -177,8 +177,8 @@ public class HiddenLootValuationTest
 		List<TaskRanking.Entry> ranking = TaskRanking.rank(records, TaskRanking.Metric.PROFIT, LootPriceMode.GE, saved,
 			HIDE_BONES);
 		assertEquals("profit/h: 200 - 600 over an hour", Long.valueOf(-400), ranking.get(0).getRatePerHour());
-		assertEquals(Long.valueOf(100), TaskRanking.rank(records, TaskRanking.Metric.PROFIT, LootPriceMode.GE, saved)
-			.get(0).getRatePerHour());
+		assertEquals(Long.valueOf(100), TaskRanking.rank(records, TaskRanking.Metric.PROFIT, LootPriceMode.GE, saved,
+			HiddenLoot.NONE).get(0).getRatePerHour());
 
 		List<OverallTotals.Entry> totals = OverallTotals.summarize(records, OverallTotals.Grouping.ALL,
 			LootPriceMode.GE, saved, HIDE_BONES, ZoneOffset.UTC);
@@ -187,17 +187,6 @@ public class HiddenLootValuationTest
 			totals.get(0).getLoot().size());
 		assertEquals(Long.valueOf(100), OverallTotals.summarize(records, OverallTotals.Grouping.ALL,
 			LootPriceMode.GE, saved, HiddenLoot.NONE, ZoneOffset.UTC).get(0).getProfit());
-
-		List<TaskChart.Monster> monsters = TaskChart.monsters(records, TaskRanking.Metric.PROFIT, LootPriceMode.GE,
-			saved, HIDE_BONES);
-		assertEquals(-400, TaskChart.points(records, monsters.get(0), TaskRanking.Metric.PROFIT, LootPriceMode.GE,
-			saved, HIDE_BONES).get(0).getRatePerHour());
-
-		TaskStatistics stats = TaskStatistics.forTask(records, 410, "Kurask", null, r -> null, LootPriceMode.GE,
-			saved, HIDE_BONES);
-		assertEquals("loot per kill", Long.valueOf(20), stats.getLootPerKill());
-		assertEquals(Long.valueOf(70), TaskStatistics.forTask(records, 410, "Kurask", LootPriceMode.GE, saved)
-			.getLootPerKill());
 
 		TaskAdvisor.Result advice = TaskAdvisor.advise(records, 410, "Kurask", TaskRanking.Metric.PROFIT,
 			LootPriceMode.GE, saved, HIDE_BONES);
@@ -244,32 +233,24 @@ public class HiddenLootValuationTest
 		assertEquals("today's prices: coins at face value, bones left out", Long.valueOf(300 + 500),
 			HistoryPricing.value(recordWithCoins(), LootPriceMode.GE, today, HIDE_COINS_AND_BONES).getLootValue());
 
-		String line = TaskCompleteMessage.format(recordWithCoins(), LootPriceMode.GE, HIDE_COINS_AND_BONES);
-		assertTrue(line, line.endsWith(" · ~+100"));
+		String line = TaskCompleteMessage.format(recordWithCoins(), LootPriceMode.GE, HIDE_COINS_AND_BONES, true);
+		assertTrue(line, line.endsWith(", ~+100. Gz."));
 	}
 
 	@Test
-	public void hiddenCoinsStillCountInTrendsAndTotals()
+	public void hiddenCoinsStillCountInTheRankingAndTotals()
 	{
 		List<LedgerRecord> records = Collections.singletonList(recordWithCoins());
 		// Today's prices are the ones the task was saved with.
 		Map<Integer, Long> today = map(RUNE, 100, BONES, 50, POTION, 800, COINS, 1);
 		assertEquals("profit/h: 700 - 600 over an hour", Long.valueOf(100), TaskRanking.rank(records,
 			TaskRanking.Metric.PROFIT, LootPriceMode.GE, today, HIDE_COINS_AND_BONES).get(0).getRatePerHour());
-		List<TaskChart.Monster> monsters = TaskChart.monsters(records, TaskRanking.Metric.PROFIT, LootPriceMode.GE,
-			today, HIDE_COINS_AND_BONES);
-		assertEquals(100, TaskChart.points(records, monsters.get(0), TaskRanking.Metric.PROFIT, LootPriceMode.GE,
-			today, HIDE_COINS_AND_BONES).get(0).getRatePerHour());
 
 		OverallTotals.Entry totals = OverallTotals.summarize(records, OverallTotals.Grouping.ALL, LootPriceMode.GE,
 			today, HIDE_COINS_AND_BONES, ZoneOffset.UTC).get(0);
 		assertEquals(Long.valueOf(100), totals.getProfit());
 		assertEquals("the summed loot items still list coins and bones (the grid hides them)", 4,
 			totals.getLoot().size());
-
-		TaskStatistics stats = TaskStatistics.forTask(records, 410, "Kurask", null, r -> null, LootPriceMode.GE,
-			today, HIDE_COINS_AND_BONES);
-		assertEquals("loot per kill: 700 over 10 kills", Long.valueOf(70), stats.getLootPerKill());
 	}
 
 	@Test
@@ -344,74 +325,13 @@ public class HiddenLootValuationTest
 		assertEquals(TaskAdvisor.Advice.CONSIDER_SKIP, hidden.getAdvice());
 	}
 
-	/**
-	 * {@link TaskAdvisor#MIN_TASKS} hour-long tasks of each of two groups of one monster: {@code first} earns 11,000
-	 * gp/h, mostly from 10 bones, and {@code second} 4,000 gp/h from runes alone.
-	 */
-	private static List<LedgerRecord> twoGroups(int creatureId, String monster, String firstVariant,
-		String secondVariant, boolean secondCannon)
-	{
-		List<LedgerRecord> records = new ArrayList<>();
-		for (int t = 0; t < TaskAdvisor.MIN_TASKS; t++)
-		{
-			LedgerRecord first = advisorTask("a" + t, creatureId, monster, 10);
-			first.setVariant(firstVariant);
-			records.add(first);
-			LedgerRecord second = advisorTask("b" + t, creatureId, monster, 0);
-			second.setVariant(secondVariant);
-			second.setLoot(map(RUNE, 40));
-			second.setLootGeValue(4_000L);
-			if (secondCannon)
-			{
-				second.setSupplies(map(SupplyTracker.CANNONBALL, 50));
-				second.setUnitGePrices(map(RUNE, 100, BONES, 1_000, SupplyTracker.CANNONBALL, 0));
-			}
-			records.add(second);
-		}
-		return records;
-	}
-
-	@Test
-	public void theVariantAdviceFlipsWhenTheStandardVersionsLootIsHidden()
-	{
-		List<LedgerRecord> records = twoGroups(7, "Aberrant spectres", null, "Deviant spectres", false);
-
-		TaskAdvisor.VersionAdvice all = TaskAdvisor.adviseVariant(records, 7, "Aberrant spectres",
-			TaskRanking.Metric.PROFIT, LootPriceMode.GE, null, HiddenLoot.NONE);
-		assertEquals("Aberrant spectres", all.getLabel());
-		assertEquals("Profit (GE)/h: Aberrant spectres 11K (n=3), Deviant spectres 4,000 (n=3)",
-			all.reason(LootPriceMode.GE));
-
-		TaskAdvisor.VersionAdvice hidden = TaskAdvisor.adviseVariant(records, 7, "Aberrant spectres",
-			TaskRanking.Metric.PROFIT, LootPriceMode.GE, null, HIDE_BONES);
-		assertEquals("only the runes count", "Deviant spectres", hidden.getLabel());
-		assertEquals("Profit (GE)/h: Deviant spectres 4,000 (n=3), Aberrant spectres 1,000 (n=3)",
-			hidden.reason(LootPriceMode.GE));
-	}
-
-	@Test
-	public void theCannonAdviceFlipsWhenTheLootWithoutACannonIsHidden()
-	{
-		List<LedgerRecord> records = twoGroups(49, "Dust devils", null, null, true);
-
-		TaskAdvisor.Outcome all = TaskAdvisor.adviseAll(records, 49, "Dust devils", TaskRanking.Metric.PROFIT,
-			LootPriceMode.GE, null, HiddenLoot.NONE);
-		assertEquals(TaskAdvisor.WITHOUT_CANNON, all.getCannon().getLabel());
-
-		TaskAdvisor.Outcome hidden = TaskAdvisor.adviseAll(records, 49, "Dust devils", TaskRanking.Metric.PROFIT,
-			LootPriceMode.GE, null, HIDE_BONES);
-		assertEquals("only the runes count", TaskAdvisor.WITH_CANNON, hidden.getCannon().getLabel());
-		assertEquals("Profit (GE)/h: Dust devils (cannon) 4,000 (n=3), Dust devils 1,000 (n=3)",
-			hidden.getCannon().reason(LootPriceMode.GE));
-	}
-
 	@Test
 	public void theTaskCompleteLineLeavesHiddenLootOut()
 	{
 		String all = TaskCompleteMessage.format(record(), LootPriceMode.GE);
-		String hidden = TaskCompleteMessage.format(record(), LootPriceMode.GE, HIDE_BONES);
-		assertTrue(all, all.endsWith(" · ~+100"));
-		assertTrue(hidden, hidden.endsWith(" · ~-400"));
+		String hidden = TaskCompleteMessage.format(record(), LootPriceMode.GE, HIDE_BONES, true);
+		assertTrue(all, all.endsWith(", ~+100. Gz."));
+		assertTrue(hidden, hidden.endsWith(", ~-400. Gz."));
 	}
 
 	// ---- The live session ----

@@ -16,29 +16,29 @@ import java.util.function.Supplier;
 
 /**
  * The shown history's derived views (split from {@link LedgerHistoryModel}): the per-task statistics, the task
- * advisor and its settings, the Trends list and chart, Overall totals, the luck meter, the "Skipped / blocked" rows and
- * What to bring. Each is worked out on demand and cached until what it comes from changes: the records
- * ({@link #setHistory}'s version), how they are valued ({@link HistoryValuation#valuationVersion}), item names where
- * they are shown ({@link NameBook#itemNamesVersion}) and the view's own inputs (a metric, a grouping, a task). Asking
- * again with nothing changed returns the same object, so the panel's refresh timer never works them out again. The
- * statistics are kept until the model drops them ({@link #clearTaskStatistics}).
+ * advisor and its settings, the advisor's plan, Overall totals and the "Skipped / blocked" rows.
+ * Each is worked out on demand and cached until what it comes from changes: the records ({@link #setHistory}'s
+ * version), how they are valued ({@link HistoryValuation#valuationVersion}), item names where they are shown
+ * ({@link NameBook#itemNamesVersion}) and the view's own inputs (a metric, a grouping, a task). Asking again with
+ * nothing changed returns the same object, so the panel's refresh timer never works them out again. The statistics are
+ * kept until the model drops them ({@link #clearTaskStatistics}).
  *
- * <p>Off the EDT. The views that scan every record for the sidebar, the task advice, the Trends list and chart
- * and Overall totals, are worked out on a background executor (the plugin's), once per inputs, from an immutable
- * snapshot taken on the EDT: the records list (unmodifiable and replaced, never changed; the records in it are not
- * changed once loaded), for Overall totals' By master the "Skipped / blocked" entries list (the same), the creature
- * and goal for the advice, the "Loot price" mode and a copy of the prices shown
- * ({@link Valued}). Asked for while it is being worked out, such a view returns {@code null} (the advice: the same
- * task's previous advice, else {@code null}), and the panel keeps what it shows. The result goes back to the EDT, where
- * it is kept only if it is still the latest one asked for: a result for older inputs (an older records or valuation
- * version, another metric) is dropped. A kept result tells {@link #setOnReady}'s listener, which has the panel redraw.
- * The background work touches no Swing and no mutable state; everything it reads is captured before it is queued and
- * everything it returns is immutable, published to the EDT through the EDT executor's queue.</p>
+ * <p>Off the EDT. The views that scan every record, the task advice, the advisor's plan and Overall
+ * totals, are worked out on a background executor (the plugin's), once per inputs, from an immutable snapshot taken on
+ * the EDT: the records list (unmodifiable and replaced, never changed; the records in it are not changed once loaded),
+ * for Overall totals' By master the "Skipped / blocked" entries list (the same), the creature and goal for the advice,
+ * the task, its kills left, the metric and the potion families for the plan, the "Loot price" mode and a copy of the
+ * prices shown ({@link Valued}). Asked for while it is being worked out, such a view returns {@code null} (the advice:
+ * the same task's previous advice, else {@code null}; the plan shown: the same task's previous plan, else
+ * {@code null}), and the panel keeps what it shows. The result goes back to the EDT, where it is kept only if it is
+ * still the latest one asked for: a result for older inputs (an older records or valuation version, another grouping,
+ * goal or metric, other kills left) is dropped. A kept result tells {@link #setOnReady}'s listener, which has the panel
+ * redraw. The background work touches no Swing and no mutable state; everything it reads is captured before it is
+ * queued and everything it returns is immutable, published to the EDT through the EDT executor's queue.</p>
  *
- * <p>Kept on the EDT, worked out when asked: the per-task statistics ({@link #taskStatistics}), because the chat
- * preview and the overlay's time per kill decide synchronously from them and ask for region names while building them;
- * the luck meter, which asks for item names and depends on which are still pending; the "Skipped / blocked" rows and
- * What to bring, which are small. Names are asked for on the EDT only.</p>
+ * <p>Kept on the EDT, worked out when asked: the per-task statistics ({@link #taskStatistics}), because the live card's
+ * time left and the overlay's time per kill decide synchronously from them and ask for region names while building
+ * them; the "Skipped / blocked" rows, which are small. Names are asked for on the EDT only.</p>
  *
  * <p>Threading: EDT only, like the model that owns it (except the background work described above). The results are
  * unmodifiable.</p>
@@ -64,40 +64,41 @@ final class LedgerViews
 	private List<AssignmentEntry> assignments = Collections.emptyList();
 	/** The model's version of {@link #records} and {@link #assignments}. */
 	private long version;
+	/**
+	 * Bumped only when {@link #records} change (a new list: they are replaced, never changed), not with the entries,
+	 * so a "Skipped / blocked" entry doesn't work out the plan or its potion families again.
+	 */
+	private long recordsVersion;
 	/** The account the records are of; another one drops the kept advice (see {@link #advice}). */
 	private long account = SessionTracker.NO_ACCOUNT;
 	/** How the records are valued, captured for the background views at {@link Valued#valuationVersion}. */
 	private Valued valued;
 
-	/** Reads the bundled luck-meter snapshot (once, on first use); none until set. */
-	private Supplier<LuckMeter> luckMeterSource = () -> null;
-	/** The bundled luck-meter snapshot, read once; {@code null} when it could not be read. */
-	private LuckMeter luckMeter;
-	private boolean luckMeterLoaded;
-
-	/** The "Task advisor" setting. */
+	/** The "Task advisor" setting: whether the skip / block badge is shown. */
 	private boolean adviceEnabled = true;
-	/** The "Task advisor goal" setting. */
-	private TaskRanking.Metric adviceMetric = TaskRanking.Metric.PROFIT;
+	/**
+	 * The "Advisor metric" setting: what the plan picks by, and through {@link TaskAdvisor#badgeMetric} the rate
+	 * the badge ranks by.
+	 */
+	private AdvisorMetric advisorMetric = AdvisorMetric.DEFAULT;
 
-	/** Per-task aggregates, dropped when the history, its pricing or a region name changes. */
+	/** Per-task aggregates, dropped when the history, the spot table or a region name changes. */
 	private final Map<String, TaskStatistics> taskStatisticsCache = new HashMap<>();
+	/** How many times a task's statistics were worked out ({@link #getTaskStatisticsBuildCount}). */
+	private int taskStatisticsBuilds;
 	/** {@link #effectiveSelection} per task and live selection; dropped with the statistics or new history. */
 	private final Map<String, TaskSelection> effectiveSelectionCache = new HashMap<>();
-	private final Background<TaskAdvisor.Outcome> advice = new Background<>();
+	private final Background<TaskAdvisor.Result> advice = new Background<>();
+	private final Background<TaskPlan> plan = new Background<>();
+	/** The records' potion families for the plan ({@link TaskPlanner#potionFamilies}), per records and item names. */
+	private final Cached<PotionFamilies> potionFamilies = new Cached<>();
 	private final Background<List<OverallTotals.Entry>> overallTotals = new Background<>();
-	private final Background<List<TaskRanking.Entry>> ranking = new Background<>();
-	private final Background<List<TaskChart.Monster>> chartMonsters = new Background<>();
-	private final Background<List<TaskChart.Point>> chartPoints = new Background<>();
-	private final Cached<List<String>> luckTasks = new Cached<>();
-	private final Cached<LuckView> luck = new Cached<>();
 	private final Cached<List<AssignmentRow>> assignmentRows = new Cached<>();
-	private final Cached<WhatToBring> whatToBring = new Cached<>();
 
 	/**
 	 * @param valuation  how the records are valued; only read
 	 * @param names      region and item names; missing ones are asked for
-	 * @param background works out the advice, Trends and Overall totals off the EDT
+	 * @param background works out the advice and Overall totals off the EDT
 	 * @param edt        runs their results on the EDT
 	 */
 	LedgerViews(SessionTracker tracker, HistoryValuation valuation, NameBook names, Executor background, Executor edt)
@@ -111,9 +112,10 @@ final class LedgerViews
 
 	/**
 	 * Sets the history the views come from (the model's account, records and entries, newest first, unmodifiable, and
-	 * its version); the views are worked out again when next asked for. Another account drops the kept advice and any
-	 * advice still being worked out, so the previous account's advice is never shown for the same task while the new
-	 * account's is worked out.
+	 * its version); the views are worked out again when next asked for. Another account drops the kept advice and plan
+	 * and any still being worked out, so the previous account's are never shown for the same task while the new
+	 * account's are worked out. A new records list bumps {@link #recordsVersion}; the same list (new entries only)
+	 * doesn't.
 	 */
 	void setHistory(long account, long version, List<LedgerRecord> records, List<AssignmentEntry> assignments)
 	{
@@ -121,8 +123,13 @@ final class LedgerViews
 		{
 			this.account = account;
 			advice.reset();
+			plan.reset();
 		}
 		this.version = version;
+		if (records != this.records)
+		{
+			recordsVersion++;
+		}
 		this.records = records;
 		this.assignments = assignments;
 		effectiveSelectionCache.clear();
@@ -152,48 +159,38 @@ final class LedgerViews
 		return valued;
 	}
 
-	/** Sets what reads the bundled luck-meter snapshot; it is read once, the first time the luck meter is shown. */
-	void setLuckMeterSource(Supplier<LuckMeter> source)
-	{
-		luckMeterSource = source == null ? () -> null : source;
-	}
-
 	// ---- Statistics ----
 
-	/** Drops the cached statistics, after the history, its pricing or a region name changed. */
+	/** Drops the cached statistics, after the history, the spot table or a region name changed. */
 	void clearTaskStatistics()
 	{
 		taskStatisticsCache.clear();
 		effectiveSelectionCache.clear();
 	}
 
-	/** {@link #taskStatisticsKey(int, String, TaskSelection, String)} pooling all records ({@link TaskSelection#ANY}). */
-	String taskStatisticsKey(int creatureId, String monster, String location)
-	{
-		return taskStatisticsKey(creatureId, monster, TaskSelection.ANY, location);
-	}
-
 	/**
 	 * Key of {@link #taskStatistics}: creature key, name as {@link TaskStatistics#normalize} matches it, the selection
-	 * the statistics use (version and cannon use, {@link #effectiveSelection}, {@link TaskSelection#key}),
-	 * mode, the valuation version ({@link HistoryValuation#valuationVersion}, which also changes with Ground Items'
-	 * hidden items) and the location ({@link TaskLocation#normalizeName}d), so a change of location, version or
-	 * cannon use, a first cannon task in the history, or other prices or hidden items, gives other statistics.
+	 * the statistics use (version and cannon use, {@link #effectiveSelection}, {@link TaskSelection#key})
+	 * and the location (its spot key and the name shown), so a change of location or its name, version or cannon
+	 * use, or a first cannon task in the history, gives other statistics. Nothing in the statistics is valued, so
+	 * the "Loot price" mode, today's prices and the hidden loot are not part of it.
 	 */
-	String taskStatisticsKey(int creatureId, String monster, TaskSelection selection, String location)
+	private String taskStatisticsKey(int creatureId, String monster, TaskSelection selection,
+		TaskLocation.Here location)
 	{
 		String name = TaskStatistics.normalize(monster);
-		String here = TaskLocation.normalizeName(location);
+		TaskLocation.Here here = location == null ? TaskLocation.Here.UNKNOWN : location;
 		return creatureId + "\u0000" + (name == null ? "" : name) + "\u0000"
-			+ effectiveSelection(creatureId, monster, selection).key() + "\u0000" + valuation.lootPriceMode() + "\u0000"
-			+ valuation.valuationVersion() + "\u0000" + (here == null ? "" : here);
+			+ effectiveSelection(creatureId, monster, selection).key() + "\u0000"
+			+ (here.getSpot() == null ? "" : here.getSpot()) + "\u0000" + (here.getName() == null ? "" : here.getName());
 	}
 
 	/**
-	 * The selection a task's statistics use for the live {@code selection} ({@link TaskStatistics#effectiveSelection}): cannon tasks only when the history has a completed cannon task of the task's selected version, else tasks
+	 * The selection a task's statistics use for the live {@code selection} ({@link TaskStatistics#effectiveSelection}):
+	 * cannon tasks only when the history has a completed cannon task of the task's selected version, else tasks
 	 * with and without a cannon pooled. Cached with the statistics until {@link #clearTaskStatistics} or new history.
 	 */
-	TaskSelection effectiveSelection(int creatureId, String monster, TaskSelection selection)
+	private TaskSelection effectiveSelection(int creatureId, String monster, TaskSelection selection)
 	{
 		TaskSelection requested = selectionOrAny(selection);
 		if (!Boolean.TRUE.equals(requested.getCannon()))
@@ -211,35 +208,35 @@ final class LedgerViews
 		return effective;
 	}
 
-	/** {@link #taskStatistics(int, String, TaskSelection, String)} pooling all records ({@link TaskSelection#ANY}). */
-	TaskStatistics taskStatistics(int creatureId, String monster, String location)
-	{
-		return taskStatistics(creatureId, monster, TaskSelection.ANY, location);
-	}
-
 	/**
 	 * A task's statistics, of the records {@code selection} selects (version and cannon use; cannon tasks
-	 * only just when the history has some, {@link #effectiveSelection}): from its history at {@code location} when it
-	 * has some there, else from all of it (see {@link TaskStatistics#getLocation}). Cached until
-	 * {@link #clearTaskStatistics}.
+	 * only just when the history has some, {@link #effectiveSelection}): from its history at {@code location}'s spot
+	 * when it has some there (a record's spot is {@link SlayerSpots#recordSpot}), else from all of it (see
+	 * {@link TaskStatistics#getLocation}). Cached until {@link #clearTaskStatistics}.
 	 */
-	TaskStatistics taskStatistics(int creatureId, String monster, TaskSelection selection, String location)
+	TaskStatistics taskStatistics(int creatureId, String monster, TaskSelection selection,
+		TaskLocation.Here location)
 	{
 		String key = taskStatisticsKey(creatureId, monster, selection, location);
 		TaskStatistics stats = taskStatisticsCache.get(key);
 		if (stats == null)
 		{
-			if (location != null)
-			{
-				requestSampleLocationNames(creatureId, monster);
-			}
+			SlayerSpots spots = names.spots();
 			stats = TaskStatistics.forTask(records, creatureId, monster,
-				effectiveSelection(creatureId, monster, selection), location,
-				record -> TaskLocation.recordLocation(record, names::locationName), valuation.lootPriceMode(),
-				valuation.shownPrices(), valuation.hiddenLoot());
+				effectiveSelection(creatureId, monster, selection), location, spots::recordSpot);
 			taskStatisticsCache.put(key, stats);
+			taskStatisticsBuilds++;
 		}
 		return stats;
+	}
+
+	/**
+	 * How many times a task's statistics were worked out. Performance seam: tests assert this doesn't grow on the
+	 * refresh timer, or when only how the history is valued changes.
+	 */
+	int getTaskStatisticsBuildCount()
+	{
+		return taskStatisticsBuilds;
 	}
 
 	private static TaskSelection selectionOrAny(TaskSelection selection)
@@ -247,32 +244,22 @@ final class LedgerViews
 		return selection == null ? TaskSelection.ANY : selection;
 	}
 
-	/**
-	 * Asks the plugin for the region names of the task's samples that have only a region, so their location is known
-	 * to the same-location estimates.
-	 */
-	private void requestSampleLocationNames(int creatureId, String monster)
-	{
-		Set<Integer> regions = new HashSet<>();
-		for (LedgerRecord record : records)
-		{
-			if (record.getLocationRegion() != null && TaskLocation.normalizeName(record.getLocation()) == null
-				&& TaskLocation.normalizeName(record.getTaskLocation()) == null
-				&& TaskStatistics.isSample(record, creatureId, monster))
-			{
-				regions.add(record.getLocationRegion());
-			}
-		}
-		names.requestLocationNames(regions);
-	}
-
 	// ---- Task advisor ----
 
-	/** Applies the "Task advisor" and "Task advisor goal" settings; {@code null} is the profit goal. */
-	void setTaskAdvisor(boolean enabled, TaskRanking.Metric metric)
+	/**
+	 * Applies the "Task advisor" and "Advisor metric" settings; {@code null} is
+	 * {@link AdvisorMetric#DEFAULT}. The badge ranks by {@link TaskAdvisor#badgeMetric} of the metric.
+	 */
+	void setTaskAdvisor(boolean enabled, AdvisorMetric metric)
 	{
 		adviceEnabled = enabled;
-		adviceMetric = metric == null ? TaskRanking.Metric.PROFIT : metric;
+		advisorMetric = AdvisorMetric.orDefault(metric);
+	}
+
+	/** The "Advisor metric" setting; never {@code null}. */
+	AdvisorMetric advisorMetric()
+	{
+		return advisorMetric;
 	}
 
 	/** Whether the task advisor has a row to show: it is on and the observed task has kills left. */
@@ -283,38 +270,12 @@ final class LedgerViews
 
 	/**
 	 * The task advisor's result for the current task ({@link TaskAdvisor}), or {@code null} without one or when
-	 * {@link #isAdviceShown} is false. Worked out again, in the background, only when the task, the records, how they
-	 * are valued or the goal changed; meanwhile the same account's previous advice for the same task, goal and "Loot
-	 * price" mode is returned, or {@code null}.
+	 * {@link #isAdviceShown} is false. It ranks by the rate the "Advisor metric" picks
+	 * ({@link TaskAdvisor#badgeMetric}, the goal). Worked out again, in the background, only when the task, the
+	 * records, how they are valued or the goal changed; meanwhile the same account's previous advice for the same
+	 * task, goal and "Loot price" mode is returned, or {@code null}.
 	 */
 	TaskAdvisor.Result advice()
-	{
-		TaskAdvisor.Outcome outcome = adviceOutcome();
-		return outcome == null ? null : outcome.getAdvice();
-	}
-
-	/**
-	 * Which version of the current task, standard or Catacombs variant, is better on the goal
-	 * ({@link TaskAdvisor#adviseVariant}), or {@code null}. Worked out with {@link #advice}, by the same rules.
-	 */
-	TaskAdvisor.VersionAdvice variantAdvice()
-	{
-		TaskAdvisor.Outcome outcome = adviceOutcome();
-		return outcome == null ? null : outcome.getVariant();
-	}
-
-	/**
-	 * Whether the current task is better with a cannon or without one on the goal ({@link TaskAdvisor#adviseCannon}),
-	 * or {@code null}. Worked out with {@link #advice}, by the same rules.
-	 */
-	TaskAdvisor.VersionAdvice cannonAdvice()
-	{
-		TaskAdvisor.Outcome outcome = adviceOutcome();
-		return outcome == null ? null : outcome.getCannon();
-	}
-
-	/** {@link #advice}, {@link #variantAdvice} and {@link #cannonAdvice}, worked out together. */
-	private TaskAdvisor.Outcome adviceOutcome()
 	{
 		if (!isAdviceShown())
 		{
@@ -324,10 +285,11 @@ final class LedgerViews
 		String monster = tracker.getCurrentMonster();
 		Valued now = valued();
 		List<LedgerRecord> from = records;
-		TaskRanking.Metric metric = adviceMetric;
+		// Profit per hour and Cheapest both rank by profit: the same goal, so the same advice.
+		TaskRanking.Metric metric = TaskAdvisor.badgeMetric(advisorMetric);
 		List<Object> key = Arrays.asList(version, now.valuationVersion, creatureId, TaskStatistics.normalize(monster),
 			metric, now.mode);
-		if (advice.request(key, () -> TaskAdvisor.adviseAll(from, creatureId, monster, metric, now.mode, now.prices,
+		if (advice.request(key, () -> TaskAdvisor.advise(from, creatureId, monster, metric, now.mode, now.prices,
 			now.hidden)))
 		{
 			return advice.value;
@@ -347,7 +309,170 @@ final class LedgerViews
 		return advice.builds;
 	}
 
-	// ---- Trends and totals ----
+	// ---- Advisor plan ----
+
+	/**
+	 * The advisor's plan to show for the current task: the plan for the current inputs ({@link #exactPlan}) or, while
+	 * that one is worked out or the views wait for today's prices, the plan last kept for the same task (creature
+	 * key, name, type and assigned area), "Advisor metric" and "Loot price" mode, so a kill doesn't blank it; only its
+	 * kills left, records, prices, potion families or spot table may be older. {@code null} without a task (none
+	 * observed, or no kills left) and while no such plan was kept. The kept plan is always this account's
+	 * ({@link #setHistory} drops it on another account). Asking for it asks for the exact plan, as {@link #exactPlan}
+	 * does.
+	 */
+	TaskPlan plan()
+	{
+		return plan(false);
+	}
+
+	/**
+	 * The advisor's plan for exactly the current inputs ({@link TaskPlanner}), worked out in the background from the
+	 * immutable snapshot: the task's creature key, name, type ({@link TaskType#of} its master) and assigned area
+	 * (Konar's), its kills left, the records ({@link #recordsVersion}: not the "Skipped / blocked" entries), the
+	 * "Advisor metric", how the records are valued ({@link Valued}: the "Loot price" mode, a copy of today's prices,
+	 * the hidden loot), the spot table and the potion families ({@link #potionFamilies}). {@code null} while there is
+	 * no task (none observed, or no kills left), while the views wait for today's prices (worked out when the wait
+	 * ends) and while the plan for the current inputs is worked out: only the plan of the inputs last asked for is kept
+	 * (the stale-result rule), and when it is ready {@link #setOnReady}'s listener is told. Asked for again with the
+	 * same inputs, nothing is worked out. The model asks for it whenever an input changed; the chat line uses this one,
+	 * so it never names older kills left.
+	 */
+	TaskPlan exactPlan()
+	{
+		return plan(true);
+	}
+
+	/** {@link #exactPlan}, or with {@code exact} false {@link #plan}'s kept plan while there is none. */
+	private TaskPlan plan(boolean exact)
+	{
+		if (!tracker.isTaskObserved() || tracker.getCurrentRemaining() <= 0)
+		{
+			return null;
+		}
+		int creatureId = tracker.getCurrentCreatureId();
+		String monster = tracker.getCurrentMonster();
+		TaskContext context = tracker.getCurrentContext();
+		TaskType type = TaskType.of(context.getMaster(), creatureId);
+		String area = context.getLocation();
+		AdvisorMetric metric = advisorMetric;
+		// The task and how it is judged come first in the key: a kept plan is shown only for the same.
+		List<Object> task = Arrays.asList(creatureId, monster, type, area, metric, valuation.lootPriceMode());
+		if (!valuation.isWaitingForCurrentPrices())
+		{
+			int killsLeft = tracker.getCurrentRemaining();
+			Valued now = valued();
+			Map<Integer, String> families = potionFamilies().families;
+			SlayerSpots spots = names.spots();
+			List<LedgerRecord> from = records;
+			List<Object> key = new ArrayList<>(task);
+			key.addAll(Arrays.asList(recordsVersion, now.valuationVersion, killsLeft, families, spots));
+			if (plan.request(key, () -> TaskPlanner.plan(TaskPlanner.Request.builder()
+				.creatureId(creatureId)
+				.task(monster)
+				.taskType(type)
+				.area(area)
+				.killsLeft(killsLeft)
+				.records(from)
+				.metric(metric)
+				.mode(now.mode)
+				.prices(now.prices)
+				.hidden(now.hidden)
+				.spots(spots)
+				.potionFamilies(families)
+				.build())))
+			{
+				return plan.value;
+			}
+		}
+		if (exact)
+		{
+			return null;
+		}
+		List<Object> shown = plan.key;
+		return shown != null && shown.subList(0, task.size()).equals(task) ? plan.value : null;
+	}
+
+	/**
+	 * Whether the name of a potion the task's records used (its creature's: {@link TaskStatistics#isSample}) is still
+	 * on its way, so {@link #exactPlan}'s potion families (and with them what to bring) may still change. The chat line
+	 * waits for it; another creature's potions don't hold it.
+	 */
+	boolean isPotionFamilyPending(int creatureId, String monster)
+	{
+		Set<Integer> pending = potionFamilies().pending;
+		if (pending.isEmpty())
+		{
+			return false;
+		}
+		for (LedgerRecord record : records)
+		{
+			if (record.getSupplyDoses() == null || !TaskStatistics.isSample(record, creatureId, monster))
+			{
+				continue;
+			}
+			for (Integer id : record.getSupplyDoses().keySet())
+			{
+				if (pending.contains(id))
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * The records' potion families ({@link TaskPlanner#potionFamilies}) from the item names known, worked out again
+	 * when the records change or names arrive; the names of the potions (the ids the records count in doses) are
+	 * asked for. The map is unmodifiable and equal to the last one when no family changed, so the plan's inputs only
+	 * change with a family.
+	 */
+	private PotionFamilies potionFamilies()
+	{
+		return potionFamilies.get(Arrays.asList(recordsVersion, names.itemNamesVersion()), () ->
+		{
+			Set<Integer> potions = new HashSet<>();
+			for (LedgerRecord record : records)
+			{
+				if (record.getSupplyDoses() == null)
+				{
+					continue;
+				}
+				for (Integer id : record.getSupplyDoses().keySet())
+				{
+					if (id != null && ItemDetails.doseUnit(id) == ItemDetails.Unit.DOSES)
+					{
+						potions.add(id);
+					}
+				}
+			}
+			Set<Integer> pending = new HashSet<>();
+			if (!potions.isEmpty())
+			{
+				names.requestItemNames(potions);
+				for (Integer id : potions)
+				{
+					if (names.isItemNamePending(id))
+					{
+						pending.add(id);
+					}
+				}
+			}
+			return new PotionFamilies(Collections.unmodifiableMap(TaskPlanner.potionFamilies(records,
+				names::itemName)), Collections.unmodifiableSet(pending));
+		});
+	}
+
+	/**
+	 * How many times the plan was worked out (asked of the background).
+	 * Performance seam: tests assert this doesn't grow on the refresh timer.
+	 */
+	int getPlanBuildCount()
+	{
+		return plan.builds;
+	}
+
+	// ---- Totals ----
 
 	/**
 	 * The completed-task totals in {@code grouping} ({@link OverallTotals}), once per records, entries and pricing,
@@ -375,139 +500,6 @@ final class LedgerViews
 		return overallTotals.builds;
 	}
 
-	/**
-	 * The Trends list for {@code metric} ({@link TaskRanking}), worked out once per records and pricing, in the
-	 * background: {@code null} until it is ready.
-	 */
-	List<TaskRanking.Entry> ranking(TaskRanking.Metric metric)
-	{
-		Valued now = valued();
-		List<LedgerRecord> from = records;
-		return ranking.get(Arrays.asList(version, now.valuationVersion, metric),
-			() -> Collections.unmodifiableList(TaskRanking.rank(from, metric, now.mode, now.prices, now.hidden)));
-	}
-
-	/**
-	 * How many times the Trends list was worked out.
-	 * Performance seam: tests assert this doesn't grow on the refresh timer.
-	 */
-	int getRankingBuildCount()
-	{
-		return ranking.builds;
-	}
-
-	/**
-	 * The Trends chart's Monster choices for {@code metric} ({@link TaskChart#monsters}), in the background:
-	 * {@code null} until they are ready.
-	 */
-	List<TaskChart.Monster> chartMonsters(TaskRanking.Metric metric)
-	{
-		Valued now = valued();
-		List<LedgerRecord> from = records;
-		return chartMonsters.get(Arrays.asList(version, now.valuationVersion, metric),
-			() -> Collections.unmodifiableList(TaskChart.monsters(from, metric, now.mode, now.prices, now.hidden)));
-	}
-
-	/**
-	 * The Trends chart's points for {@code monster} and {@code metric} ({@link TaskChart#points}), in the background:
-	 * {@code null} until they are ready.
-	 */
-	List<TaskChart.Point> chartPoints(TaskChart.Monster monster, TaskRanking.Metric metric)
-	{
-		Valued now = valued();
-		List<LedgerRecord> from = records;
-		return chartPoints.get(Arrays.asList(version, now.valuationVersion, monster, metric),
-			() -> Collections.unmodifiableList(TaskChart.points(from, monster, metric, now.mode, now.prices,
-				now.hidden)));
-	}
-
-	// ---- Luck meter ----
-
-	/** The bundled luck-meter snapshot, read once; {@code null} when it could not be read. */
-	private LuckMeter luckMeter()
-	{
-		if (!luckMeterLoaded)
-		{
-			luckMeterLoaded = true;
-			luckMeter = luckMeterSource.get();
-		}
-		return luckMeter;
-	}
-
-	/**
-	 * The luck meter's task choices ({@link LuckMeter#supportedTasks}), or {@code null} when its data could not be
-	 * read.
-	 */
-	List<String> luckTasks()
-	{
-		LuckMeter meter = luckMeter();
-		if (meter == null)
-		{
-			return null;
-		}
-		return luckTasks.get(Collections.singletonList(version),
-			() -> Collections.unmodifiableList(meter.supportedTasks(records)));
-	}
-
-	/**
-	 * The luck meter for {@code task} (none: {@code null}): its samples' loot item names are asked for, and the drops
-	 * are compared once they are here. Worked out again only when the records, the task or item names change.
-	 */
-	LuckView luck(String task)
-	{
-		LuckMeter meter = luckMeter();
-		if (meter == null)
-		{
-			return LuckView.UNAVAILABLE;
-		}
-		return luck.get(Arrays.asList(version, task, names.itemNamesVersion()), () -> luckView(meter, task));
-	}
-
-	private LuckView luckView(LuckMeter meter, String task)
-	{
-		List<LedgerRecord> samples = task == null ? Collections.emptyList() : meter.samples(records, task);
-		Set<Integer> lootIds = new HashSet<>();
-		for (LedgerRecord record : samples)
-		{
-			if (record.getLoot() != null)
-			{
-				for (Integer id : record.getLoot().keySet())
-				{
-					if (id != null)
-					{
-						lootIds.add(id);
-					}
-				}
-			}
-		}
-		names.requestItemNames(lootIds);
-		boolean namesPending = false;
-		boolean namesFailed = false;
-		for (Integer id : lootIds)
-		{
-			namesPending |= names.isItemNamePending(id);
-			namesFailed |= names.isItemNameFailed(id);
-		}
-		if (samples.isEmpty())
-		{
-			return new LuckView(LuckView.State.NO_SAMPLES, null, false);
-		}
-		if (namesPending)
-		{
-			return new LuckView(LuckView.State.NAMES_LOADING, null, false);
-		}
-		return new LuckView(LuckView.State.SUMMARY, meter.summarize(records, task, names.itemNames()), namesFailed);
-	}
-
-	/**
-	 * How many times the luck meter was worked out.
-	 * Performance seam: tests assert this doesn't grow on the refresh timer.
-	 */
-	int getLuckBuildCount()
-	{
-		return luck.builds;
-	}
-
 	// ---- Skipped / blocked ----
 
 	/** The "Skipped / blocked" rows, newest first, worked out once per change of the entries. */
@@ -516,12 +508,11 @@ final class LedgerViews
 		ZoneId zone = ZoneId.systemDefault();
 		return assignmentRows.get(Arrays.asList(version, zone), () ->
 		{
-			DateTimeFormatter date = AssignmentLog.shortDate(zone);
 			DateTimeFormatter dateTime = LedgerHistory.shortDateTime(zone);
 			List<AssignmentRow> rows = new ArrayList<>();
 			for (AssignmentEntry entry : assignments)
 			{
-				rows.add(new AssignmentRow(entry, AssignmentLog.monster(entry), AssignmentLog.status(entry, date),
+				rows.add(new AssignmentRow(entry, AssignmentLog.monster(entry),
 					AssignmentLog.tooltip(entry, dateTime)));
 			}
 			return Collections.unmodifiableList(rows);
@@ -535,56 +526,6 @@ final class LedgerViews
 	int getAssignmentRowsBuildCount()
 	{
 		return assignmentRows.builds;
-	}
-
-	// ---- What to bring ----
-
-	/**
-	 * What to bring for the {@code remaining} kills of the task {@code stats} are for ({@link SupplyRecommendation}),
-	 * with its supplies named and sorted; the supplies' names are asked for. Worked out again only when the
-	 * statistics, the kills left or item names change.
-	 */
-	WhatToBring whatToBring(TaskStatistics stats, int remaining)
-	{
-		return whatToBring.get(Arrays.asList(stats, remaining, names.itemNamesVersion()), () ->
-		{
-			SupplyRecommendation.Estimate estimate = SupplyRecommendation.forTask(stats, remaining);
-			return estimate == null ? null : new WhatToBring(estimate, bringRows(estimate, stats));
-		});
-	}
-
-	/**
-	 * How many times What to bring was worked out.
-	 * Performance seam: tests assert this doesn't grow on the refresh timer.
-	 */
-	int getWhatToBringBuildCount()
-	{
-		return whatToBring.builds;
-	}
-
-	/** The supplies of {@code estimate}, named and in {@link BringRow#ORDER}. */
-	private List<BringRow> bringRows(SupplyRecommendation.Estimate estimate, TaskStatistics stats)
-	{
-		List<BringRow> rows = new ArrayList<>();
-		for (Map.Entry<Integer, Long> item : estimate.getSupplies().entrySet())
-		{
-			int itemId = item.getKey();
-			Integer dosesPerItem = stats.getSupplyDoses().get(itemId);
-			ItemDetails.Unit unit = dosesPerItem == null ? ItemDetails.Unit.ITEMS : ItemDetails.doseUnit(itemId);
-			String name = ItemDetails.displayName(itemId, names::itemName, dosesPerItem != null);
-			Long price = stats.getSupplyUnitGePrices().get(itemId);
-			Long value = null;
-			if (price != null)
-			{
-				ItemTally one = new ItemTally();
-				one.add(itemId, item.getValue());
-				value = ItemValuation.total(one, Collections.singletonMap(itemId, price),
-					dosesPerItem == null ? null : Collections.singletonMap(itemId, dosesPerItem));
-			}
-			rows.add(new BringRow(itemId, name, item.getValue(), unit, value));
-		}
-		rows.sort(BringRow.ORDER);
-		return Collections.unmodifiableList(rows);
 	}
 
 	/** How the records are valued, as one immutable snapshot for the background views. */
@@ -603,6 +544,21 @@ final class LedgerViews
 			this.mode = mode;
 			this.prices = prices;
 			this.hidden = hidden;
+		}
+	}
+
+	/** The records' potion families for the plan, and the potions whose names are still on their way. Immutable. */
+	private static final class PotionFamilies
+	{
+		/** Potion id to family ({@link TaskPlanner#potionFamilies}); unmodifiable. */
+		private final Map<Integer, String> families;
+		/** The potion ids whose names were asked for and have not arrived; unmodifiable. */
+		private final Set<Integer> pending;
+
+		private PotionFamilies(Map<Integer, String> families, Set<Integer> pending)
+		{
+			this.families = families;
+			this.pending = pending;
 		}
 	}
 

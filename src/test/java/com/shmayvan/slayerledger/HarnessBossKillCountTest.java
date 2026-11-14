@@ -85,7 +85,7 @@ public class HarnessBossKillCountTest
 		harness.setBossTask(VORKATH_BOSS_ID, "Vorkath", 3, 3);
 		harness.loginAndSettle(ACCOUNT);
 		chat(kc("Vorkath", "140"));
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		assertNull("nothing to show yet; idle messages don't count", liveLines());
 
 		chat(kc("Vorkath", "141"));
@@ -95,7 +95,7 @@ public class HarnessBossKillCountTest
 		assertEquals(Collections.singletonList("Boss KC: 1,142 (+2)"), liveLines());
 		assertEquals("<html>Boss KC: 1,142 (+2)</html>", liveTooltip());
 
-		harness.stop();
+		harness.endTask();
 		assertNull("hidden once the session ends", liveLines());
 		LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		assertEquals("the boss task is named after its boss", "Vorkath", record.getMonster());
@@ -109,13 +109,13 @@ public class HarnessBossKillCountTest
 	{
 		harness.setBossTask(DKS_BOSS_ID, "Dagannoth Kings", 5, 5);
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		chat(kc("Dagannoth Rex", "50"));
 		chat(kc("Dagannoth Prime", "20"));
 		chat(kc("Dagannoth Rex", "51"));
 		assertEquals(Arrays.asList("Dagannoth Rex KC: 51 (+2)", "Dagannoth Prime KC: 20 (+1)"), liveLines());
 
-		harness.stop();
+		harness.endTask();
 		assertEquals(2, harness.onlyRecord(ACCOUNT).getBossKillCounts().size());
 		String row = historyText().get(0);
 		assertTrue(row, row.contains("<br>Dagannoth Rex KC: 51 (+2)<br>Dagannoth Prime KC: 20 (+1)"));
@@ -126,13 +126,13 @@ public class HarnessBossKillCountTest
 	{
 		harness.setTask(JAD_TASK, "TzTok-Jad", 1, 1);
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		chat(kc("Vorkath", "141"));
 		assertNull("another boss: ignored on a regular task", liveLines());
 		chat(kc("TzTok-Jad", "2"));
 		assertEquals(Collections.singletonList("Boss KC: 2 (+1)"), liveLines());
 
-		harness.stop();
+		harness.endTask();
 		assertEquals(Collections.singletonList(new BossKillCount("TzTok-Jad", 2, 2, 1)),
 			harness.onlyRecord(ACCOUNT).getBossKillCounts());
 	}
@@ -142,10 +142,10 @@ public class HarnessBossKillCountTest
 	{
 		harness.setTask(REGULAR_TASK, "Abyssal demons", 50, 50);
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		chat(kc("Abyssal Sire", "12"));
 		assertNull(liveLines());
-		harness.stop();
+		harness.endTask();
 		assertNull(harness.onlyRecord(ACCOUNT).getBossKillCounts());
 		assertFalse(historyText().get(0).contains("KC"));
 	}
@@ -155,14 +155,14 @@ public class HarnessBossKillCountTest
 	{
 		harness.setBossTask(VORKATH_BOSS_ID, "Vorkath", 5, 5);
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		chat(kc("Vorkath", "141"));
 		harness.pause();
 		chat(kc("Vorkath", "142"));
 		chat(kc("Vorkath", "143"));
 		assertEquals("paused: nothing counted", Collections.singletonList("Boss KC: 141 (+1)"), liveLines());
 
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		chat(kc("Vorkath", "144"));
 		assertEquals("the latest count includes the paused kills; the gain doesn't",
 			Collections.singletonList("Boss KC: 144 (+2)"), liveLines());
@@ -173,13 +173,13 @@ public class HarnessBossKillCountTest
 	{
 		harness.setTask(JAD_TASK, "TzTok-Jad", 1, 1);
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.completeTask();
 		harness.tick();
 		assertTrue(harness.tracker().hasPendingCompletion());
 		// The player gets a new task and presses Play before the final KC message arrives.
 		harness.setTask(JAD_TASK, "TzTok-Jad", 1, 1);
-		assertTrue("a new session started", harness.play());
+		assertTrue("a new session started", harness.startNow());
 		chat(kc("TzTok-Jad", "3"));
 		chat(kc("Vorkath", "141"));
 		harness.ticks(SessionTracker.COMPLETION_LOOT_GRACE_TICKS);
@@ -194,7 +194,7 @@ public class HarnessBossKillCountTest
 	{
 		harness.setBossTask(VORKATH_BOSS_ID, "Vorkath", 5, 5);
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		chat(kc("Vorkath", "141"));
 		harness.logout();
 		harness.shutDown();
@@ -204,12 +204,12 @@ public class HarnessBossKillCountTest
 
 		harness.startUp();
 		harness.loginAndSettle(ACCOUNT);
-		assertEquals(SessionTracker.State.PAUSED, harness.sessionState());
+		assertEquals(SessionTracker.State.LOGGED_OUT, harness.sessionState());
 		assertEquals(Collections.singletonList("Boss KC: 141 (+1)"), liveLines());
 
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		chat(kc("Vorkath", "142"));
-		harness.stop();
+		harness.endTask();
 		assertEquals(Collections.singletonList(new BossKillCount("Vorkath", 141, 142, 2)),
 			harness.onlyRecord(ACCOUNT).getBossKillCounts());
 	}

@@ -18,7 +18,7 @@ import java.util.function.Consumer;
  *
  * <p>Threading: EDT only, like the model that owns it; the exception is {@link #isWaitingForCurrentPrices}, which reads
  * one volatile field. It only keeps the state: the model decides what a change means (dropping the statistics,
- * re-checking the chat preview) and tells its listener. Callers write through the model.</p>
+ * re-checking the assignment chat line) and tells its listener. Callers write through the model.</p>
  */
 final class HistoryValuation
 {

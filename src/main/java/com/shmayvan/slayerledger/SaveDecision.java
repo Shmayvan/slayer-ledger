@@ -8,7 +8,7 @@ final class SaveDecision
 	/** Why the session is ending (or being taken out of memory). */
 	enum EndReason
 	{
-		/** The player pressed Stop. */
+		/** The player pressed End task. */
 		PLAYER_STOP,
 		/** The plugin ended it while logged in (task completed, changed, or cleared). */
 		SYSTEM,

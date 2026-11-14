@@ -1,11 +1,9 @@
 package com.shmayvan.slayerledger;
 
-import com.google.gson.Gson;
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Component;
+import java.awt.Container;
 import java.awt.GridLayout;
-import java.awt.Insets;
 import java.awt.event.HierarchyEvent;
 import java.util.List;
 import javax.swing.BorderFactory;
@@ -25,11 +23,13 @@ import net.runelite.client.ui.PluginPanel;
 /**
  * Sidebar panel. All methods must be called on the Swing event dispatch thread.
  *
- * <p>The panel lays out the sidebar, runs the session buttons and notices and decides which sections redraw on which
- * change of the history model; the sections themselves are classes of their own: {@link TaskBoxView},
- * {@link LocationPromptView}, {@link HistoryEstimateSection} (with What to bring), {@link LiveSessionSection},
- * {@link HistoryListSection}, {@link TrendsSection}, {@link OverallTotalsSection}, {@link LuckMeterSection} and
- * {@link AssignmentsSection}.</p>
+ * <p>The panel lays out the sidebar in the order of DESIGN_PRINCIPLES.md 3.2: the status strip (the task's
+ * state, Pause or Resume, and End task or Track again), the live task ({@link LiveSessionSection}, with the card's
+ * header {@link TaskBoxView}), the advisor card ({@link AdvisorCardSection}, phase 9b, which replaced the 1.x History
+ * estimate and What to bring), the task history ({@link HistoryListSection}), {@link OverallTotalsSection} and
+ * {@link AssignmentsSection}. It runs the status strip's buttons and the notices and decides which sections redraw on
+ * which change of the history model; the sections are classes of their own. The page is
+ * {@link LedgerTheme#PAGE}, direction A's stone.</p>
  */
 class SlayerLedgerPanel extends PluginPanel
 {
@@ -39,10 +39,7 @@ class SlayerLedgerPanel extends PluginPanel
 	 */
 	enum OptionalSection
 	{
-		WHAT_TO_BRING,
-		TRENDS,
 		OVERALL_TOTALS,
-		LUCK_METER,
 		SKIPPED_BLOCKED
 	}
 
@@ -54,12 +51,18 @@ class SlayerLedgerPanel extends PluginPanel
 	static final String DELETE_ENTRY_FAILED_MESSAGE = "Couldn't delete this entry. See the client log.";
 	static final String EDIT_NOTE_FAILED_MESSAGE = "Couldn't save this note. See the client log.";
 	static final String EDIT_LOCATION_FAILED_MESSAGE = "Couldn't save this location. See the client log.";
+	static final String EDIT_SETUP_FAILED_MESSAGE = "Couldn't save this setup. See the client log.";
 	/** A completed or partial task could not be saved; the record is kept and saved on the next try. */
 	static final String SAVE_FAILED_MESSAGE = "Couldn't save the last task. See the client log.";
-	/** Title of the inline prompt that asks the player to name the region of a kill. */
-	static final String LOCATION_PROMPT_TITLE = "Name this location";
+	/** Araxxor's harvest could not be added to the task its kill completed, which was already saved. */
+	static final String HARVEST_FAILED_MESSAGE = "Couldn't add Araxxor's loot to the last task. See the client log.";
 	/** First line of a saved task's item details: they are valued at today's GE prices. */
 	static final String ITEMS_AT_CURRENT_PRICES = "Today's GE prices (high alch unchanged)";
+	// The status strip's buttons' texts; a click acts on the text its button shows.
+	static final String PAUSE = "Pause";
+	static final String RESUME = "Resume";
+	static final String END_TASK = "End task";
+	static final String TRACK_AGAIN = "Track again";
 
 	private final SlayerLedgerPlugin plugin;
 	private final SessionTracker tracker;
@@ -70,39 +73,36 @@ class SlayerLedgerPanel extends PluginPanel
 	 */
 	private final LedgerHistoryModel historyModel;
 
-	/** Task, remaining, master, type, next bonus, advice and the session's location. */
+	/** The live task card's header: the task's icon and name, its location, master and next bonus. */
 	private final TaskBoxView taskBox;
-	/** Inline, non-modal "Name this location" prompt below the task box. */
-	private final LocationPromptView locationPrompt;
-	/** The History estimate for the observed task and What to bring below it. */
-	private final HistoryEstimateSection historyEstimate;
-	/** {@link #historyEstimate}'s What to bring with the gap above it, hidden as one by its setting. */
-	private final JPanel bringBlock = new JPanel();
+	/** The advisor card: the plan for the task, its metric tabs and the skip / block badge. */
+	private final AdvisorCardSection advisor;
 	/** Task history: the filter and the saved tasks. */
 	private final HistoryListSection history;
-	/** Task rankings and charts. */
-	private final TrendsSection trends;
-	/** The Trends section with the gaps above its parts, hidden as one by the "Trends" setting. */
-	private final JPanel trendsBlock = new JPanel();
 	/** Completed-task totals. */
 	private final OverallTotalsSection overallTotals;
 	/** The totals header and body with the gaps above them, hidden as one by the "Overall totals" setting. */
 	private final JPanel totalsBlock = new JPanel();
-	/** Bundled rare-drop comparisons. */
-	private final LuckMeterSection luckMeter;
-	/** The luck header and body with the gaps above them, hidden as one by the "Luck meter" setting. */
-	private final JPanel luckBlock = new JPanel();
 	/** Skipped / blocked: assignments that ended without a saved session; never played tasks. */
 	private final AssignmentsSection assignments;
 	/** The header and body with the gaps above them, hidden as one by the "Skipped / blocked" setting. */
 	private final JPanel assignmentsBlock = new JPanel();
 
-	/** The live session: progress, note, values, item lists, task loot and the dart hint. */
+	/** The live task: the card, the grids, the XP, the task loot, the dart hint and the note. */
 	private final LiveSessionSection live;
 	private final JLabel savedLabel = new JLabel();
-	private final JButton playButton = new JButton("Play");
-	private final JButton pauseButton = new JButton("Pause");
-	private final JButton stopButton = new JButton("Stop");
+	/** The status strip (DESIGN_PRINCIPLES.md 3.4a): the state word and clock on the left, the buttons on the right. */
+	private final JPanel statusStrip = new JPanel(new BorderLayout(6, 0));
+	/** What tracking is doing ({@link SessionTracker#getStatus()}), in words: "Running", "Waiting for first kill". */
+	private final JLabel stateLabel = new JLabel();
+	/** The elapsed clock beside "Running", in the hint colour; empty otherwise. */
+	private final JLabel clockLabel = new JLabel();
+	/** Pause while running, Resume while Paused; hidden otherwise. A click acts on the text shown. */
+	private final JButton pauseButton = new JButton(PAUSE);
+	/** End task while there is something to end; Track again once the assignment is Ended; hidden otherwise. */
+	private final JButton endButton = new JButton(END_TASK);
+	/** The gap between the two buttons, shown only while both are. */
+	private final Component buttonGap = Box.createHorizontalStrut(4);
 	private final JLabel restoredLabel = new JLabel();
 	private final JPanel noticePanel = new JPanel(new BorderLayout(0, 4));
 	private final JLabel noticeLabel = new JLabel();
@@ -115,18 +115,20 @@ class SlayerLedgerPanel extends PluginPanel
 	/** Set by {@link #shutDown()}: the refresh timer never starts again; EDT only. */
 	private boolean stopped;
 
-	SlayerLedgerPanel(SlayerLedgerPlugin plugin, SessionTracker tracker, LedgerHistoryModel historyModel, Gson gson)
+	SlayerLedgerPanel(SlayerLedgerPlugin plugin, SessionTracker tracker, LedgerHistoryModel historyModel)
 	{
 		this.plugin = plugin;
 		this.tracker = tracker;
 		this.historyModel = historyModel;
-		taskBox = new TaskBoxView(historyModel, tracker, plugin::currentTaskStreak, this::relayout);
-		locationPrompt = new LocationPromptView(gson, this::relayout, plugin::saveLocationName,
-			plugin::skipLocationPrompt);
-		historyEstimate = new HistoryEstimateSection(historyModel, tracker, this::relayout);
 		// The sidebar's item and skill icons come from RuneLite's ItemManager and SkillIconManager, through the
-		// plugin.
-		SidebarIcons icons = new SidebarIcons(plugin::applyItemIcon, plugin::applySkillIcon);
+		// plugin; the setup tags' images from ItemManager and SpriteManager, each asked for once for the live
+		// card's toggles and the Task history rows.
+		SidebarIcons icons = new SidebarIcons(plugin::applyItemIcon, plugin::applySkillIcon,
+			new SetupImages(plugin::loadSetupIcon));
+		taskBox = new TaskBoxView(historyModel, tracker, plugin::currentTaskStreak, this::relayout, icons.getItems());
+		// A tab click saves the "Advisor metric" setting; the plan follows through the plugin's config change.
+		advisor = new AdvisorCardSection(historyModel, tracker, plugin::setAdvisorMetric, this::relayout,
+			icons.getItems());
 		history = new HistoryListSection(historyModel, (account, recordId) ->
 		{
 			if (account == noticeAccount && recordId.equals(noticeRecordId))
@@ -135,87 +137,84 @@ class SlayerLedgerPanel extends PluginPanel
 				clearNotice();
 			}
 			plugin.deleteRecord(account, recordId);
-		}, plugin::editRecordNote, plugin::editRecordLocation, this, this::relayout, icons);
-		trends = new TrendsSection(historyModel, this::relayout, icons.getItems());
+		}, plugin::editRecordNote, plugin::editRecordLocation, plugin::editRecordSetup, this, this::relayout, icons);
+		// Renaming a region the spot table doesn't list names it for every task there.
+		history.setRenamePlace(plugin::saveLocationName);
 		// The masters' faces are bundled images, read when first shown.
 		overallTotals = new OverallTotalsSection(historyModel, this::relayout, icons.getItems(), new MasterIcons());
-		luckMeter = new LuckMeterSection(historyModel, this::relayout, icons.getItems());
 		assignments = new AssignmentsSection(historyModel, this::relayout, this, (account, id) ->
 		{
 			history.clearError();
 			plugin.deleteAssignment(account, id);
 		}, icons.getItems());
-		live = new LiveSessionSection(tracker, historyModel, plugin::setSessionNote, this::relayout, icons);
+		live = new LiveSessionSection(tracker, historyModel, taskBox, plugin::setSessionNote, plugin::setSessionSetup,
+			this::relayout, icons);
 
 		setBorder(new EmptyBorder(6, 6, 6, 6));
-		setBackground(ColorScheme.DARK_GRAY_COLOR);
+		setBackground(LedgerTheme.PAGE);
 		setLayout(new BorderLayout());
+		// The page under the panel's own content, down to the bottom of the sidebar: the scroll pane's view and
+		// viewport, which this panel's PluginPanel constructor made.
+		Container north = getParent();
+		if (north != null)
+		{
+			north.setBackground(LedgerTheme.PAGE);
+		}
+		if (getScrollPane() != null)
+		{
+			getScrollPane().getViewport().setBackground(LedgerTheme.PAGE);
+		}
 
 		JPanel content = new JPanel();
 		content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
-		content.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		content.setBackground(LedgerTheme.PAGE);
 
-		JLabel title = new JLabel("Slayer Ledger");
-		title.setFont(FontManager.getRunescapeBoldFont());
-		title.setForeground(ColorScheme.BRAND_ORANGE);
-		addRow(content, title);
-		taskBox.addTo(content);
-		locationPrompt.addTo(content);
-		historyEstimate.addTo(content);
-		addOptionalBlock(content, bringBlock);
-		historyEstimate.addBringTo(bringBlock);
-		live.addTo(content);
+		buildStatusStrip();
+		addRow(content, statusStrip);
 
-		JPanel buttons = new JPanel(new GridLayout(1, 3, 4, 0));
-		buttons.setBackground(ColorScheme.DARK_GRAY_COLOR);
-		for (JButton button : new JButton[]{playButton, pauseButton, stopButton})
-		{
-			// Narrow side margins so "Resume" fits a third of the panel even when its scroll bar is showing.
-			button.setMargin(new Insets(2, 4, 2, 4));
-			buttons.add(button);
-		}
-		addRow(content, buttons);
-
-		noticePanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-		noticePanel.setBorder(BorderFactory.createCompoundBorder(
-			BorderFactory.createMatteBorder(0, 2, 0, 0, ColorScheme.BRAND_ORANGE),
-			BorderFactory.createEmptyBorder(6, 8, 6, 8)));
-		noticeLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
-		noticeLabel.setFont(FontManager.getRunescapeSmallFont());
+		noticePanel.setOpaque(false);
+		noticeLabel.setForeground(LedgerTheme.LABEL);
+		noticeLabel.setFont(LedgerTheme.smallFont());
 		noticePanel.add(noticeLabel, BorderLayout.CENTER);
-		noticePanel.add(noticeDiscardButton, BorderLayout.SOUTH);
+		JPanel discardRow = new JPanel(new BorderLayout());
+		discardRow.setOpaque(false);
+		styleTextButton(noticeDiscardButton);
+		discardRow.add(noticeDiscardButton, BorderLayout.WEST);
+		noticePanel.add(discardRow, BorderLayout.SOUTH);
 		noticePanel.setVisible(false);
-		addRow(content, noticePanel);
+		addHideableRow(content, noticePanel);
 
-		restoredLabel.setForeground(ColorScheme.BRAND_ORANGE);
-		restoredLabel.setFont(FontManager.getRunescapeSmallFont());
+		restoredLabel.setForeground(LedgerTheme.LABEL);
+		restoredLabel.setFont(LedgerTheme.smallFont());
 		restoredLabel.setVisible(false);
-		addRow(content, restoredLabel);
+		addHideableRow(content, restoredLabel);
+
+		live.addTo(content);
+		advisor.addTo(content);
 		addRow(content, section(savedLabel));
 		history.addTo(content);
-		addOptionalBlock(content, trendsBlock);
-		trends.addTo(trendsBlock);
 		addOptionalBlock(content, totalsBlock);
 		overallTotals.addTo(totalsBlock);
-		addOptionalBlock(content, luckBlock);
-		luckMeter.addTo(luckBlock);
 		addOptionalBlock(content, assignmentsBlock);
 		assignments.addTo(assignmentsBlock);
 
 		nameComponents();
 		add(content, BorderLayout.NORTH);
 
-		playButton.addActionListener(e ->
-		{
-			if (plugin.play())
-			{
-				clearNotice();
-			}
-			refresh();
-		});
+		// Each button acts on what it showed, not on the state at the click: a kill may have restarted the session (or
+		// a new assignment cleared Ended) since the last refresh, and then the click does nothing. Each action checks
+		// its own state again (resume only while Paused, pause only while Running, Track again only while Ended, End
+		// task only while there is something to end).
 		pauseButton.addActionListener(e ->
 		{
-			plugin.pause();
+			if (RESUME.equals(pauseButton.getText()))
+			{
+				plugin.resume();
+			}
+			else
+			{
+				plugin.pause();
+			}
 			refresh();
 		});
 		noticeDiscardButton.addActionListener(e ->
@@ -227,12 +226,18 @@ class SlayerLedgerPanel extends PluginPanel
 			}
 			clearNotice();
 		});
-		stopButton.addActionListener(e ->
+		endButton.addActionListener(e ->
 		{
-			// Send a typed note first: Stop may not take focus from the note box, and a Keep/Discard prompt would
+			if (TRACK_AGAIN.equals(endButton.getText()))
+			{
+				plugin.trackAgain();
+				refresh();
+				return;
+			}
+			// Send a typed note first: End task may not take focus from the note box, and a Keep/Discard prompt would
 			// otherwise save the task without it.
 			live.commitNote();
-			plugin.stop();
+			plugin.endTask();
 			live.setSessionValues(null);
 			refresh();
 		});
@@ -313,15 +318,62 @@ class SlayerLedgerPanel extends PluginPanel
 		}
 	}
 
+	/**
+	 * Builds the status strip (DESIGN_PRINCIPLES.md 3.4a): one flat line, the state word (Plain) and, while running,
+	 * the elapsed clock (Small, hint colour) on the left; the valid buttons as small text buttons on the right.
+	 */
+	private void buildStatusStrip()
+	{
+		statusStrip.setOpaque(false);
+		stateLabel.setFont(LedgerTheme.plainFont());
+		stateLabel.setForeground(LedgerTheme.LABEL);
+		clockLabel.setFont(LedgerTheme.smallFont());
+		clockLabel.setForeground(LedgerTheme.HINT);
+		JPanel left = new JPanel(new BorderLayout(4, 0));
+		left.setOpaque(false);
+		left.add(stateLabel, BorderLayout.WEST);
+		left.add(clockLabel, BorderLayout.CENTER);
+		statusStrip.add(left, BorderLayout.CENTER);
+		// A box layout gives a hidden button no room, so only the valid ones take space.
+		JPanel buttons = new JPanel();
+		buttons.setLayout(new BoxLayout(buttons, BoxLayout.X_AXIS));
+		buttons.setOpaque(false);
+		styleTextButton(pauseButton);
+		styleTextButton(endButton);
+		buttons.add(pauseButton);
+		buttons.add(buttonGap);
+		buttons.add(endButton);
+		statusStrip.add(buttons, BorderLayout.EAST);
+	}
+
+	/**
+	 * A small text button of the page (DESIGN_PRINCIPLES.md 3.4a): Small text in the value colour on the card's stone,
+	 * framed by a 1 px rule. Flat: no focus ring, square corners.
+	 */
+	static void styleTextButton(JButton button)
+	{
+		button.setFont(LedgerTheme.smallFont());
+		button.setForeground(LedgerTheme.VALUE);
+		button.setBackground(LedgerTheme.CARD);
+		button.setFocusPainted(false);
+		button.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(LedgerTheme.BEVEL_INNER, 1),
+			BorderFactory.createEmptyBorder(3, 6, 2, 6)));
+	}
+
 	/** Names the panel's own components (no visible effect), so tests can find them; the sections name theirs. */
 	private void nameComponents()
 	{
-		bringBlock.setName("bringBlock");
-		trendsBlock.setName("trendsBlock");
 		totalsBlock.setName("totalsBlock");
-		luckBlock.setName("luckBlock");
 		assignmentsBlock.setName("assignmentsBlock");
 		savedLabel.setName("savedTasks");
+		statusStrip.setName("session");
+		stateLabel.setName("session.state");
+		clockLabel.setName("session.clock");
+		pauseButton.setName("session.pauseResume");
+		endButton.setName("session.endTask");
+		noticePanel.setName("partialNotice");
+		noticeLabel.setName("partialNotice.text");
+		noticeDiscardButton.setName("partialNotice.discard");
 	}
 
 	/** EDT. The plugin stopped: stops the refresh timer for good (a late activation or showing change starts nothing). */
@@ -340,28 +392,16 @@ class SlayerLedgerPanel extends PluginPanel
 
 	/**
 	 * Shows or hides an optional section, as its "Panel sections" setting says. A hidden section takes no space,
-	 * builds nothing and asks for no item names of its own (What to bring's supplies are still named for the History
-	 * estimate's tooltip); shown again, it is rebuilt from the current data at once, open or closed as it was.
+	 * builds nothing and asks for no item names of its own; shown again, it is rebuilt from the current data at once,
+	 * open or closed as it was.
 	 */
 	void setSectionShown(OptionalSection section, boolean shown)
 	{
 		switch (section)
 		{
-			case WHAT_TO_BRING:
-				bringBlock.setVisible(shown);
-				historyEstimate.setBringShown(shown);
-				break;
-			case TRENDS:
-				trendsBlock.setVisible(shown);
-				trends.setShown(shown);
-				break;
 			case OVERALL_TOTALS:
 				totalsBlock.setVisible(shown);
 				overallTotals.setShown(shown);
-				break;
-			case LUCK_METER:
-				luckBlock.setVisible(shown);
-				luckMeter.setShown(shown);
 				break;
 			case SKIPPED_BLOCKED:
 				assignmentsBlock.setVisible(shown);
@@ -375,7 +415,7 @@ class SlayerLedgerPanel extends PluginPanel
 
 	/**
 	 * Shows the live session's loot, supplies and profit values (computed on the client thread), or hides them when
-	 * {@code values} is {@code null}. They are only shown while a session is running or paused, and only while their
+	 * {@code values} is {@code null}. They are only shown while a session is active, and only while their
 	 * session id is the tracker's current session (values that arrive late for an ended session are ignored).
 	 */
 	void setSessionValues(SessionValuation.Values values)
@@ -417,7 +457,6 @@ class SlayerLedgerPanel extends PluginPanel
 				lootPriceModeChanged();
 				break;
 			case HIDDEN_LOOT:
-				historyEstimate.invalidate();
 				if (!historyModel.isWaitingForCurrentPrices())
 				{
 					// Otherwise redrawn once the prices asked for arrive.
@@ -425,10 +464,7 @@ class SlayerLedgerPanel extends PluginPanel
 				}
 				break;
 			case CURRENT_PRICES:
-				historyEstimate.invalidate();
-				historyEstimate.refresh();
-				taskBox.refreshAdvice();
-				trends.rebuild();
+				advisor.modelChanged();
 				overallTotals.rebuild();
 				if (!records().isEmpty())
 				{
@@ -439,32 +475,35 @@ class SlayerLedgerPanel extends PluginPanel
 				redrawPricedViews();
 				break;
 			case LOCATION_NAMES:
-				// A record's or the current task's location may have changed, so may the same-location estimate and
-				// the history's Location filter.
-				historyEstimate.invalidate();
+				// A record's or the current task's location may have changed, so may the history's Location filter and
+				// the advisor's names of the player's regions.
 				history.locationNamesChanged();
+				advisor.locationNamesChanged();
 				refresh();
 				break;
 			case LOCATION_NAMES_UNCHANGED:
 				refresh();
 				break;
 			case LOCATION_NAMES_CLEARED:
-				locationPrompt.hide();
-				historyEstimate.invalidate();
 				history.locationNamesChanged();
+				advisor.locationNamesChanged();
 				refresh();
 				break;
 			case ITEM_NAMES:
 				itemNamesChanged();
 				break;
 			case TASK_ADVISOR:
-				taskBox.refreshAdvice();
+				advisor.modelChanged();
 				break;
 			case VIEWS:
 				// A view worked out off the EDT is ready; each redraws only if its own result is new.
-				taskBox.refreshAdvice();
-				trends.viewsReady();
+				advisor.modelChanged();
 				overallTotals.viewsReady();
+				break;
+			case LIVE:
+				// The task, its kills left or the session changed: only the advisor card reads them outside the
+				// panel's refresh (a restored session collapses it), and it reads only the tracker.
+				advisor.refresh();
 				break;
 			default:
 				break;
@@ -479,20 +518,16 @@ class SlayerLedgerPanel extends PluginPanel
 	private void recordsChanged(boolean redraw)
 	{
 		history.forgetOtherAccount();
-		historyEstimate.invalidate();
 		savedLabel.setText("Saved tasks: " + records().size());
 		history.clearError();
 		history.rebuildFilter();
 		if (redraw)
 		{
 			history.rebuild();
-			trends.rebuild();
 			overallTotals.rebuild();
 		}
-		luckMeter.rebuild();
 		live.setRecentNotes(TaskNote.recentNotes(records()));
-		historyEstimate.refresh();
-		taskBox.refreshAdvice();
+		advisor.modelChanged();
 	}
 
 	/**
@@ -507,16 +542,13 @@ class SlayerLedgerPanel extends PluginPanel
 	/** Redraws the history in the new "Loot price" mode; the live values follow it through the plugin's values. */
 	private void lootPriceModeChanged()
 	{
-		historyEstimate.invalidate();
 		live.lootPriceModeChanged();
 		if (historyModel.isWaitingForCurrentPrices())
 		{
 			// Redrawn in the new mode once the prices asked for arrive.
 			return;
 		}
-		historyEstimate.refresh();
-		taskBox.refreshAdvice();
-		trends.rebuild();
+		advisor.modelChanged();
 		overallTotals.rebuild();
 		history.rebuild();
 	}
@@ -524,10 +556,7 @@ class SlayerLedgerPanel extends PluginPanel
 	/** Redraws every view valued at today's prices, after a wait for them ended. */
 	private void redrawPricedViews()
 	{
-		historyEstimate.invalidate();
-		historyEstimate.refresh();
-		taskBox.refreshAdvice();
-		trends.rebuild();
+		advisor.modelChanged();
 		overallTotals.rebuild();
 		if (!records().isEmpty())
 		{
@@ -542,56 +571,35 @@ class SlayerLedgerPanel extends PluginPanel
 	private void historyCleared()
 	{
 		history.forgetOtherAccount();
-		String message = historyModel.historyMessage();
-		historyEstimate.invalidate();
-		// No records, so this hides the estimate and the advice.
-		historyEstimate.refresh();
-		taskBox.refreshAdvice();
+		// No records, so this hides the advisor card.
+		advisor.modelChanged();
 		savedLabel.setText("Saved tasks: -");
 		history.clearError();
 		history.rebuildFilter();
-		history.showEmpty(message == null ? LOGGED_OUT_MESSAGE : message);
+		// No records: the list shows the model's message, as on any later redraw.
+		history.rebuild();
 		assignments.rebuild();
-		trends.rebuild();
 		overallTotals.rebuild();
-		luckMeter.rebuild();
 		// Never offer another account's notes.
 		live.setRecentNotes(TaskNote.recentNotes(records()));
 	}
 
 	/**
-	 * Redraws the item lists, the estimate's tooltip, open history rows, the Overall totals item grids and the luck
-	 * meter once item names arrive.
+	 * Redraws the item lists, the advisor card's grids, open history rows and the Overall totals item grids once item
+	 * names arrive.
 	 */
 	private void itemNamesChanged()
 	{
 		live.itemNamesChanged();
-		// The estimate's tooltip names the supplies.
-		historyEstimate.invalidate();
-		historyEstimate.refresh();
+		advisor.itemNamesChanged();
 		history.itemNamesChanged();
 		overallTotals.itemNamesChanged();
-		luckMeter.itemNamesChanged();
 	}
 
 	/**
-	 * Shows the inline "Name this location" prompt for map region {@code region} ({@link LocationPromptView#show}).
-	 * Nothing changes when it is already shown for that region.
-	 */
-	void showLocationPrompt(int region, String monster, List<String> ownNames)
-	{
-		locationPrompt.show(region, monster, ownNames);
-	}
-
-	/** Hides the "Name this location" prompt. */
-	void hideLocationPrompt()
-	{
-		locationPrompt.hide();
-	}
-
-	/**
-	 * Shows a non-modal notice that a session ended without the player pressing Stop and was saved as partial,
-	 * with a Discard button that deletes that record.
+	 * Shows a non-modal notice that a session ended without the player pressing End task and was saved as partial,
+	 * with a Discard button that deletes that record. It stays while the next session runs, until Discard, the
+	 * record's delete, or the save of a later session ({@link #sessionSaved}).
 	 */
 	void showPartialNotice(long account, LedgerRecord record)
 	{
@@ -604,6 +612,30 @@ class SlayerLedgerPanel extends PluginPanel
 		repaint();
 	}
 
+	/**
+	 * EDT. The session {@code recordId} was saved: a partial notice for an earlier session goes, since a later one is
+	 * now saved. The notice for this very record (posted with its save) stays.
+	 */
+	void sessionSaved(String recordId)
+	{
+		if (noticeRecordId != null && !noticeRecordId.equals(recordId))
+		{
+			clearNotice();
+		}
+	}
+
+	/**
+	 * EDT. Another account is logged in: a partial notice for a session of an earlier account goes, since its Discard
+	 * would act on a history this account doesn't show.
+	 */
+	void accountChanged(long account)
+	{
+		if (noticeRecordId != null && noticeAccount != account)
+		{
+			clearNotice();
+		}
+	}
+
 	void clearNotice()
 	{
 		noticeAccount = SessionTracker.NO_ACCOUNT;
@@ -613,57 +645,10 @@ class SlayerLedgerPanel extends PluginPanel
 		repaint();
 	}
 
-	/** A selector row: a small label left, {@code selector} filling the rest. */
-	static JPanel selectorRow(String label, JComponent selector)
-	{
-		JPanel row = new JPanel(new BorderLayout(6, 0));
-		row.setBackground(ColorScheme.DARK_GRAY_COLOR);
-		JLabel rowLabel = new JLabel(label);
-		rowLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
-		rowLabel.setFont(FontManager.getRunescapeSmallFont());
-		row.add(rowLabel, BorderLayout.WEST);
-		row.add(selector, BorderLayout.CENTER);
-		return row;
-	}
-
 	/** "1 task" or "N tasks". */
 	static String sampleTasks(int count)
 	{
 		return count + (count == 1 ? " task" : " tasks");
-	}
-
-	/** One line of a history row: {@code left} fills the line (truncated if too long), {@code right} is right-aligned. */
-	static JPanel historyLine(JLabel left, JLabel right)
-	{
-		JPanel line = new JPanel(new BorderLayout(6, 0));
-		line.setOpaque(false);
-		line.setInheritsPopupMenu(true);
-		left.setInheritsPopupMenu(true);
-		line.add(left, BorderLayout.CENTER);
-		if (right != null)
-		{
-			right.setInheritsPopupMenu(true);
-			line.add(right, BorderLayout.EAST);
-		}
-		return line;
-	}
-
-	/** Green for a profit, red for a loss, grey when unknown. */
-	static Color profitColor(Long profit)
-	{
-		if (profit == null)
-		{
-			return ColorScheme.LIGHT_GRAY_COLOR;
-		}
-		return profit < 0 ? ColorScheme.PROGRESS_ERROR_COLOR : ColorScheme.PROGRESS_COMPLETE_COLOR;
-	}
-
-	static JLabel historyLabel(String text, Color color)
-	{
-		JLabel label = new JLabel(text);
-		label.setForeground(color);
-		label.setFont(FontManager.getRunescapeSmallFont());
-		return label;
 	}
 
 	/**
@@ -692,17 +677,17 @@ class SlayerLedgerPanel extends PluginPanel
 		historyModel.endExpiredCurrentPricesWait();
 		int remaining = tracker.getCurrentRemaining();
 		String monster = LedgerRecord.displayName(tracker.getCurrentMonster(), tracker.getCurrentCreatureId());
-		historyEstimate.refresh();
 		taskBox.refreshTask(remaining, monster);
+		advisor.refresh();
 
 		SessionTracker.State state = tracker.getState();
 		taskBox.refreshLocation(state);
 		live.refresh(state, remaining);
+		refreshStatusStrip(state);
+		// The partial notice stays while the next session runs: it goes with Discard, or when a later session is saved
+		// (sessionSaved).
 
-		playButton.setEnabled(plugin.canPlay());
-		playButton.setText(state == SessionTracker.State.PAUSED ? "Resume" : "Play");
-
-		// Shown until the restored session is resumed (or ended).
+		// Shown until the restored session restarts (or ends).
 		boolean restored = tracker.isRestoredPending();
 		if (restored)
 		{
@@ -716,9 +701,45 @@ class SlayerLedgerPanel extends PluginPanel
 			revalidate();
 			repaint();
 		}
-		pauseButton.setEnabled(state == SessionTracker.State.RUNNING);
-		stopButton.setEnabled(state == SessionTracker.State.RUNNING || state == SessionTracker.State.PAUSED);
 		live.refreshValuesAndLoot(state);
+	}
+
+	/**
+	 * Shows the state in words (V2 plan 4.1; DESIGN_PRINCIPLES.md 3.4a): "Running" with the elapsed clock, else the
+	 * status in the label colour; and only the valid buttons: Pause while running, Resume while Paused (pressable once
+	 * a restore check is over), End task while there is something to end, Track again once the assignment is Ended.
+	 */
+	private void refreshStatusStrip(SessionTracker.State state)
+	{
+		SessionTracker.Status status = tracker.getStatus();
+		boolean running = status == SessionTracker.Status.RUNNING;
+		stateLabel.setText(status.getLabel());
+		// The word carries the state; the colour only adds to it.
+		stateLabel.setForeground(running ? LedgerTheme.GOOD : LedgerTheme.LABEL);
+		clockLabel.setText(running ? LedgerFormat.clock(tracker.getActiveMillis()) : "");
+		boolean paused = state == SessionTracker.State.PAUSED;
+		pauseButton.setText(paused ? RESUME : PAUSE);
+		pauseButton.setEnabled(!paused || plugin.canResume());
+		boolean ended = status == SessionTracker.Status.ENDED;
+		endButton.setText(ended ? TRACK_AGAIN : END_TASK);
+		boolean changed = setShown(pauseButton, paused || state == SessionTracker.State.RUNNING);
+		changed |= setShown(endButton, ended || tracker.canEndTask());
+		buttonGap.setVisible(pauseButton.isVisible() && endButton.isVisible());
+		if (changed)
+		{
+			relayout();
+		}
+	}
+
+	/** Shows or hides {@code component}; whether that changed anything. */
+	private static boolean setShown(JComponent component, boolean shown)
+	{
+		if (component.isVisible() == shown)
+		{
+			return false;
+		}
+		component.setVisible(shown);
+		return true;
 	}
 
 	/** The shown account's records, newest first ({@link LedgerHistoryModel#records}). */
@@ -728,20 +749,6 @@ class SlayerLedgerPanel extends PluginPanel
 	}
 
 	// Seams for tests. The panel is read through its components' names (setName); these are what no component shows.
-
-	/** The region the "Name this location" prompt asks about, or {@link LocationTally#NO_REGION} while it is hidden. */
-	int getLocationPromptRegion()
-	{
-		// Test seam: the region is not shown in the prompt.
-		return locationPrompt.getRegion();
-	}
-
-	/** Reads the bundled task location list from {@code resource} instead, before the prompt is first shown. */
-	void setTaskLocationsResource(String resource)
-	{
-		// Test seam: lets a test point the prompt at a missing or broken list.
-		locationPrompt.setTaskLocationsResource(resource);
-	}
 
 	/**
 	 * Whether the one-second refresh timer runs. Performance seam: tests assert it runs only while the panel is on
@@ -762,30 +769,6 @@ class SlayerLedgerPanel extends PluginPanel
 	}
 
 	/**
-	 * How many times the History estimate's text and tooltip were built. Performance seam: tests assert this doesn't grow
-	 * on the refresh timer.
-	 */
-	int getHistoryEstimateBuildCount()
-	{
-		return historyEstimate.getBuildCount();
-	}
-
-	/** How many times What to bring was built. Performance seam: tests assert this doesn't grow on the refresh timer. */
-	int getBringBuildCount()
-	{
-		return historyEstimate.getBringBuildCount();
-	}
-
-	/**
-	 * How many times Trends' shown view was built. Performance seam: tests assert this doesn't grow on the refresh
-	 * timer.
-	 */
-	int getTrendsBuildCount()
-	{
-		return trends.getBuildCount();
-	}
-
-	/**
 	 * How many times Overall totals' rows were built. Performance seam: tests assert this doesn't grow on the refresh
 	 * timer.
 	 */
@@ -795,12 +778,39 @@ class SlayerLedgerPanel extends PluginPanel
 	}
 
 	/**
-	 * How many times the Luck meter's rows were built. Performance seam: tests assert this doesn't grow on the refresh
-	 * timer.
+	 * How many times the live setup toggles were redrawn. Performance seam: tests assert this doesn't grow on the
+	 * refresh timer.
 	 */
-	int getLuckMeterBuildCount()
+	int getLiveSetupBuildCount()
 	{
-		return luckMeter.getBuildCount();
+		return live.getSetupBuildCount();
+	}
+
+	/**
+	 * How many times the live task card's icon was asked for. Performance seam: tests assert this doesn't grow on the
+	 * refresh timer.
+	 */
+	int getLiveCardBuildCount()
+	{
+		return taskBox.getBuildCount();
+	}
+
+	/**
+	 * How many times the live grids and XP list were drawn. Performance seam: tests assert this doesn't grow on the
+	 * refresh timer.
+	 */
+	int getLiveListsBuildCount()
+	{
+		return live.getListsBuildCount();
+	}
+
+	/**
+	 * How many times the advisor card's content was built. Performance seam: tests assert this doesn't grow on the
+	 * refresh timer.
+	 */
+	int getAdvisorCardBuildCount()
+	{
+		return advisor.getBuildCount();
 	}
 
 	/**
@@ -823,6 +833,17 @@ class SlayerLedgerPanel extends PluginPanel
 	}
 
 	/**
+	 * Adds {@code row}, which is often hidden, to {@code container} with the gap {@link #addRow} would put above it as
+	 * its own top border, so a hidden row leaves no gap.
+	 */
+	static void addHideableRow(JPanel container, JComponent row)
+	{
+		row.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createEmptyBorder(6, 0, 0, 0), row.getBorder()));
+		row.setAlignmentX(Component.LEFT_ALIGNMENT);
+		container.add(row);
+	}
+
+	/**
 	 * Adds {@code block}, empty, as a row of {@code content} that an optional section is then built into. The gap
 	 * {@link #addRow} would put above it is the block's top border instead, so hiding the block leaves no gap; the
 	 * section's own rows keep their gaps inside it, so a shown section looks as before.
@@ -836,6 +857,7 @@ class SlayerLedgerPanel extends PluginPanel
 		content.add(block);
 	}
 
+	/** A box of Small lines on RuneLite's grey (the saved-task count, until the history's redesign, phase 9c). */
 	static JPanel section(JLabel... labels)
 	{
 		JPanel panel = new JPanel(new GridLayout(labels.length, 1, 0, 2));

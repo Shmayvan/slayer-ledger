@@ -12,11 +12,12 @@ import java.util.List;
 import java.util.Locale;
 import org.junit.Test;
 
-/** {@link AssignmentLog}: the bound, the check against saved records, the order and the row text. */
+/**
+ * {@link AssignmentLog}: the bound, the check against saved records, the order, and the row's monster name, tooltip
+ * and delete confirmation.
+ */
 public class AssignmentLogTest
 {
-	private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("M/d/yy", Locale.US)
-		.withZone(ZoneOffset.UTC);
 	private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("M/d/yy, h:mm a", Locale.US)
 		.withZone(ZoneOffset.UTC);
 	/** 2026-10-26 12:00 UTC. */
@@ -123,15 +124,14 @@ public class AssignmentLogTest
 	}
 
 	@Test
-	public void rowText()
+	public void monsterFallsBackToUnknownTask()
 	{
-		assertEquals("Abyssal demons \u00b7 Skipped \u00b7 10/26/26", AssignmentLog.rowText(entry("a", OCT_26), DATE));
+		assertEquals("Abyssal demons", AssignmentLog.monster(entry("a", OCT_26)));
 		AssignmentEntry e = entry("a", OCT_26);
-		e.setOutcome(null);
 		e.setMonster(null);
-		assertEquals("Unknown task \u00b7 Ended \u00b7 10/26/26", AssignmentLog.rowText(e, DATE));
-		e.setEndedAt(0);
-		assertEquals("Ended", AssignmentLog.status(e, DATE));
+		assertEquals("Unknown task", AssignmentLog.monster(e));
+		e.setMonster("");
+		assertEquals("Unknown task", AssignmentLog.monster(e));
 	}
 
 	@Test

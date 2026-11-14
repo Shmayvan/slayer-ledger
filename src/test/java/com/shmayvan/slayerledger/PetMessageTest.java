@@ -19,6 +19,13 @@ public class PetMessageTest
 	}
 
 	@Test
+	public void ignoresJagexColourMarkup()
+	{
+		assertEquals(NotableDrop.Pet.RECEIVED,
+			PetMessage.parse(true, "@mes_hl_red@You have a funny feeling like you're being followed.</col>"));
+	}
+
+	@Test
 	public void ignoresOtherMessages()
 	{
 		assertNull("wrong chat type", PetMessage.parse(false, "You have a funny feeling like you're being followed."));

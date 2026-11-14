@@ -411,6 +411,46 @@ public class TaskAdvisorTest
 		assertEquals("111th", TaskAdvisor.ordinal(111));
 	}
 
+	@Test
+	public void theBadgeFollowsTheAdvisorMetric()
+	{
+		assertEquals(TaskRanking.Metric.XP, TaskAdvisor.badgeMetric(AdvisorMetric.FASTEST_FINISH));
+		assertEquals("the default metric", TaskRanking.Metric.XP, TaskAdvisor.badgeMetric(null));
+		assertEquals(TaskRanking.Metric.PROFIT, TaskAdvisor.badgeMetric(AdvisorMetric.PROFIT_PER_HOUR));
+		assertEquals(TaskRanking.Metric.PROFIT, TaskAdvisor.badgeMetric(AdvisorMetric.CHEAPEST));
+
+		// Six monsters: the one with the least profit gives the most Slayer XP, and the other way round.
+		List<LedgerRecord> records = profitMonsters(6);
+		for (LedgerRecord record : records)
+		{
+			record.setXpGained(Collections.singletonMap(SkillXp.SLAYER, (7 - record.getCreatureId()) * 10_000L));
+		}
+		TaskAdvisor.Result fastest = badge(records, 1, AdvisorMetric.FASTEST_FINISH);
+		assertEquals(TaskAdvisor.Advice.DO, fastest.getAdvice());
+		assertEquals("Slayer XP/h 60K: 1st highest of your 6 monsters", fastest.reason(LootPriceMode.GE));
+		assertEquals(TaskAdvisor.Advice.CONSIDER_SKIP, badge(records, 6, AdvisorMetric.FASTEST_FINISH).getAdvice());
+		for (AdvisorMetric metric : new AdvisorMetric[]{AdvisorMetric.PROFIT_PER_HOUR, AdvisorMetric.CHEAPEST})
+		{
+			TaskAdvisor.Result profit = badge(records, 1, metric);
+			assertEquals(metric.name(), TaskAdvisor.Advice.CONSIDER_SKIP, profit.getAdvice());
+			assertEquals("Profit (GE)/h 10K: 1st lowest of your 6 monsters (bottom 25%)",
+				profit.reason(LootPriceMode.GE));
+			assertEquals(TaskAdvisor.Advice.DO, badge(records, 6, metric).getAdvice());
+		}
+
+		// The sample-size rules stay: with two tasks of its own the monster gets no badge.
+		records.remove(monsterRecords(records, 1).get(0));
+		assertEquals(2, monsterRecords(records, 1).size());
+		assertNull(badge(records, 1, AdvisorMetric.FASTEST_FINISH));
+	}
+
+	/** The badge under the advisor's {@code metric}, as the views work it out ({@link TaskAdvisor#badgeMetric}). */
+	private static TaskAdvisor.Result badge(List<LedgerRecord> records, int creatureId, AdvisorMetric metric)
+	{
+		return TaskAdvisor.advise(records, creatureId, "Monster " + creatureId, TaskAdvisor.badgeMetric(metric),
+			LootPriceMode.GE, null, HiddenLoot.NONE);
+	}
+
 	private static TaskAdvisor.Result advise(List<LedgerRecord> records, int creatureId, TaskRanking.Metric metric)
 	{
 		return advise(records, creatureId, "Monster " + creatureId, metric);

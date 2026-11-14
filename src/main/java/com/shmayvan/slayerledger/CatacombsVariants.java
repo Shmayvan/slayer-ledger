@@ -17,10 +17,14 @@ import net.runelite.api.gameval.NpcID;
  * Wilderness Slayer Cave, Mutated Bloodveld in Meiyerditch, Brutal dragons in Lithkren and Tapoyauik); those are not
  * Catacombs variants, so {@link #tallyName} leaves them out of the tally.</p>
  *
- * <p><b>Majority rule.</b> A task counts as its variant when the session's tallied kills of the variant are more than
- * half of the session's task kills (the kills the game's task counter counted, {@link SessionTracker#getKills}). Other
- * tallied kills (an Ankou on the way, Greater Nechryael death spawns, other monsters in a barrage) don't count either
- * way. A tie, no task kills, or a task without a variant is the standard monster.</p>
+ * <p><b>Decision.</b> Since 2.0 the variant is decided by the rule every task's variant follows
+ * ({@link TaskVariants}): the kind with the most task kills in the tally, leaving out superiors. The standard monster's
+ * kills are the tally's other kills, at most the session's task kills (the game's task counter,
+ * {@link SessionTracker#getKills}) that the variant's and the superiors' kills leave over, so other tallied kills (an
+ * Ankou on the way, Greater Nechryael death spawns, other monsters in a barrage) never count as the variant, though
+ * they can stand in for task kills the tally missed on the standard side. A tie, no task kills, or a task without a
+ * variant is the standard monster. The variant keeps
+ * the name 1.x saved it under ({@link Variant#getName}), so 1.x and 2.0 records of it group together.</p>
  */
 final class CatacombsVariants
 {
@@ -145,8 +149,8 @@ final class CatacombsVariants
 
 	/**
 	 * The variant the session's kills say {@code taskName} was done on ({@link Variant#getName}), or {@code null} for
-	 * the standard monster: a task without a variant, no task kills, or the variant's tallied kills not more than half
-	 * of the task kills.
+	 * the standard monster: a task without a variant, no task kills, or the variant not the kind with the most task
+	 * kills ({@link TaskVariants#decide}).
 	 *
 	 * @param tally     the session's kills per NPC name ({@link NpcKillTally}), or {@code null} for none
 	 * @param taskKills the session's task kills, as the game's task counter counted them
@@ -158,8 +162,8 @@ final class CatacombsVariants
 		{
 			return null;
 		}
-		long variantKills = NpcKillTally.killsOf(tally, variant.npcName);
-		return variantKills * 2 > taskKills ? variant.name : null;
+		String decided = TaskVariants.decide(taskName, SessionTracker.NO_CREATURE, tally, taskKills).getVariant();
+		return variant.name.equals(decided) ? variant.name : null;
 	}
 
 	/**

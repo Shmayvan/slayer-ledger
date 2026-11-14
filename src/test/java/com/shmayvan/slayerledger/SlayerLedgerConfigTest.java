@@ -20,6 +20,7 @@ import net.runelite.client.config.ConfigDescriptor;
 import net.runelite.client.config.ConfigItemDescriptor;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.config.ConfigSectionDescriptor;
+import net.runelite.client.config.Range;
 import org.junit.Test;
 
 /**
@@ -35,7 +36,12 @@ public class SlayerLedgerConfigTest
 		// Only the stored string is stubbed; stringToObject (the enum parsing) is the client's own.
 		ConfigManager manager = mock(ConfigManager.class, CALLS_REAL_METHODS);
 		doReturn(saved).when(manager).getConfiguration(SlayerLedgerConfig.GROUP, SlayerLedgerConfig.LOOT_PRICE_MODE);
+		return config(manager);
+	}
 
+	/** The config as {@link ConfigManager#getConfig(Class)} makes it, reading what {@code manager} stores. */
+	private static SlayerLedgerConfig config(ConfigManager manager) throws Exception
+	{
 		// The handler class is package-private in the client.
 		Constructor<?> ctor = Class.forName("net.runelite.client.config.ConfigInvocationHandler")
 			.getDeclaredConstructor(ConfigManager.class);
@@ -60,41 +66,107 @@ public class SlayerLedgerConfigTest
 		{
 		};
 		assertFalse(defaults.taskCompleteNotification());
-		// The new-task chat preview is on by default.
-		assertTrue(defaults.assignmentPreview());
+		// The chat lines of the personality pass (2.0 phase 11) are on by default.
+		assertTrue(defaults.taskCompleteLine());
+		assertTrue(defaults.recordTaskLine());
+		assertTrue(defaults.notableDropLine());
+		// The advisor chat line (which replaced the old preview) is on by default.
+		assertTrue(defaults.advisorChatLine());
 		assertTrue(defaults.showTaskOverlay());
-		assertTrue(defaults.overlayTask());
-		assertTrue(defaults.overlayKills());
-		assertTrue(defaults.overlayTimeLeft());
-		assertTrue(defaults.overlayProfit());
+		// Every overlay group is on (V2 plan 2.1).
+		assertTrue(defaults.overlayProgress());
+		assertTrue(defaults.overlayPace());
+		assertTrue(defaults.overlayHaul());
+		assertTrue(defaults.overlayRunway());
 		// Every panel section is shown by default.
-		assertTrue(defaults.showWhatToBring());
-		assertTrue(defaults.showTrends());
 		assertTrue(defaults.showOverallTotals());
-		assertTrue(defaults.showLuckMeter());
 		assertTrue(defaults.showSkippedBlocked());
-		// The task advisor is on, with Profit/h as its goal.
+		// The task advisor is on, and the advisor's metric is Fastest finish (V2 plan 6).
 		assertTrue(defaults.taskAdvisor());
-		assertEquals(TaskAdvisorGoal.PROFIT, defaults.taskAdvisorGoal());
-		// Nothing is waiting to forget the skipped places.
-		assertFalse(defaults.resetLocationSkips());
+		assertEquals(AdvisorMetric.FASTEST_FINISH, defaults.advisorMetric());
+		// Away after 10 minutes without a task kill or a hit on a task NPC (V2 plan 4.1).
+		assertEquals(10, defaults.awayMinutes());
 	}
 
 	@Test
-	public void taskAdvisorGoalsHaveTheirLabelAndMetric()
+	public void awayMinutesIsLimitedToOneToSixtyMinutes() throws Exception
 	{
-		assertEquals("Profit/h", TaskAdvisorGoal.PROFIT.toString());
-		assertEquals("Slayer XP/h", TaskAdvisorGoal.SLAYER_XP.toString());
-		assertEquals("Points/h", TaskAdvisorGoal.POINTS.toString());
-		assertEquals(TaskRanking.Metric.PROFIT, TaskAdvisorGoal.PROFIT.metric());
-		assertEquals(TaskRanking.Metric.XP, TaskAdvisorGoal.SLAYER_XP.metric());
-		assertEquals(TaskRanking.Metric.POINTS, TaskAdvisorGoal.POINTS.metric());
-		// Profit per kill is a Trends metric only: the advisor keeps its three hourly goals.
-		assertEquals(3, TaskAdvisorGoal.values().length);
-		for (TaskAdvisorGoal goal : TaskAdvisorGoal.values())
+		Range range = SlayerLedgerConfig.class.getMethod("awayMinutes").getAnnotation(Range.class);
+		assertEquals(1, range.min());
+		assertEquals(60, range.max());
+
+		SessionTracker tracker = new SessionTracker(() -> 0L);
+		tracker.setAwayMinutes(0);
+		assertEquals(60_000L, tracker.getAwayMillis());
+		tracker.setAwayMinutes(500);
+		assertEquals(60 * 60_000L, tracker.getAwayMillis());
+		tracker.setAwayMinutes(10);
+		assertEquals(10 * 60_000L, tracker.getAwayMillis());
+	}
+
+	@Test
+	public void advisorMetricsHaveTheirLabelAndBadgeRate()
+	{
+		assertEquals("Fastest finish", AdvisorMetric.FASTEST_FINISH.toString());
+		assertEquals("Profit per hour", AdvisorMetric.PROFIT_PER_HOUR.toString());
+		assertEquals("Cheapest", AdvisorMetric.CHEAPEST.toString());
+		// The badge ranks by Slayer XP/h under Fastest finish, by profit/h otherwise (V2 plan 6).
+		assertEquals(TaskRanking.Metric.XP, TaskAdvisor.badgeMetric(AdvisorMetric.FASTEST_FINISH));
+		assertEquals(TaskRanking.Metric.PROFIT, TaskAdvisor.badgeMetric(AdvisorMetric.PROFIT_PER_HOUR));
+		assertEquals(TaskRanking.Metric.PROFIT, TaskAdvisor.badgeMetric(AdvisorMetric.CHEAPEST));
+		assertEquals(3, AdvisorMetric.values().length);
+	}
+
+	@Test
+	public void theAdvisorChatLineKeepsThePreviewsKeySoTheChoiceCarriesOver() throws Exception
+	{
+		// As 1.x saved "New-task chat preview" turned off.
+		ConfigManager manager = mock(ConfigManager.class, CALLS_REAL_METHODS);
+		doReturn("false").when(manager).getConfiguration(SlayerLedgerConfig.GROUP, "assignmentPreview");
+		doReturn("PROFIT_PER_HOUR").when(manager).getConfiguration(SlayerLedgerConfig.GROUP,
+			SlayerLedgerConfig.ADVISOR_METRIC);
+		SlayerLedgerConfig config = config(manager);
+
+		assertFalse("still off", config.advisorChatLine());
+		assertEquals(AdvisorMetric.PROFIT_PER_HOUR, config.advisorMetric());
+	}
+
+	@Test
+	public void theOverlayGroupsKeepTheRowSettingsKeysThatMapToThem() throws Exception
+	{
+		// 1.x's "Show task row" (the name and kills left) is Progress and identity, and its "Show profit row" Haul.
+		assertEquals("overlayTask", SlayerLedgerConfig.OVERLAY_PROGRESS);
+		assertEquals("overlayProfit", SlayerLedgerConfig.OVERLAY_HAUL);
+		assertEquals("overlayPace", SlayerLedgerConfig.OVERLAY_PACE);
+		assertEquals("overlayRunway", SlayerLedgerConfig.OVERLAY_RUNWAY);
+
+		// As 1.x saved both rows turned off: still off.
+		ConfigManager manager = mock(ConfigManager.class, CALLS_REAL_METHODS);
+		doReturn("false").when(manager).getConfiguration(SlayerLedgerConfig.GROUP, "overlayTask");
+		doReturn("false").when(manager).getConfiguration(SlayerLedgerConfig.GROUP, "overlayProfit");
+		// 1.x's kills and time-left rows have no group of their own: their keys are no longer read.
+		doReturn("false").when(manager).getConfiguration(SlayerLedgerConfig.GROUP, "overlayKills");
+		doReturn("false").when(manager).getConfiguration(SlayerLedgerConfig.GROUP, "overlayTimeLeft");
+		// Never saved: the defaults.
+		doReturn(null).when(manager).getConfiguration(SlayerLedgerConfig.GROUP, "overlayPace");
+		doReturn(null).when(manager).getConfiguration(SlayerLedgerConfig.GROUP, "overlayRunway");
+		doReturn(null).when(manager).getConfiguration(SlayerLedgerConfig.GROUP, "showTaskOverlay");
+		SlayerLedgerConfig config = config(manager);
+
+		assertFalse(config.overlayProgress());
+		assertFalse(config.overlayHaul());
+		assertTrue("new: on", config.overlayPace());
+		assertTrue("new: on", config.overlayRunway());
+		assertTrue(config.showTaskOverlay());
+
+		List<String> keys = new ArrayList<>();
+		for (ConfigItemDescriptor item : mock(ConfigManager.class, CALLS_REAL_METHODS)
+			.getConfigDescriptor(configWithLootPrice(null)).getItems())
 		{
-			assertFalse(goal.name(), goal.metric().isPerKill());
+			keys.add(item.getItem().keyName());
 		}
+		assertFalse(keys.contains("overlayKills"));
+		assertFalse(keys.contains("overlayTimeLeft"));
 	}
 
 	@Test
@@ -128,22 +200,25 @@ public class SlayerLedgerConfigTest
 			assertNotEquals("no section: " + key, "", item.getItem().section());
 			bySection.computeIfAbsent(item.getItem().section(), k -> new ArrayList<>()).add(key);
 		}
+		// "Ask again about skipped places" went with the naming prompt.
 		assertEquals(Arrays.asList("confirmIncomplete", "bonecrusherHandling", SlayerLedgerConfig.IGNORED_LOOT,
-			SlayerLedgerConfig.RESET_LOCATION_SKIPS), bySection.get(SlayerLedgerConfig.trackingSection));
+			SlayerLedgerConfig.AWAY_MINUTES),
+			bySection.get(SlayerLedgerConfig.trackingSection));
 		assertEquals(Arrays.asList(SlayerLedgerConfig.LOOT_PRICE_MODE, SlayerLedgerConfig.NOTABLE_DROP_THRESHOLD,
 			SlayerLedgerConfig.HIDE_GROUND_ITEMS_HIDDEN), bySection.get(SlayerLedgerConfig.valuesSection));
-		assertEquals(Arrays.asList("taskCompleteNotification", "assignmentPreview"),
+		assertEquals(Arrays.asList(SlayerLedgerConfig.TASK_COMPLETE_LINE, "taskCompleteNotification",
+			SlayerLedgerConfig.RECORD_TASK_LINE, SlayerLedgerConfig.NOTABLE_DROP_LINE, SlayerLedgerConfig.ADVISOR_CHAT_LINE),
 			bySection.get(SlayerLedgerConfig.chatSection));
-		// The master toggle first, then the rows.
-		assertEquals(Arrays.asList("showTaskOverlay", "overlayTask", "overlayKills", "overlayTimeLeft", "overlayProfit"),
+		// The master toggle first, then the four groups in the overlay's order.
+		assertEquals(Arrays.asList("showTaskOverlay", SlayerLedgerConfig.OVERLAY_PROGRESS,
+			SlayerLedgerConfig.OVERLAY_PACE, SlayerLedgerConfig.OVERLAY_HAUL, SlayerLedgerConfig.OVERLAY_RUNWAY),
 			bySection.get(SlayerLedgerConfig.taskOverlaySection));
-		// The on/off toggle first, then the goal.
-		assertEquals(Arrays.asList(SlayerLedgerConfig.TASK_ADVISOR, SlayerLedgerConfig.TASK_ADVISOR_GOAL),
+		// The badge's on/off toggle first, then the advisor's metric ("Task advisor goal" was removed).
+		assertEquals(Arrays.asList(SlayerLedgerConfig.TASK_ADVISOR, SlayerLedgerConfig.ADVISOR_METRIC),
 			bySection.get(SlayerLedgerConfig.taskAdvisorSection));
 		// In sidebar order.
-		assertEquals(Arrays.asList(SlayerLedgerConfig.SHOW_WHAT_TO_BRING, SlayerLedgerConfig.SHOW_TRENDS,
-			SlayerLedgerConfig.SHOW_OVERALL_TOTALS, SlayerLedgerConfig.SHOW_LUCK_METER,
-			SlayerLedgerConfig.SHOW_SKIPPED_BLOCKED), bySection.get(SlayerLedgerConfig.panelSectionsSection));
+		assertEquals(Arrays.asList(SlayerLedgerConfig.SHOW_OVERALL_TOTALS, SlayerLedgerConfig.SHOW_SKIPPED_BLOCKED),
+			bySection.get(SlayerLedgerConfig.panelSectionsSection));
 		assertEquals(Collections.singletonList(SlayerLedgerConfig.VORKATHS_HEAD_UPGRADE),
 			bySection.get(SlayerLedgerConfig.chargedWeaponsSection));
 		assertEquals("no other section", 7, bySection.size());
@@ -161,9 +236,13 @@ public class SlayerLedgerConfigTest
 			{
 				names.add(item.getItem().name());
 			}
+			// Trends and the Luck meter were removed in 2.0, with their settings, and What to bring went into
+			// the advisor card, with its setting. A stored value of a removed key is left orphaned,
+			// which is harmless: nothing reads it.
+			assertFalse(item.getItem().keyName(), Arrays.asList("showTrends", "showLuckMeter", "showWhatToBring")
+				.contains(item.getItem().keyName()));
 		}
-		assertEquals(Arrays.asList("What to bring", "Trends", "Overall totals", "Luck meter", "Skipped / blocked"),
-			names);
+		assertEquals(Arrays.asList("Overall totals", "Skipped / blocked"), names);
 	}
 
 	@Test

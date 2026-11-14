@@ -87,11 +87,14 @@ public class HarnessTaskContextTest
 	{
 		harness.loginAndSettle(ACCOUNT);
 		assertEquals("Master: Konar | Type: Konar (Kraken Cove)", assignmentText());
-		// Konar's type is her name, so the second line shows it once; the assigned area is the location.
-		assertEquals(Arrays.asList("Kraken · 3 left", "Konar · Kraken Cove · bonus in 8"), taskBoxRows());
-		assertTrue(harness.play());
+		// Konar's type is her name, so the second line shows it once; the assigned area is the location. Before the
+		// first kill the master line has the task's size.
+		assertEquals(Arrays.asList("Kraken", "Kraken Cove", "Konar · 3 left · bonus in 8"), taskBoxRows());
+		assertTrue(harness.startNow());
 		harness.setRemaining(1);
 		harness.tick();
+		assertEquals("while a session is active the stats have the kills left",
+			Arrays.asList("Kraken", "Kraken Cove", "Konar · bonus in 8"), taskBoxRows());
 
 		LedgerRecord record = completeAndSave(18);
 		assertTrue(record.isCompleted());
@@ -101,7 +104,7 @@ public class HarnessTaskContextTest
 		assertEquals(Integer.valueOf(18), record.getPointsEarned());
 		assertEquals(Integer.valueOf(43), record.getTaskStreak());
 		assertNull("no task now", assignmentText());
-		assertEquals("the next bonus stays", Arrays.asList("Task: None", "bonus in 7"), taskBoxRows());
+		assertEquals("the next bonus stays", Arrays.asList(TaskBoxView.NO_TASK, "bonus in 7"), taskBoxRows());
 
 		String row = historyText().get(0);
 		assertTrue(row, row.contains("<br>Master: Konar<br>Type: Konar (Kraken Cove)<br>Points earned: 18"
@@ -112,7 +115,7 @@ public class HarnessTaskContextTest
 	public void pointsArrivingDuringTheGraceWindowCount()
 	{
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.completeTask();
 		harness.tick();
 		assertTrue(harness.tracker().hasPendingCompletion());
@@ -128,7 +131,7 @@ public class HarnessTaskContextTest
 	public void streakArrivingAfterTheLastKillStillRecordsTheRewards()
 	{
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		// SLAYER_COUNT reaches 0 a tick before the streak counter and points go up.
 		harness.setRemaining(0);
 		harness.tick();
@@ -146,7 +149,7 @@ public class HarnessTaskContextTest
 	public void pointsSpentMidTaskDontChangeTheTaskPoints()
 	{
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.setRemaining(2);
 		harness.tick();
 		// Spent 400 points at a master during the task.
@@ -160,7 +163,7 @@ public class HarnessTaskContextTest
 	public void pointsThatWentDownAtTheCompletionAreNotRecorded()
 	{
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		LedgerRecord record = completeAndSave(-50);
 		assertNull("never negative", record.getPointsEarned());
 		assertEquals(Integer.valueOf(43), record.getTaskStreak());
@@ -173,7 +176,7 @@ public class HarnessTaskContextTest
 		harness.setSlayerPoints(0);
 		harness.setVarbit(VarbitID.SLAYER_TASKS_COMPLETED, 0);
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.setSlayerPoints(500);
 		harness.setVarbit(VarbitID.SLAYER_TASKS_COMPLETED, 42);
 		harness.tick();
@@ -184,7 +187,7 @@ public class HarnessTaskContextTest
 		harness.login(ACCOUNT);
 		harness.setSlayerPoints(900);
 		harness.ticks(PluginHarness.SETTLE_TICKS);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		LedgerRecord record = completeAndSave(18);
 		assertEquals("from the reading after login, not the one before logout", Integer.valueOf(18),
 			record.getPointsEarned());
@@ -197,8 +200,8 @@ public class HarnessTaskContextTest
 		harness.setVarbit(VarbitID.SLAYER_WILDERNESS_TASKS_COMPLETED, 9);
 		harness.loginAndSettle(ACCOUNT);
 		assertEquals("Master: Krystilia | Type: Wilderness", assignmentText());
-		assertEquals(Arrays.asList("Kraken · 3 left", "Krystilia · Wilderness · bonus in 1"), taskBoxRows());
-		assertTrue(harness.play());
+		assertEquals(Arrays.asList("Kraken", "Krystilia · Wilderness · 3 left · bonus in 1"), taskBoxRows());
+		assertTrue(harness.startNow());
 		harness.setRemaining(0);
 		harness.setVarbit(VarbitID.SLAYER_WILDERNESS_TASKS_COMPLETED, 10);
 		harness.setSlayerPoints(525);
@@ -218,9 +221,9 @@ public class HarnessTaskContextTest
 		harness.setVarp(VarPlayerID.SLAYER_MORTIMER_TASKS_COMPLETED, 4);
 		harness.loginAndSettle(ACCOUNT);
 		assertEquals("Master: Mortimer | Type: Regular", assignmentText());
-		assertEquals("Regular is not shown", Arrays.asList("Kraken · 3 left", "Mortimer · bonus in 6"),
+		assertEquals("Regular is not shown", Arrays.asList("Kraken", "Mortimer · 3 left · bonus in 6"),
 			taskBoxRows());
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.setRemaining(0);
 		harness.setVarp(VarPlayerID.SLAYER_MORTIMER_TASKS_COMPLETED, 5);
 		harness.tick();
@@ -236,7 +239,7 @@ public class HarnessTaskContextTest
 		harness.loginAndSettle(ACCOUNT);
 		assertEquals("Master: Unknown master (14) | Type: Boss", assignmentText());
 		// The boss is not known yet (no boss id), as the task line shows it.
-		assertEquals(Arrays.asList("Unknown boss task (0) · 3 left", "Unknown master (14) · Boss"),
+		assertEquals(Arrays.asList("Unknown boss task (0)", "Unknown master (14) · Boss · 3 left"),
 			taskBoxRows());
 	}
 
@@ -245,12 +248,13 @@ public class HarnessTaskContextTest
 	{
 		harness.setAssignment(SlayerMaster.NONE, 0, null);
 		harness.loginAndSettle(ACCOUNT);
-		assertNull("nothing known: no second line", assignmentText());
-		assertEquals(Arrays.asList("Kraken · 3 left"), taskBoxRows());
-		assertTrue(harness.play());
+		assertEquals("nothing known but the task's size", "Master: - | Type: -", assignmentText());
+		assertEquals(Arrays.asList("Kraken", "3 left"), taskBoxRows());
+		assertTrue(harness.startNow());
+		assertEquals("the stats have the kills left: no second line", Arrays.asList("Kraken"), taskBoxRows());
 		harness.setAssignment(6, 0, null);
 		harness.tick();
-		harness.stop();
+		harness.endTask();
 		LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		assertTrue(record.isPartial());
 		assertEquals(Integer.valueOf(6), record.getSlayerMaster());
@@ -259,13 +263,16 @@ public class HarnessTaskContextTest
 	}
 
 	@Test
-	public void pausedCompletionStillRecordsItsRewards()
+	public void aCompletionWhilePausedRestartsAndRecordsItsRewards()
 	{
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.pause();
 		harness.completeTask(18);
 		harness.tick();
+		// The final kill restarted the session, so the completion waits for its loot like any other.
+		assertTrue(harness.tracker().hasPendingCompletion());
+		harness.ticks(SessionTracker.COMPLETION_LOOT_GRACE_TICKS);
 		LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		assertTrue(record.isCompleted());
 		assertEquals(Integer.valueOf(18), record.getPointsEarned());
@@ -276,7 +283,7 @@ public class HarnessTaskContextTest
 	public void restoredSessionKeepsItsAssignment()
 	{
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.logout();
 		harness.shutDown();
 		assertEquals(Integer.valueOf(SlayerMaster.KONAR), harness.activeSession(ACCOUNT).getSlayerMaster());
@@ -285,8 +292,8 @@ public class HarnessTaskContextTest
 		harness.setAssignment(SlayerMaster.NONE, 0, null);
 		harness.startUp();
 		harness.loginAndSettle(ACCOUNT);
-		assertEquals(SessionTracker.State.PAUSED, harness.sessionState());
-		assertTrue(harness.play());
+		assertEquals(SessionTracker.State.LOGGED_OUT, harness.sessionState());
+		assertTrue(harness.startNow());
 		LedgerRecord record = completeAndSave(18);
 		assertEquals(Integer.valueOf(SlayerMaster.KONAR), record.getSlayerMaster());
 		assertEquals(Integer.valueOf(AREA), record.getSlayerArea());
@@ -304,7 +311,7 @@ public class HarnessTaskContextTest
 		Files.write(harness.ledgerDirectory().toPath().resolve(ACCOUNT + ".json"), json.getBytes(StandardCharsets.UTF_8));
 
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.completeTask(18);
 		harness.tick();
 		harness.ticks(SessionTracker.COMPLETION_LOOT_GRACE_TICKS);

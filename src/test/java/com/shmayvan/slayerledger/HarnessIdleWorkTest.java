@@ -29,12 +29,13 @@ import org.mockito.ArgumentCaptor;
  * <ul>
  * <li>the panel's one-second refresh timer runs only while the panel is on screen (its hierarchy listener's
  * {@code showingChanged}, driven directly here since nothing is showing headless; {@code onActivate} /
- * {@code onDeactivate} are only hints), and never after shutdown; the new-task chat preview and the overlay's
- * historical pace don't need it;</li>
- * <li>the supplies diff reads no containers while no session is running, unless a cannon is set up or loaded (so its
- * cannonball type is still inferred from a load before Play); only the inventory is read, once after it changes (a
- * few times at most while an item's data is not loaded), so a potion's use is still recorded under the
- * highest-dose variant seen;</li>
+ * {@code onDeactivate} are only hints), and never after shutdown; the advisor's chat line on assignment and the
+ * overlay's historical pace don't need it;</li>
+ * <li>the supplies diff reads no containers while no task is assigned or the assignment is Ended; it runs while a
+ * session runs and while a task is assigned outside a segment (waiting for its first kill, paused), where its use is
+ * buffered for the next (re)start (V2 plan 4.1). While it doesn't run, only the inventory is read, once after it
+ * changes (a few times at most while an item's data is not loaded), so a potion's use is still recorded under
+ * the highest-dose variant seen;</li>
  * <li>an XP reading equal to the last one is not passed to the tracker again, which still counts every gain after a
  * hop or reconnect;</li>
  * <li>a paused session is not valued again once valued while paused with every price known, unless the "Loot price"
@@ -46,8 +47,11 @@ public class HarnessIdleWorkTest
 	private static final long ACCOUNT = PluginHarness.ACCOUNT;
 	private static final long MINUTE = 60_000L;
 	private static final int DEMONS = 42;
-	/** The line for 20 Abyssal demons from three saved tasks, as in HarnessHistoryModelTest. */
-	private static final String LINE = "Abyssal demons (20): ~0:20:00 · +180K (GE) · ~2 bank trips (from 3 tasks)";
+	/**
+	 * The advisor's line for 20 Abyssal demons from three saved tasks without a spot or style, as in
+	 * HarnessHistoryModelTest.
+	 */
+	private static final String LINE = "<colHIGHLIGHT>Abyssal demons x20:<colNORMAL> ~20 min (3 tasks, setup unknown).";
 
 	@Rule
 	public final PluginHarness harness = new PluginHarness();
@@ -156,14 +160,14 @@ public class HarnessIdleWorkTest
 			.collect(Collectors.toList());
 	}
 
-	/** The overlay's "Time left" value now, with every row on. */
+	/** The overlay's time left now ({@code ~12 min}), with every group on; {@code null} without a session. */
 	private String overlayTimeLeft()
 	{
-		for (OverlayRows.Row row : OverlayRows.rows(harness.overlayData(), true, true, true, true))
+		for (OverlayRows.Row row : OverlayRows.rows(harness.overlayData(), OverlayRows.Groups.ALL))
 		{
-			if (row.getLabel().equals("Time left"))
+			if (row.getKind() == OverlayRows.Kind.PROGRESS)
 			{
-				return row.getValue();
+				return row.getRight();
 			}
 		}
 		return null;
@@ -179,7 +183,7 @@ public class HarnessIdleWorkTest
 		harness.loginAndSettle(ACCOUNT);
 		assertFalse("a new tab is not shown, so the timer doesn't run", timerRunning());
 
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		showing(true);
 		assertTrue(timerRunning());
 		assertTrue("shown at once: the panel refreshes when it comes on screen", timeLeftShown());
@@ -235,7 +239,7 @@ public class HarnessIdleWorkTest
 	}
 
 	@Test
-	public void theChatPreviewIsPostedWithThePanelHidden() throws IOException
+	public void theAssignmentChatLineIsPostedWithThePanelHidden() throws IOException
 	{
 		startWithHistory();
 		showThenHidePanel();
@@ -258,14 +262,14 @@ public class HarnessIdleWorkTest
 		harness.setTask(DEMONS, "Abyssal demons", 12, 12);
 		harness.loginAndSettle(ACCOUNT);
 
-		assertTrue(harness.play());
-		assertEquals("12 kills at the history's minute a kill", "~12m", overlayTimeLeft());
+		assertTrue(harness.startNow());
+		assertEquals("12 kills at the history's minute a kill", "~12 min", overlayTimeLeft());
 
 		// 1 kill in 30 seconds: too little for the live pace, so still the history, for the 11 left.
 		now.addAndGet(MINUTE / 2);
 		harness.setRemaining(11);
 		harness.tick();
-		assertEquals("~11m", overlayTimeLeft());
+		assertEquals("~11 min", overlayTimeLeft());
 		assertFalse(timerRunning());
 	}
 
@@ -280,12 +284,12 @@ public class HarnessIdleWorkTest
 	}
 
 	@Test
-	public void idleAndPausedTicksReadNoSupplies()
+	public void noSuppliesAreReadWhileNoTaskIsAssignedAndTheDiffRunsWhileOneIs()
 	{
 		harness.defineItem(ItemID.SHARK, "Shark", 1_000, 300, "Eat");
 		harness.defineStackableWeapon(ItemID.RUNE_DART, "Rune dart", 100);
 		harness.startUp();
-		harness.setTask(DEMONS, "Abyssal demons", 100, 100);
+		harness.setRemaining(0);
 		harness.loginAndSettle(ACCOUNT);
 
 		// No containers loaded: the reads a tick makes whatever the containers hold.
@@ -296,12 +300,23 @@ public class HarnessIdleWorkTest
 		// The first idle tick after a change reads the inventory alone, for its potions; later ones read nothing.
 		final int afterChange = callsOver(1);
 		final int idle = callsOver(5);
-		assertEquals("idle ticks with an unchanged inventory read no containers", idleWithoutContainers, idle);
+		assertEquals("ticks with no task assigned read no containers", idleWithoutContainers, idle);
 		final int oneIdleTick = callsOver(1);
 		assertTrue("the inventory is read once after it changes (" + afterChange + " > " + oneIdleTick + ")",
 			afterChange > oneIdleTick);
 
-		assertTrue(harness.play());
+		// A task waiting for its first kill: the diff runs, so what is used before the start can count (V2 plan 4.1).
+		harness.setTask(DEMONS, "Abyssal demons", 100, 100);
+		harness.ticks(2);
+		final int waiting = callsOver(5);
+		harness.clearInventory();
+		final int waitingWithoutContainers = callsOver(5);
+		assertTrue("a task waiting for its first kill reads them (" + waiting + " > " + waitingWithoutContainers + ")",
+			waiting > waitingWithoutContainers);
+
+		harness.setInventory(PluginHarness.item(ItemID.SHARK, 1), PluginHarness.item(ItemID.SHARK, 1));
+		harness.tick();
+		assertTrue(harness.startNow());
 		final int running = callsOver(5);
 		assertTrue("a running session reads them (" + running + " > " + idle + ")", running > idle);
 
@@ -310,17 +325,17 @@ public class HarnessIdleWorkTest
 		harness.ticks(2);
 		final int paused = callsOver(5);
 		harness.clearInventory();
-		assertEquals("paused ticks read none either", paused, callsOver(5));
+		final int pausedWithoutContainers = callsOver(5);
+		assertTrue("a paused session's task is still assigned, so they are read (" + paused + " > "
+			+ pausedWithoutContainers + ")", paused > pausedWithoutContainers);
 
-		// Nothing used while paused is counted after Resume; what is used after it is.
-		harness.setInventory(PluginHarness.item(ItemID.SHARK, 1));
-		harness.tick();
-		assertTrue("resume", harness.play());
-		harness.tick();
-		harness.setInventory();
-		harness.tick();
-		harness.stop();
-		assertEquals(Long.valueOf(1), harness.onlyRecord(ACCOUNT).getSupplies().get(ItemID.SHARK));
+		// An Ended assignment collects nothing: no containers are read.
+		harness.setInventory(PluginHarness.item(ItemID.SHARK, 1), PluginHarness.item(ItemID.SHARK, 1));
+		harness.endTask();
+		harness.ticks(2);
+		final int ended = callsOver(5);
+		harness.clearInventory();
+		assertEquals("an Ended assignment's ticks read no containers", callsOver(5), ended);
 	}
 
 	@Test
@@ -334,7 +349,8 @@ public class HarnessIdleWorkTest
 			PluginHarness.item(SupplyTracker.CANNONBALL, 10));
 		harness.loginAndSettle(ACCOUNT);
 
-		// The cannon is set up, then loaded with 30 granite cannonballs, all before Play.
+		// The cannon is set up, then loaded with 30 granite cannonballs, all before Play: the task waits for its first
+		// kill, so the diff runs and sees the load.
 		harness.setVarp(VarPlayerID.DROPCANNON, 4);
 		harness.tick();
 		harness.setInventory(PluginHarness.item(SupplyTracker.GRANITE_CANNONBALL, 20),
@@ -342,11 +358,11 @@ public class HarnessIdleWorkTest
 		harness.setVarp(VarPlayerID.ROCKTHROWER, 30);
 		harness.tick();
 
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.tick();
 		harness.setVarp(VarPlayerID.ROCKTHROWER, 28);
 		harness.tick();
-		harness.stop();
+		harness.endTask();
 
 		final Map<Integer, Long> used = harness.onlyRecord(ACCOUNT).getSupplies();
 		assertEquals(Long.valueOf(2), used.get(SupplyTracker.GRANITE_CANNONBALL));
@@ -361,19 +377,21 @@ public class HarnessIdleWorkTest
 		harness.defineItem(ItemID._3DOSEPRAYERRESTORE, "Prayer potion(3)", 6_000, 80, drink);
 		harness.defineItem(ItemID._2DOSEPRAYERRESTORE, "Prayer potion(2)", 4_000, 60, drink);
 		harness.startUp();
-		harness.setTask(DEMONS, "Abyssal demons", 100, 100);
+		// No task: no diff runs.
+		harness.setRemaining(0);
 		harness.setInventory(PluginHarness.item(ItemID._4DOSEPRAYERRESTORE, 1));
 		harness.loginAndSettle(ACCOUNT);
 		harness.ticks(3);
 
-		// One dose drunk while idle: Play's baseline sees only the 3-dose potion.
+		// One dose drunk while no task is assigned: the diff's first baseline sees only the 3-dose potion.
 		harness.setInventory(PluginHarness.item(ItemID._3DOSEPRAYERRESTORE, 1));
 		harness.ticks(3);
-		assertTrue(harness.play());
+		assignTask();
+		assertTrue(harness.startNow());
 		harness.tick();
 		harness.setInventory(PluginHarness.item(ItemID._2DOSEPRAYERRESTORE, 1));
 		harness.tick();
-		harness.stop();
+		harness.endTask();
 
 		final LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		assertEquals("one dose, under the 4-dose item, as when every idle tick was diffed",
@@ -389,8 +407,8 @@ public class HarnessIdleWorkTest
 		harness.defineItem(ItemID._3DOSEPRAYERRESTORE, "Prayer potion(3)", 6_000, 80, drink);
 		harness.defineItem(ItemID._2DOSEPRAYERRESTORE, "Prayer potion(2)", 4_000, 60, drink);
 		harness.startUp();
-		harness.setTask(DEMONS, "Abyssal demons", 100, 100);
-		// Logged in with no potion: the login's own noting sees an empty inventory.
+		// No task: no diff runs. Logged in with no potion: the login's own noting sees an empty inventory.
+		harness.setRemaining(0);
 		harness.setInventory();
 		harness.loginAndSettle(ACCOUNT);
 		harness.ticks(3);
@@ -400,11 +418,12 @@ public class HarnessIdleWorkTest
 		harness.tick();
 		harness.setInventory(PluginHarness.item(ItemID._3DOSEPRAYERRESTORE, 1));
 		harness.ticks(3);
-		assertTrue(harness.play());
+		assignTask();
+		assertTrue(harness.startNow());
 		harness.tick();
 		harness.setInventory(PluginHarness.item(ItemID._2DOSEPRAYERRESTORE, 1));
 		harness.tick();
-		harness.stop();
+		harness.endTask();
 
 		final LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		assertEquals(Collections.singletonMap(ItemID._4DOSEPRAYERRESTORE, 1L), record.getSupplies());
@@ -422,7 +441,8 @@ public class HarnessIdleWorkTest
 		harness.defineItem(ItemID._3DOSEPRAYERRESTORE, "Prayer potion(3)", 6_000, 80, drink);
 		harness.defineItem(ItemID._2DOSEPRAYERRESTORE, "Prayer potion(2)", 4_000, 60, drink);
 		harness.startUp();
-		harness.setTask(DEMONS, "Abyssal demons", 100, 100);
+		// No task: no diff runs.
+		harness.setRemaining(0);
 		harness.setInventory(PluginHarness.item(ItemID.SHARK, 1));
 		harness.loginAndSettle(ACCOUNT);
 		harness.ticks(3);
@@ -439,14 +459,22 @@ public class HarnessIdleWorkTest
 		harness.setInventory(PluginHarness.item(ItemID.ABYSSAL_WHIP, 1),
 			PluginHarness.item(ItemID._3DOSEPRAYERRESTORE, 1));
 		harness.ticks(SlayerLedgerPlugin.INVENTORY_NOTE_TRIES + 1);
-		assertTrue(harness.play());
+		assignTask();
+		assertTrue(harness.startNow());
 		harness.tick();
 		harness.setInventory(PluginHarness.item(ItemID.ABYSSAL_WHIP, 1),
 			PluginHarness.item(ItemID._2DOSEPRAYERRESTORE, 1));
 		harness.tick();
-		harness.stop();
+		harness.endTask();
 		assertEquals("one dose, under the 4-dose item",
 			Collections.singletonMap(ItemID._4DOSEPRAYERRESTORE, 1L), harness.onlyRecord(ACCOUNT).getSupplies());
+	}
+
+	/** A task is assigned now (none was): the next tick reads it, and the supplies diff runs from the tick after. */
+	private void assignTask()
+	{
+		harness.setTask(DEMONS, "Abyssal demons", 100, 100);
+		harness.tick();
 	}
 
 	// ---- XP ----
@@ -466,7 +494,7 @@ public class HarnessIdleWorkTest
 		harness.startUp();
 		harness.setTask(DEMONS, "Abyssal demons", 100, 100);
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.gainXp(Skill.SLAYER, 10);
 		harness.tick();
 		harness.ticks(3);
@@ -474,10 +502,10 @@ public class HarnessIdleWorkTest
 		// The hop drops the tracker's baseline; the stats read the same after it, and must be its new baseline.
 		harness.hop();
 		harness.ticks(PluginHarness.SETTLE_TICKS);
-		assertTrue("resume after the hop", harness.play());
+		assertEquals("a hop is not a stop", SessionTracker.State.RUNNING, harness.sessionState());
 		harness.gainXp(Skill.SLAYER, 5);
 		harness.tick();
-		harness.stop();
+		harness.endTask();
 
 		assertEquals(xp("SLAYER", 15), harness.onlyRecord(ACCOUNT).getXpGained());
 	}
@@ -499,7 +527,7 @@ public class HarnessIdleWorkTest
 	public void aPausedSessionIsValuedOnceUntilTheModeChangesOrItResumes()
 	{
 		final CountingValuation valuation = startWithCountingValuation();
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.postLoot(ItemID.BONES, 1);
 		harness.ticks(4);
 		assertEquals("valued every 2 ticks while running", 2, valuation.calls);
@@ -527,7 +555,7 @@ public class HarnessIdleWorkTest
 		harness.ticks(6);
 		assertEquals("and then not again", afterPause + 1, valuation.calls);
 
-		assertTrue("resume", harness.play());
+		assertTrue("resume", harness.startNow());
 		harness.ticks(4);
 		assertEquals("valued every 2 ticks again", afterPause + 3, valuation.calls);
 	}
@@ -537,7 +565,7 @@ public class HarnessIdleWorkTest
 	{
 		final CountingValuation valuation = startWithCountingValuation();
 		harness.setGePrice(ItemID.BONES, 0);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.postLoot(ItemID.BONES, 1);
 		harness.tick();
 		harness.pause();

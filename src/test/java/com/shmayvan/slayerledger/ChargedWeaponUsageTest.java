@@ -3,20 +3,24 @@ package com.shmayvan.slayerledger;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import net.runelite.api.gameval.AnimationID;
 import net.runelite.api.gameval.ItemID;
 import org.junit.Test;
 
 /**
- * Blowpipe darts and scales and trident casts counted from attack animations.
+ * Blowpipe darts and scales, and trident and powered staff casts, counted from attack animations.
  */
 public class ChargedWeaponUsageTest
 {
 	private static final int BLOWPIPE = ItemID.TOXIC_BLOWPIPE_LOADED;
 	private static final int SHOT = AnimationID.SNAKEBOSS_BLOWPIPE_ATTACK;
 	private static final int CAST = AnimationID.HUMAN_CASTWAVE_STAFF;
+	private static final int SHADOW_CAST = AnimationID.TOA_SOT_CAST_B;
 	private static final int DART = ItemID.ADAMANT_DART;
 	private static final int SCALE = ItemID.SNAKEBOSS_SCALE;
 
@@ -30,7 +34,14 @@ public class ChargedWeaponUsageTest
 
 	private static ChargedWeaponUsage.Tick.TickBuilder tridentCast(int weaponId)
 	{
-		return ChargedWeaponUsage.Tick.builder().weaponId(weaponId).animationId(CAST).tridentGraphic(true);
+		return ChargedWeaponUsage.Tick.builder().weaponId(weaponId).animationId(CAST).castGraphic(true);
+	}
+
+	/** A Sanguinesti staff cast uses the trident's wave-staff animation; a shadow cast has its own. */
+	private static ChargedWeaponUsage.Tick.TickBuilder shadowCast()
+	{
+		return ChargedWeaponUsage.Tick.builder().weaponId(ItemID.TUMEKENS_SHADOW).animationId(SHADOW_CAST)
+			.castGraphic(true);
 	}
 
 	/** Feeds {@code shots} ticks built by {@code tick} and sums what was used. */
@@ -248,9 +259,66 @@ public class ChargedWeaponUsageTest
 	@Test
 	public void tridentNeedsTheCastGraphic()
 	{
-		assertTrue(run(tridentCast(ItemID.TOTS_CHARGED).tridentGraphic(false), 5).isEmpty());
+		assertTrue(run(tridentCast(ItemID.TOTS_CHARGED).castGraphic(false), 5).isEmpty());
 		// A wave spell from another staff shows no trident graphic, and the graphic alone isn't a cast.
 		assertTrue(run(tridentCast(ItemID.TOTS_CHARGED).animationId(-1), 5).isEmpty());
+	}
+
+	@Test
+	public void sanguinestiStaffCastsCostTwoBloodRunesEach()
+	{
+		for (int staff : new int[]{ItemID.SANGUINESTI_STAFF, ItemID.SANGUINESTI_STAFF_OR})
+		{
+			final Map<Integer, Integer> used = run(tridentCast(staff), 1);
+			assertEquals("" + staff, 1, used.size());
+			assertEquals(2, qty(used, ItemID.BLOODRUNE));
+		}
+		// The walk-merged cast too, and casts add up: whole runes, so nothing carries over.
+		final Map<Integer, Integer> used = run(tridentCast(ItemID.SANGUINESTI_STAFF)
+			.animationId(AnimationID.HUMAN_CASTWAVE_STAFF_WALKMERGE), 10);
+		assertEquals(20, qty(used, ItemID.BLOODRUNE));
+	}
+
+	@Test
+	public void tumekensShadowCastsCostTwoSoulAndFiveChaosRunesEach()
+	{
+		final Map<Integer, Integer> used = run(shadowCast(), 3);
+		assertEquals(2, used.size());
+		assertEquals(6, qty(used, ItemID.SOULRUNE));
+		assertEquals(15, qty(used, ItemID.CHAOSRUNE));
+	}
+
+	@Test
+	public void staffCastsNeedTheirOwnAnimationGraphicAndChargedStaff()
+	{
+		assertTrue("no graphic", run(tridentCast(ItemID.SANGUINESTI_STAFF).castGraphic(false), 5).isEmpty());
+		assertTrue("no graphic", run(shadowCast().castGraphic(false), 5).isEmpty());
+		assertTrue("the shadow's animation is not a Sanguinesti cast",
+			run(tridentCast(ItemID.SANGUINESTI_STAFF).animationId(SHADOW_CAST), 5).isEmpty());
+		assertTrue("the wave-staff animation is not a shadow cast", run(shadowCast().animationId(CAST), 5).isEmpty());
+		assertTrue(run(shadowCast().animationFrame(2), 5).isEmpty());
+		for (int uncharged : new int[]{ItemID.SANGUINESTI_STAFF_UNCHARGED, ItemID.SANGUINESTI_STAFF_UNCHARGED_OR})
+		{
+			assertTrue("" + uncharged, run(tridentCast(uncharged), 1).isEmpty());
+		}
+		assertTrue(run(shadowCast().weaponId(ItemID.TUMEKENS_SHADOW_UNCHARGED), 1).isEmpty());
+	}
+
+	@Test
+	public void castGraphicsDependOnTheWornWeaponAndAnimation()
+	{
+		assertEquals(ChargedWeaponUsage.TRIDENT_GRAPHICS, ChargedWeaponUsage.castGraphics(ItemID.TOTS_CHARGED, CAST));
+		assertEquals(ChargedWeaponUsage.TRIDENT_GRAPHICS, ChargedWeaponUsage.castGraphics(ItemID.TOXIC_TOTS_CHARGED,
+			AnimationID.HUMAN_CASTWAVE_STAFF_WALKMERGE));
+		assertEquals(ChargedWeaponUsage.SANGUINESTI_GRAPHICS,
+			ChargedWeaponUsage.castGraphics(ItemID.SANGUINESTI_STAFF_OR, CAST));
+		assertEquals(ChargedWeaponUsage.SHADOW_GRAPHICS,
+			ChargedWeaponUsage.castGraphics(ItemID.TUMEKENS_SHADOW, SHADOW_CAST));
+		assertTrue(ChargedWeaponUsage.castGraphics(ItemID.TUMEKENS_SHADOW, CAST).isEmpty());
+		assertTrue(ChargedWeaponUsage.castGraphics(ItemID.SANGUINESTI_STAFF, SHADOW_CAST).isEmpty());
+		assertTrue(ChargedWeaponUsage.castGraphics(ItemID.SANGUINESTI_STAFF_UNCHARGED, CAST).isEmpty());
+		assertTrue(ChargedWeaponUsage.castGraphics(BLOWPIPE, SHOT).isEmpty());
+		assertTrue(ChargedWeaponUsage.castGraphics(ChargedWeaponUsage.NO_ITEM, CAST).isEmpty());
 	}
 
 	@Test
@@ -270,13 +338,23 @@ public class ChargedWeaponUsageTest
 	@Test
 	public void trackedIdSetsDontOverlap()
 	{
-		for (int id : ChargedWeaponUsage.BLOWPIPES)
+		final List<Set<Integer>> weapons = Arrays.asList(ChargedWeaponUsage.BLOWPIPES,
+			ChargedWeaponUsage.SEAS_TRIDENTS, ChargedWeaponUsage.SWAMP_TRIDENTS, ChargedWeaponUsage.SANGUINESTI_STAVES,
+			ChargedWeaponUsage.TUMEKENS_SHADOWS);
+		for (int i = 0; i < weapons.size(); i++)
 		{
-			assertFalse(ChargedWeaponUsage.SEAS_TRIDENTS.contains(id) || ChargedWeaponUsage.SWAMP_TRIDENTS.contains(id));
+			for (int j = i + 1; j < weapons.size(); j++)
+			{
+				for (int id : weapons.get(i))
+				{
+					assertFalse(id + " is in two weapon sets", weapons.get(j).contains(id));
+				}
+			}
 		}
-		for (int id : ChargedWeaponUsage.SEAS_TRIDENTS)
+		for (int id : ChargedWeaponUsage.SHADOW_ANIMATIONS)
 		{
-			assertFalse(ChargedWeaponUsage.SWAMP_TRIDENTS.contains(id));
+			assertFalse(ChargedWeaponUsage.TRIDENT_ANIMATIONS.contains(id)
+				|| ChargedWeaponUsage.BLOWPIPE_ANIMATIONS.contains(id));
 		}
 		for (int id : ChargedWeaponUsage.ASSEMBLERS)
 		{

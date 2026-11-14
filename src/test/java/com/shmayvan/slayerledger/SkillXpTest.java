@@ -141,6 +141,8 @@ public class SkillXpTest
 		assertEquals(Arrays.asList("Slayer", "Magic", "Prayer"),
 			Arrays.asList(rows.get(0).getName(), rows.get(1).getName(), rows.get(2).getName()));
 		assertEquals("900", rows.get(0).amountText());
+		assertEquals("no trailing zeros (DESIGN_PRINCIPLES 5.5)", "58K",
+			SkillXp.rows(xp("SLAYER", 58_000), 60 * 60_000).get(0).amountText());
 		assertEquals(Long.valueOf(900), rows.get(0).getPerHour());
 		assertEquals("<html>Slayer: 900 XP<br>900 XP per hour</html>", rows.get(0).tooltip());
 		assertNull("no rate without enough active time", SkillXp.rows(xp("SLAYER", 1), 0).get(0).getPerHour());

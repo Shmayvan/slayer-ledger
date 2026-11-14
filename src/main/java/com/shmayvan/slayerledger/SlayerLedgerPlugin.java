@@ -3,6 +3,7 @@ package com.shmayvan.slayerledger;
 import com.google.gson.Gson;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
+import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -10,21 +11,25 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.Actor;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.EquipmentInventorySlot;
@@ -33,6 +38,7 @@ import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.MenuAction;
 import net.runelite.api.NPC;
+import net.runelite.api.NPCComposition;
 import net.runelite.api.Player;
 import net.runelite.api.Skill;
 import net.runelite.api.WorldView;
@@ -64,9 +70,12 @@ import net.runelite.client.events.ClientShutdown;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.events.RuneScapeProfileChanged;
 import net.runelite.client.events.ServerNpcLoot;
+import net.runelite.client.game.ItemEquipmentStats;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemStack;
+import net.runelite.client.game.ItemStats;
 import net.runelite.client.game.SkillIconManager;
+import net.runelite.client.game.SpriteManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
@@ -80,7 +89,7 @@ import net.runelite.client.util.Text;
 @Slf4j
 @PluginDescriptor(
 	name = "Slayer Ledger",
-	description = "Tracks your Slayer tasks: kills, time, loot, supplies and XP, with task history, estimates and trends.",
+	description = "Tracks your Slayer tasks: kills, time, loot, supplies and XP, with task history, estimates and totals.",
 	tags = {"slayer", "tracker", "task", "statistics", "loot", "xp", "supplies"},
 	internalName = SlayerLedgerPlugin.INTERNAL_NAME,
 	legacyDataDirectory = SlayerLedgerPlugin.LEGACY_DATA_DIRECTORY
@@ -91,6 +100,14 @@ public class SlayerLedgerPlugin extends Plugin
 	private static final int AMOUNT_MODIFIER_ID = 2;
 	/** Ticks to ignore task varps after (re)login so the server can resync them. */
 	private static final int LOGIN_SETTLE_TICKS = 2;
+	/** The chat line on the first settled tick after a login while a session waits for the next kill (V2 plan 4.1). */
+	static final String WAITING_LINE = "Slayer Ledger: waiting for your next kill";
+	/** Ticks before a task kill whose NPC deaths are paired with it (V2 plan 4.1: T - 2 to T + 1). */
+	private static final int PAIR_TICKS_BEFORE = 2;
+	/** Most NPC names {@link #hitNpcNames} keeps between two ticks; a tick's hits name far fewer. */
+	private static final int MAX_HIT_NPC_NAMES = 64;
+	/** {@link #zeroDropTick} while the task count has not dropped to zero. */
+	private static final int NO_TICK = Integer.MIN_VALUE;
 	/**
 	 * Plugin Hub internal name; {@link #getPluginDirectory()} keeps the ledger files in
 	 * {@code ~/.runelite/plugin-data/slayer-ledger}.
@@ -105,6 +122,8 @@ public class SlayerLedgerPlugin extends Plugin
 	private static final Pattern PICKPOCKET_REGEX = Pattern.compile("You pick (the )?(?<target>.+)'s? pocket.*");
 	/** Interfaces during (and just after) which no supplies are counted; see {@link SupplyExclusions}. */
 	private static final int[] SUPPLY_EXCLUDED_INTERFACES = SupplyExclusions.excludedInterfaces();
+	/** {@link #openSupplyExcludedInterface()} when none of {@link #SUPPLY_EXCLUDED_INTERFACES} is open. */
+	private static final int NO_INTERFACE = -1;
 	/** The live session's loot and supply values are recomputed at most once per this many game ticks. */
 	private static final int SESSION_VALUE_TICKS = 2;
 	/**
@@ -163,15 +182,10 @@ public class SlayerLedgerPlugin extends Plugin
 	static final String BLOWPIPE_DART_KEY = "blowpipeDartId";
 	/**
 	 * RSProfile config key prefix (in {@link SlayerLedgerConfig#GROUP}) of the player's name for a map region:
-	 * {@code locationName.<regionId>}. Kept per RuneScape profile, like {@link #BLOWPIPE_DART_KEY}.
+	 * {@code locationName.<regionId>}. Kept per RuneScape profile, like {@link #BLOWPIPE_DART_KEY}. Named in 1.x's
+	 * naming prompt, or since 2.0 by renaming a region the spot table doesn't list.
 	 */
 	static final String LOCATION_NAME_KEY_PREFIX = "locationName.";
-	/**
-	 * RSProfile config key prefix (in {@link SlayerLedgerConfig#GROUP}) of a map region the player chose Skip for in
-	 * the "Name this location" prompt: {@code locationSkip.<regionId>}, {@code true}. Cleared by the "Ask again
-	 * about skipped places" setting.
-	 */
-	static final String LOCATION_SKIP_KEY_PREFIX = "locationSkip.";
 
 	@Inject
 	private Client client;
@@ -200,6 +214,14 @@ public class SlayerLedgerPlugin extends Plugin
 	/** The XP lists' small skill icons ({@link #applySkillIcon}). EDT only. */
 	@Inject
 	private SkillIconManager skillIconManager;
+
+	/**
+	 * The setup tag sprites: {@code getSprite} on the client thread for the overlay ({@link SlayerLedgerOverlay}),
+	 * {@code getSpriteAsync} from the EDT for the sidebar's, on the live card's toggles and the Task history rows
+	 * ({@link #loadSetupIcon}).
+	 */
+	@Inject
+	private SpriteManager spriteManager;
 
 	@Inject
 	private EventBus eventBus;
@@ -233,10 +255,15 @@ public class SlayerLedgerPlugin extends Plugin
 	 */
 	private LedgerStore.DirectorySource ledgerDirectorySource;
 	/**
-	 * The bundled drop snapshot the luck meter reads (relative to {@link LuckMeter}). Only tests change it (see
-	 * {@link #setLuckSnapshotResource}), to start the plugin without it.
+	 * The bundled Slayer spot table (relative to {@link SlayerSpots}). Only tests change it (see
+	 * {@link #setSpotsResource}), to start the plugin without it.
 	 */
-	private String luckSnapshotResource = LuckMeter.SNAPSHOT_RESOURCE;
+	private String spotsResource = SlayerSpots.SNAPSHOT_RESOURCE;
+	/**
+	 * The bundled Slayer spot table, read in {@link #startUp}; {@link SlayerSpots#NONE} when it could not be
+	 * read. Immutable, so any thread may use it.
+	 */
+	private volatile SlayerSpots spots = SlayerSpots.NONE;
 	/**
 	 * EDT. Shows the Keep/Discard dialog for an unfinished session and returns whether to keep it: the panel's modal
 	 * {@link SlayerLedgerPanel#confirmKeepIncomplete}. Only tests replace it (see {@link #setKeepIncompleteDialog}),
@@ -252,8 +279,8 @@ public class SlayerLedgerPlugin extends Plugin
 	private volatile SlayerLedgerPanel panel;
 	/**
 	 * The shown account's history and what is worked out from it: the plugin writes the records, entries,
-	 * prices, names and settings to it, the panel observes and shows it, and it decides the new-task chat preview and
-	 * the overlay's historical time per kill. Used on the EDT only (see
+	 * prices, names and settings to it, the panel observes and shows it, and it decides the advisor's plan, the
+	 * assignment chat line and the overlay's historical time per kill. Used on the EDT only (see
 	 * {@link LedgerHistoryModel}); the client thread only reads the reference to queue EDT work.
 	 */
 	private volatile LedgerHistoryModel historyModel;
@@ -277,21 +304,49 @@ public class SlayerLedgerPlugin extends Plugin
 	private int streakCounter = StreakMilestone.NO_COUNTER;
 	/** Assignments that end without a session, read on the same ticks as {@link #completionSignal}. */
 	private final AssignmentWatch assignmentWatch = new AssignmentWatch();
-	/**
-	 * Client thread. The "not tracking" nudge after a task kill while idle or paused. Kept across plugin
-	 * restarts, so an assignment already nudged in this client run is not nudged again.
-	 */
-	private final TrackingNudge trackingNudge = new TrackingNudge();
 	private int settleTicks = LOGIN_SETTLE_TICKS;
 	/** Tick on which a completed session was held for late loot; its grace countdown starts on the next tick. */
 	private int completionHeldTick = -1;
 	/** Check for a persisted active session after the next settled observation (new login or account). */
 	private boolean restoreCheckNeeded;
 	/**
-	 * Client thread. Why a logout or world hop paused the running session ({@link AutoPauseMessage}), told in chat on
-	 * the next login (messages queued while not logged in may be lost); {@code null} when nothing is to be told.
+	 * Client thread. Whether the next settled login tick (once any restore check has run) tells the player, in one chat
+	 * line, that a session waits for their next kill ({@link #WAITING_LINE}). Set by a logout, a lost connection and
+	 * the plugin's start; not by a hop, which is not a stop.
 	 */
-	private AutoPauseMessage.Reason pendingAutoPause;
+	private boolean waitingLineDue;
+	/**
+	 * Client thread. The clock time of the task kill seen on {@link #pairTick} ({@link SessionTracker#getLastKillAt()}),
+	 * paired again on the next settled tick with the deaths of that tick too; {@link SessionTracker#NO_TIME} when none.
+	 */
+	private long pairKillAt = SessionTracker.NO_TIME;
+	/** Client thread. The tick {@link #pairKillAt}'s kill was seen on. */
+	private int pairTick;
+	/**
+	 * Client thread. The first tick {@link #pairKillAt}'s kill is paired from: 2 ticks before it, or before the drop to
+	 * zero it confirms ({@link #zeroDropTick}), whichever is earlier.
+	 */
+	private int pairFromTick;
+	/**
+	 * Client thread. The tick the task count last dropped to zero, while it still reads zero: a completion on a later
+	 * tick confirms that drop as the final kill, whose deaths are paired from 2 ticks before it; or
+	 * {@link #NO_TICK}.
+	 */
+	private int zeroDropTick = NO_TICK;
+	/** Client thread. The task count read on the last settled tick, or -1 when not read since the last login or hop. */
+	private int lastRemainingRead = -1;
+	/**
+	 * Client thread. Whether a bracelet of slaughter activated since the last settled tick: a task kill that left the
+	 * count unchanged ({@link SessionTracker#braceletKill}).
+	 */
+	private boolean slaughterKillPending;
+	/**
+	 * Client thread. Superior spawns whose message came while the session wasn't running but a task was assigned: the
+	 * kill that spawned one may (re)start the session on the same tick or the next ({@link #noteKillTick}), and then it
+	 * counts. {@link #heldSuperiorTick} is the tick of the latest one's message.
+	 */
+	private int heldSuperiorSpawns;
+	private int heldSuperiorTick;
 	/** Copy of the session persisted at the last logout; re-verified against the task after the next login. */
 	private SessionSnapshot logoutSnapshot;
 	// Pending restore check, deferred while the task count still reads zero after login.
@@ -306,12 +361,28 @@ public class SlayerLedgerPlugin extends Plugin
 	private SupplyTracker supplyTracker;
 	/** Which ticks and dropped items are left out of supply counting. */
 	private final SupplyExclusions supplyExclusions = new SupplyExclusions();
+	/** A running session's ticks in a row whose supplies were not counted, for a log line; client thread only. */
+	private final SkippedSupplyTicks skippedSupplyTicks = new SkippedSupplyTicks();
 	/** Blowpipe and trident use, counted per attack; client thread only. */
 	private final ChargedWeaponUsage chargedWeaponUsage = new ChargedWeaponUsage();
 	/** Keeps loading or charging the blowpipe or a trident out of the supplies diff; client thread only. */
 	private final ChargeExclusions chargeExclusions = new ChargeExclusions();
 	/** NPCs the player damaged while a session ran, whose deaths are the player's kills; client thread only. */
 	private final DamagedNpcs damagedNpcs = new DamagedNpcs();
+	/** The player's attacks of the last few ticks, which each hit is put down to; client thread only. */
+	private final PlayerAttacks playerAttacks = new PlayerAttacks();
+	/** When the player's cannon last fired, for cannon kills; client thread only. */
+	private final CannonFire cannonFire = new CannonFire();
+	/**
+	 * Client thread. Names of the NPCs the player hit since the last GameTick: activity for Away
+	 * ({@link SessionTracker#taskNpcHit}) once that tick's supplies and XP are read, so they are not after it.
+	 */
+	private final Set<String> hitNpcNames = new LinkedHashSet<>();
+	/**
+	 * Client thread. The task kills counted on the last settled tick, whose setup contexts are counted on the next one
+	 * ({@link #countKillContexts}), when the deaths paired with them are all known; or {@code null}.
+	 */
+	private KillContextsDue killContextsDue;
 	/**
 	 * The blowpipe's dart item id ({@link ChargedWeaponUsage#NO_ITEM} while unknown), mirrored from the RSProfile
 	 * config ({@link #BLOWPIPE_DART_KEY}). Written on the client thread, and on RuneScapeProfileChanged (any thread).
@@ -319,10 +390,29 @@ public class SlayerLedgerPlugin extends Plugin
 	private volatile int blowpipeDartId = ChargedWeaponUsage.NO_ITEM;
 	/** Whether the panel was last asked to show the "Check your blowpipe" hint; client thread only. */
 	private boolean dartHintShown;
+	/** What the blowpipe holds as its last check message said, less the shots since; client thread only. */
+	private final BlowpipeContents blowpipeContents = new BlowpipeContents();
+	/** Whether a blowpipe was worn on the last tick its shots were counted; client thread only. */
+	private boolean blowpipeWorn;
+	/** Zulrah's scales carried outside the blowpipe on the last supplies read; client thread only. */
+	private long looseScales;
+	/** Works out the overlay's snapshot each settled tick; client thread only. */
+	private final OverlayFeed overlayFeed = new OverlayFeed();
+	/**
+	 * The overlay's snapshot of the last settled tick ({@link OverlayFeed}), or {@code null}: written on the client
+	 * thread at the end of the tick, read by the overlay on the client thread every frame ({@link #overlayData()}).
+	 * Immutable.
+	 */
+	private volatile OverlayRows.Snapshot overlaySnapshot;
+	/**
+	 * Whether a settled tick has reached {@link #publishOverlaySnapshot} since the plugin's start or the last logout, so
+	 * the tracker holds the logged-in account's task. Until then the overlay shows nothing ({@link #overlayData()}): the
+	 * last account's state (an Ended assignment, say) lasts until this account's task is read. Reset in
+	 * {@code startUp} (EDT) and at a logout, set on the client thread; read by the overlay on the client thread.
+	 */
+	private volatile boolean overlaySettled;
 	/** Which bank openings are new bank trips; client thread only. */
 	private final BankTripCounter bankTripCounter = new BankTripCounter();
-	/** Which region the panel's "Name this location" prompt asks about; client thread only. */
-	private final LocationPrompt locationPrompt = new LocationPrompt();
 	/** Live session values for the panel, with unit prices cached for the session; tests may replace it. */
 	private SessionValuation sessionValuation = new SessionValuation();
 	/**
@@ -368,11 +458,18 @@ public class SlayerLedgerPlugin extends Plugin
 	/** Ground Items' hidden list the live session values were last computed (or tried) with; client thread only. */
 	private GroundItemsHidden sessionValueHidden;
 	/**
-	 * Id of the paused session whose values were worked out while paused with every price known, or {@code null}. A
-	 * paused session's loot and supplies can't change, so it is not valued again until it is resumed or the "Loot
-	 * price" setting changes. Client thread only.
+	 * Id of the stopped (Away, Paused or Logged out) session whose values were worked out while stopped with every
+	 * price known, or {@code null}. A stopped session's supplies can't change (they are buffered) and its loot only by a
+	 * paired task kill's late loot, which clears this ({@link #onServerNpcLoot}), so it is not valued again until then,
+	 * until it restarts or until the "Loot price" setting changes. Client thread only.
 	 */
 	private String pausedValuesSession;
+	/**
+	 * Id of the session whose notable drop line last said {@link NotableDropMessage#PAID_FOR}, or {@code null}: the
+	 * clause is said once per task ({@link #announceNotableDrop}), and a drop of another session (a new id) may say it
+	 * again. Client thread only.
+	 */
+	private String paidForSessionId;
 	/** This settled tick's XP of every skill, by {@link #SKILLS} index; reused every tick. Client thread only. */
 	private final int[] xpReading = new int[SKILLS.length];
 	/** The XP reading last passed to the tracker, by {@link #SKILLS} index; valid while {@link #xpSent}. */
@@ -409,7 +506,10 @@ public class SlayerLedgerPlugin extends Plugin
 	 * settled tick, or {@code null} when unknown. Written on the client thread, read by the panel on the EDT.
 	 */
 	private volatile Integer currentTaskStreak;
-	/** True while an active-session file is being loaded; Play is disabled so it cannot race the restore. */
+	/**
+	 * True while an active-session file is being loaded; no kill starts a new session and Resume is disabled, so
+	 * neither races the restore.
+	 */
 	private volatile boolean restorePending;
 	/** Session awaiting the Keep/Discard dialog; saved as partial on shutdown if still unresolved. */
 	private final AtomicReference<SessionTracker.Summary> pendingPrompt = new AtomicReference<>();
@@ -420,6 +520,10 @@ public class SlayerLedgerPlugin extends Plugin
 		// Until the client-thread block below has run; see clientStateReady.
 		clientStateReady = false;
 		tracker = new SessionTracker(System::currentTimeMillis);
+		tracker.setAwayMinutes(config.awayMinutes());
+		// Read once per run; the tracker, the history model and the kill reads share it.
+		spots = SlayerSpots.load(gson, spotsResource);
+		tracker.setSpots(spots);
 		// The store resolves its directory on its first operation; all of them run on the executor.
 		store = new LedgerStore(ledgerDirectorySource != null ? ledgerDirectorySource : this::getPluginDirectory, gson);
 		// getPluginDirectory does file IO and may move the legacy directory, so resolve it now, off the EDT, rather
@@ -441,20 +545,18 @@ public class SlayerLedgerPlugin extends Plugin
 		// The lookups answer whichever history model is current when an answer is ready.
 		lookups.setHistoryModelSource(this::historyModel);
 		historyModel = new LedgerHistoryModel(tracker, lootPriceMode, lookups::requestLocationNames,
-			lookups::requestCurrentPrices, lookups::requestItemNames, this::postAssignmentPreview,
+			lookups::requestCurrentPrices, lookups::requestItemNames, this::postAssignmentLine,
 			this::publishHistoricalPace, executor, SwingUtilities::invokeLater);
-		final Gson luckGson = gson;
-		final String luckResource = luckSnapshotResource;
-		historyModel.setLuckMeterSource(() -> luckGson == null ? null : LuckMeter.load(luckGson, luckResource));
 		historyModel.setGroundItemsHidden(groundItemsHidden);
-		panel = new SlayerLedgerPanel(this, tracker, historyModel, gson);
+		historyModel.setSpots(spots);
+		panel = new SlayerLedgerPanel(this, tracker, historyModel);
 		// startUp runs on the EDT, so the panel's sections can be set here.
 		for (SlayerLedgerPanel.OptionalSection section : SlayerLedgerPanel.OptionalSection.values())
 		{
 			panel.setSectionShown(section, isSectionShown(section));
 		}
-		historyModel.setTaskAdvisor(config.taskAdvisor(), taskAdvisorMetric());
-		taskOverlay = new SlayerLedgerOverlay(this, config);
+		historyModel.setTaskAdvisor(config.taskAdvisor(), config.advisorMetric());
+		taskOverlay = new SlayerLedgerOverlay(this, config, itemManager, spriteManager);
 		overlayManager.add(taskOverlay);
 
 		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
@@ -469,6 +571,8 @@ public class SlayerLedgerPlugin extends Plugin
 		restorePending = false;
 		publishedValues = null;
 		historicalPace = null;
+		overlaySnapshot = null;
+		overlaySettled = false;
 		ignoredLoot = IgnoredLoot.parse(config.ignoredLoot());
 		notableDropThreshold = NotableDrops.threshold(config.notableDropThreshold());
 		// Queued (startUp runs on the EDT). Client-thread state is reset here, not on the EDT, so it is only ever touched
@@ -478,21 +582,20 @@ public class SlayerLedgerPlugin extends Plugin
 			try
 			{
 				restoreCheckNeeded = true;
-				pendingAutoPause = null;
+				// A session restored from the last run waits for the next kill: said once, after the login.
+				waitingLineDue = true;
 				supplyTracker = new SupplyTracker(supplyReader::classifyItem);
 				supplyReader.reset();
+				overlayFeed.reset();
+				blowpipeContents.forget();
 				bankTripCounter.reset();
 				sessionValuation.reset();
 				// Item names are looked up afresh in each run of the plugin.
 				hiddenLoot.setList(GroundItemsHidden.NONE);
 				streakCounter = StreakMilestone.NO_COUNTER;
-				// A not-tracking row from before the plugin was turned off must not show; the nudged assignment is
-				// kept. Not in resetClientState, so a hop keeps the row. The overlay shows nothing until this has run.
-				trackingNudge.hideRow();
 				resetClientState();
 				// Today's prices are looked up afresh in each run of the plugin, and so are item and location names.
 				lookups.reset();
-				locationPrompt.reset();
 				lastLiveInputs = null;
 				// Assignments are watched afresh too; one first seen now is checked against the saved records.
 				assignmentWatch.forget();
@@ -503,8 +606,6 @@ public class SlayerLedgerPlugin extends Plugin
 					checkAccount();
 					loadBlowpipeDartId();
 				}
-				// "Ask again about skipped places" ticked while the plugin was off.
-				applyLocationSkipReset();
 			}
 			finally
 			{
@@ -533,6 +634,8 @@ public class SlayerLedgerPlugin extends Plugin
 			if (tracker != null && store != null)
 			{
 				savePendingPrompt();
+				// An Ended assignment has no session; its marker keeps it Ended in the next run.
+				persistEndedMarker();
 				endSession(SaveDecision.EndReason.SHUTDOWN);
 			}
 		}
@@ -582,10 +685,10 @@ public class SlayerLedgerPlugin extends Plugin
 		ledgerDirectorySource = source;
 	}
 
-	/** Test seam: reads the luck meter's drop snapshot from {@code resource} instead. Call before startUp. */
-	void setLuckSnapshotResource(String resource)
+	/** Test seam: reads the Slayer spot table from {@code resource} instead. Call before startUp. */
+	void setSpotsResource(String resource)
 	{
-		luckSnapshotResource = resource;
+		spotsResource = resource;
 	}
 
 	/**
@@ -620,6 +723,11 @@ public class SlayerLedgerPlugin extends Plugin
 		{
 			event.waitFor(completion);
 		}
+		Future<?> marker = persistEndedMarker();
+		if (marker != null)
+		{
+			event.waitFor(marker);
+		}
 		Future<?> save = endSession(SaveDecision.EndReason.SHUTDOWN);
 		if (save != null)
 		{
@@ -632,8 +740,7 @@ public class SlayerLedgerPlugin extends Plugin
 	 * new "Notable drop value" (notable drops already listed are kept), and applies a new "Loot price" setting: the
 	 * live values follow on the next game tick and the history is redrawn on the EDT. A change of "Hide Ground Items'
 	 * hidden items", of Ground Items' hidden or highlighted list, or Ground Items turned on or off, is applied the same
-	 * way. A "Panel sections" setting shows or hides its sidebar section on the EDT. "Ask again about skipped
-	 * places" is applied on the client thread.
+	 * way. A "Panel sections" setting shows or hides its sidebar section on the EDT.
 	 */
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
@@ -669,15 +776,20 @@ public class SlayerLedgerPlugin extends Plugin
 				SwingUtilities.invokeLater(() -> m.setLootPriceMode(mode));
 			}
 		}
-		else if (SlayerLedgerConfig.RESET_LOCATION_SKIPS.equals(event.getKey()))
+		else if (SlayerLedgerConfig.AWAY_MINUTES.equals(event.getKey()))
 		{
-			clientThread.invoke(this::applyLocationSkipReset);
+			// The tracker is synchronized; the next settled tick checks Away against the new limit.
+			final SessionTracker t = tracker;
+			if (t != null)
+			{
+				t.setAwayMinutes(config.awayMinutes());
+			}
 		}
 		else if (SlayerLedgerConfig.TASK_ADVISOR.equals(event.getKey())
-			|| SlayerLedgerConfig.TASK_ADVISOR_GOAL.equals(event.getKey()))
+			|| SlayerLedgerConfig.ADVISOR_METRIC.equals(event.getKey()))
 		{
 			final boolean enabled = config.taskAdvisor();
-			final TaskRanking.Metric metric = taskAdvisorMetric();
+			final AdvisorMetric metric = config.advisorMetric();
 			final LedgerHistoryModel m = historyModel;
 			if (m != null)
 			{
@@ -705,14 +817,8 @@ public class SlayerLedgerPlugin extends Plugin
 		}
 		switch (key)
 		{
-			case SlayerLedgerConfig.SHOW_WHAT_TO_BRING:
-				return SlayerLedgerPanel.OptionalSection.WHAT_TO_BRING;
-			case SlayerLedgerConfig.SHOW_TRENDS:
-				return SlayerLedgerPanel.OptionalSection.TRENDS;
 			case SlayerLedgerConfig.SHOW_OVERALL_TOTALS:
 				return SlayerLedgerPanel.OptionalSection.OVERALL_TOTALS;
-			case SlayerLedgerConfig.SHOW_LUCK_METER:
-				return SlayerLedgerPanel.OptionalSection.LUCK_METER;
 			case SlayerLedgerConfig.SHOW_SKIPPED_BLOCKED:
 				return SlayerLedgerPanel.OptionalSection.SKIPPED_BLOCKED;
 			default:
@@ -725,24 +831,11 @@ public class SlayerLedgerPlugin extends Plugin
 	{
 		switch (section)
 		{
-			case WHAT_TO_BRING:
-				return config.showWhatToBring();
-			case TRENDS:
-				return config.showTrends();
 			case OVERALL_TOTALS:
 				return config.showOverallTotals();
-			case LUCK_METER:
-				return config.showLuckMeter();
 			default:
 				return config.showSkippedBlocked();
 		}
-	}
-
-	/** The "Task advisor goal" setting's metric, Profit/h when unset. */
-	private TaskRanking.Metric taskAdvisorMetric()
-	{
-		final TaskAdvisorGoal goal = config.taskAdvisorGoal();
-		return (goal == null ? TaskAdvisorGoal.PROFIT : goal).metric();
 	}
 
 	/**
@@ -821,28 +914,40 @@ public class SlayerLedgerPlugin extends Plugin
 			case LOGIN_SCREEN:
 				// A completed session held for late loot is saved now; it is never persisted as the active session.
 				flushPendingCompletion();
-				noteAutoPause(tracker.autoPause(), AutoPauseMessage.Reason.LOGOUT);
+				// A logout stops the session: its segment closes now, and the next kill after a login restarts it.
+				tracker.loggedOut();
+				waitingLineDue = true;
 				cancelPendingRestore();
-				// Keep the session in memory (a re-login resumes it) but persist it in case the client is closed.
+				// Keep the session in memory (the next kill after a re-login restarts it) but persist it in case the
+				// client is closed; or an Ended assignment's marker.
 				persistOnLogout();
 				restoreCheckNeeded = true;
 				// The next login may be a different account; never show or adopt the old task.
 				tracker.clearCurrentTask();
-				trackingNudge.hideRow();
+				// The history is cleared below, so the next login's first settled tick must tell the model the task
+				// again, even when nothing changed (the same account, task and place): it asks for the advisor's plan.
+				lastLiveInputs = null;
 				streakCounter = StreakMilestone.NO_COUNTER;
 				loggedIn = false;
 				resetClientState();
 				blowpipeDartId = ChargedWeaponUsage.NO_ITEM;
-				// The next login may be another profile; a later kill in the region asks again.
-				hideLocationPrompt();
+				// The next login may be a different account, with another blowpipe and assignment.
+				blowpipeContents.forget();
+				overlaySnapshot = null;
+				// Nothing on the overlay after the next login until its first settled tick has read that account's task.
+				overlaySettled = false;
 				// Hide the history while logged out; it is reloaded on the next login (any account).
 				setHistoryAccount(SessionTracker.NO_ACCOUNT);
 				break;
-			case HOPPING:
-				noteAutoPause(tracker.autoPause(), AutoPauseMessage.Reason.WORLD_HOP);
-				// fall through
-			case LOGGING_IN:
 			case CONNECTION_LOST:
+				// A lost connection stops the session like a logout (V2 plan 4.1); it is persisted if the login
+				// screen follows.
+				tracker.loggedOut();
+				waitingLineDue = true;
+				// fall through
+			case HOPPING:
+				// A hop is not a stop: time keeps running.
+			case LOGGING_IN:
 				// No game ticks count the grace window down while not logged in; save a held completion now.
 				flushPendingCompletion();
 				loggedIn = false;
@@ -859,32 +964,19 @@ public class SlayerLedgerPlugin extends Plugin
 	}
 
 	/**
-	 * Client thread. Remembers why a logout or world hop paused the session, if it did ({@code paused}); a session
-	 * that was already paused or idle keeps any earlier reason, so the first cause is the one told.
+	 * Client thread, on the first settled tick after a login (or the plugin's start), once any restore check has run.
+	 * Posts one chat line ({@link #WAITING_LINE}) when a session of this account waits for the next kill: kept across
+	 * the logout, or restored from the last run. Nothing is posted when there is none, when it already restarted, or
+	 * when it belongs to another account.
 	 */
-	private void noteAutoPause(boolean paused, AutoPauseMessage.Reason reason)
+	private void announceWaiting()
 	{
-		if (paused)
+		waitingLineDue = false;
+		if (tracker.getStatus() == SessionTracker.Status.WAITING_FOR_NEXT_KILL
+			&& tracker.getSessionAccountHash() == client.getAccountHash())
 		{
-			pendingAutoPause = reason;
+			postChatLine(WAITING_LINE);
 		}
-	}
-
-	/**
-	 * Client thread, on the first settled tick after the login, once any relogin restore check has run. Posts one chat
-	 * line telling the player that a logout or world hop paused the session, then forgets the reason. Nothing is posted when the session is no longer paused
-	 * (resumed, stopped, or another account's session was put away) or when it belongs to another account.
-	 */
-	private void announceAutoPause()
-	{
-		final AutoPauseMessage.Reason reason = pendingAutoPause;
-		pendingAutoPause = null;
-		if (reason == null || tracker.getState() != SessionTracker.State.PAUSED
-			|| tracker.getSessionAccountHash() != client.getAccountHash())
-		{
-			return;
-		}
-		postChatLine(AutoPauseMessage.format(reason));
 	}
 
 	/**
@@ -903,38 +995,24 @@ public class SlayerLedgerPlugin extends Plugin
 	}
 
 	/**
-	 * Client thread. Another account or RuneScape profile is active: its region names and skipped regions are read
-	 * afresh, and the history model forgets the names it has (the panel then hides the prompt). A pending "Ask again
-	 * about skipped places" applies to it.
+	 * Client thread. Another account or RuneScape profile is active: its region names are read afresh, and the history
+	 * model forgets the names it has.
 	 */
 	private void forgetLocationNames()
 	{
 		lookups.forgetLocationNames();
-		locationPrompt.hide();
-		locationPrompt.forgetSkips();
-		applyLocationSkipReset();
 		final LedgerHistoryModel m = historyModel;
 		if (m != null)
 		{
-			// The panel hides its prompt when the model forgets the names.
 			SwingUtilities.invokeLater(m::clearLocationNames);
 		}
 	}
 
-	/** Client thread. Hides the "Name this location" prompt without skipping its region. */
-	private void hideLocationPrompt()
-	{
-		locationPrompt.hide();
-		final SlayerLedgerPanel p = panel;
-		if (p != null)
-		{
-			SwingUtilities.invokeLater(p::hideLocationPrompt);
-		}
-	}
-
 	/**
-	 * EDT. Saves the player's name for map region {@code region} (the prompt's Save): kept in the RSProfile config, so
-	 * it names the running session, every later task there and, for display, saved tasks there without a name.
+	 * EDT. Renames map region {@code region}, a region the spot table doesn't list (its spot is {@code region:N}),
+	 * for every task there (the history's "Rename place"): the name is kept in the RSProfile config, as 1.x
+	 * kept the names its prompt asked for, so it names the running session, every later task there and the saved tasks
+	 * there without a name of their own. Saved files are not rewritten.
 	 *
 	 * @return whether the name was taken; {@code false} when nothing is left after {@link TaskLocation#normalizeName}
 	 */
@@ -948,7 +1026,6 @@ public class SlayerLedgerPlugin extends Plugin
 		clientThread.invoke(() ->
 		{
 			lookups.saveLocationName(region, normalized);
-			locationPrompt.named(region);
 			final LedgerHistoryModel m = historyModel;
 			if (m != null)
 			{
@@ -960,63 +1037,12 @@ public class SlayerLedgerPlugin extends Plugin
 	}
 
 	/**
-	 * EDT. The prompt's Skip: {@code region} is not asked about again on this RuneScape profile, also after a restart
-	 * (kept in its RSProfile config), until the "Ask again about skipped places" setting clears it.
+	 * Client thread. Where the local player stands ({@link KillPlace#at}): the map region and the Slayer spot of the
+	 * player's tile ({@link WorldPoint#fromLocalInstance}, so an instance is its template's tile and plane), or
+	 * {@link KillPlace#NONE} while there is no player or scene, or while the player is on a Sailing boat (the tile is in
+	 * the boat's own world view, whose template is not where the boat is). Never throws, so the task is always observed.
 	 */
-	void skipLocationPrompt(int region)
-	{
-		clientThread.invoke(() ->
-		{
-			// Written first: the write may create the profile, and the profile change it posts forgets the skips held.
-			lookups.saveLocationSkip(region);
-			locationPrompt.skip(region);
-		});
-	}
-
-	/**
-	 * Client thread. While "Ask again about skipped places" is ticked and a RuneScape profile is active: forgets that
-	 * profile's skipped regions (in its config and here) and unticks the setting. Without a profile it stays ticked
-	 * until one is active ({@link #forgetLocationNames}).
-	 */
-	private void applyLocationSkipReset()
-	{
-		if (!config.resetLocationSkips() || !lookups.clearLocationSkips())
-		{
-			return;
-		}
-		locationPrompt.forgetSkips();
-		configManager.unsetConfiguration(SlayerLedgerConfig.GROUP, SlayerLedgerConfig.RESET_LOCATION_SKIPS);
-	}
-
-	/**
-	 * Client thread, after the task is observed. Asks the player to name the region of a kill just counted when it has
-	 * no name and the task has no assigned area (see {@link SessionTracker#takeRegionToName()}).
-	 */
-	private void offerLocationPrompt(int region)
-	{
-		if (!LocationTally.isRegion(region) || !locationPrompt.offer(region, lookups.locationName(region) != null,
-			lookups.isLocationSkipped(region)))
-		{
-			return;
-		}
-		final SlayerLedgerPanel p = panel;
-		if (p != null)
-		{
-			// The task's Wiki locations are added by the panel, which reads the bundled list.
-			final String monster = tracker.getSessionMonster() != null
-				? tracker.getSessionMonster() : tracker.getCurrentMonster();
-			final List<String> ownNames = lookups.profileLocationNames();
-			SwingUtilities.invokeLater(() -> p.showLocationPrompt(region, monster, ownNames));
-		}
-	}
-
-	/**
-	 * Client thread. The map region of the local player's tile ({@link WorldPoint#fromLocalInstance}, so an instance is
-	 * its template's region), or {@link LocationTally#NO_REGION} while there is no player or scene, or while the player
-	 * is on a Sailing boat (the tile is in the boat's own world view, whose template region is not where the boat is).
-	 * Never throws, so the task is always observed.
-	 */
-	private int readRegion()
+	private KillPlace readPlace()
 	{
 		try
 		{
@@ -1025,14 +1051,15 @@ public class SlayerLedgerPlugin extends Plugin
 			final WorldView view = local == null ? null : client.getWorldView(local.getWorldView());
 			if (view == null || !view.isTopLevel())
 			{
-				return LocationTally.NO_REGION;
+				return KillPlace.NONE;
 			}
-			return WorldPoint.fromLocalInstance(client, local).getRegionID();
+			final WorldPoint point = WorldPoint.fromLocalInstance(client, local);
+			return KillPlace.at(spots, point.getX(), point.getY(), point.getPlane());
 		}
 		catch (RuntimeException e)
 		{
-			log.debug("Unable to read the local player's region", e);
-			return LocationTally.NO_REGION;
+			log.debug("Unable to read the local player's location", e);
+			return KillPlace.NONE;
 		}
 	}
 
@@ -1110,23 +1137,33 @@ public class SlayerLedgerPlugin extends Plugin
 		}
 		checkAccount();
 		lookups.retryCurrentPrices();
+		// Read before this tick's supplies and XP, so a kill seen on this tick that restarts the session counts them
+		// (KillPairing.withTickStart): its own XP is read just before the kill is seen. This tick's attack is timed by it
+		// too, so a fight backdated to the attack counts its XP.
+		final long tickStart = tracker.now();
 		// Before observing the task, so supplies used on the tick the task completes still count.
 		trackSupplies();
 		// The menu clicks and messages that open a charging window arrive before this tick's GameTick, so trackSupplies
 		// has already left the charged materials out of this tick's diff. Weapon use comes from the attack itself, not
-		// the diff, so it is counted next and valued with the rest of this tick's supplies.
-		trackChargedWeapons();
+		// the diff, so it is counted next and valued with the rest of this tick's supplies. This tick's attack and
+		// cannon shot are noted with it.
+		trackChargedWeapons(tickStart);
+		trackCannon();
 		updateSessionValues();
 
 		if (settleTicks > 0)
 		{
 			settleTicks--;
+			applyHits();
 			return;
 		}
 
-		// Before observing the task, so XP gained on the tick the task completes still counts; a completion held for
-		// late loot is no longer running, so it gets no XP after its completion tick.
+		// Before observing the task, so XP gained on the tick the task completes still counts, and XP of a kill that
+		// restarts the session is buffered for it; a completion held for late loot is no longer running, so it gets no XP
+		// after its completion tick.
 		observeSkillXp();
+		// After this tick's supplies, XP and attack, before the deaths are paired.
+		applyHits();
 
 		final int remaining = client.getVarpValue(VarPlayerID.SLAYER_COUNT);
 		final int[] counters = {
@@ -1161,7 +1198,8 @@ public class SlayerLedgerPlugin extends Plugin
 			assignment = readAssignment();
 		}
 
-		// Decide before observing so Play stays disabled from the first settled observation until the restore ran.
+		// Decided before observing, so no kill starts a new session from the first settled observation until the
+		// restore ran (a new session would block the restore).
 		if (restoreCheckNeeded)
 		{
 			restoreCheckNeeded = false;
@@ -1178,8 +1216,48 @@ public class SlayerLedgerPlugin extends Plugin
 		}
 
 		// Read with the task, so the kills this observation counts are tallied where the player is.
-		final int region = readRegion();
-		switch (tracker.observe(name, creatureId, remaining, originalAmount, assignment, region, completionSignaled))
+		final KillPlace place = readPlace();
+		final int tickCount = client.getTickCount();
+		// The previous tick's kill is paired again with the deaths of that tick too (T - 2 to T + 1), and its kills'
+		// setup contexts are counted with their styles.
+		pairPreviousKill(tickCount);
+		countKillContexts(tickCount);
+		// This tick's kill, if the count dropped, is paired with the deaths from 2 ticks ago (V2 plan 4.1); they
+		// backdate a (re)start and name the known task NPCs. A (re)start also counts this tick's supplies and XP.
+		KillPairing pairing = damagedNpcs.pairing(tickCount - PAIR_TICKS_BEFORE, tickCount).withTickStart(tickStart);
+		final boolean restoreChecking = restorePending || pendingFileRestore || pendingReloginSnapshot != null;
+		if (restoreChecking)
+		{
+			// A new session would block the restore of the last one; an existing session still restarts.
+			pairing = pairing.withStartBlocked();
+		}
+		final long killAtBefore = tracker.getLastKillAt();
+		final SessionTracker.State stateBefore = tracker.getState();
+		// No session has kills while IDLE, so this also covers a kill that starts one.
+		final int killsBefore = tracker.getKills();
+		final SessionTracker.ObserveResult result = tracker.observe(name, creatureId, remaining, originalAmount,
+			assignment, place, completionSignaled, pairing);
+		if (slaughterKillPending)
+		{
+			// A bracelet of slaughter kept the count: still a task kill, so activity (or a restart), with no kill counted.
+			slaughterKillPending = false;
+			tracker.braceletKill(pairing);
+		}
+		// Before a completion is held (which resets the tracker's kills), the kills this tick counted.
+		final int killsCounted = Math.max(0, tracker.getKills() - killsBefore);
+		// A drop to zero is the final kill only once a completion confirms it, possibly on a later tick.
+		if (remaining > 0)
+		{
+			zeroDropTick = NO_TICK;
+		}
+		else if (lastRemainingRead > 0)
+		{
+			zeroDropTick = tickCount;
+		}
+		lastRemainingRead = remaining;
+		noteKillTick(tickCount, killAtBefore, stateBefore);
+		noteKillContexts(tickCount, killsCounted);
+		switch (result)
 		{
 			case COMPLETED:
 				log.debug("Slayer task completed");
@@ -1187,7 +1265,8 @@ public class SlayerLedgerPlugin extends Plugin
 				taskRewards.startCompletion(tracker.getSessionId(), counters, completionSignal.incrementedCounter());
 				tracker.setCompletionRewards(taskRewards.getSessionId(), taskRewards.earned(), taskRewards.streak());
 				// A running session waits COMPLETION_LOOT_GRACE_TICKS ticks for the final kill's loot before it is
-				// saved (see CompletionGraceTicker); a paused one is saved now.
+				// saved (see CompletionGraceTicker). The final kill restarted a stopped session first, so it is running;
+				// one that completed without a kill being seen is saved now.
 				if (tracker.holdCompletion())
 				{
 					completionHeldTick = client.getTickCount();
@@ -1206,8 +1285,6 @@ public class SlayerLedgerPlugin extends Plugin
 			default:
 				break;
 		}
-		// After the session's decision, so the final kill of a task held for late loot is offered too.
-		offerLocationPrompt(tracker.takeRegionToName());
 		// After the session's decision, so the master the tracker filled in for this task is used.
 		updateTaskStreak(remaining, counters);
 		// After the session's decision, so a session that took this task on this tick marks it as played.
@@ -1222,27 +1299,238 @@ public class SlayerLedgerPlugin extends Plugin
 			.blockedValues(readBlockedTaskValues())
 			.completionSignaled(completionSignaled)
 			.build());
-		// After the session's decision, so a kill a running session counted, or the kill that completed it, never nudges.
-		nudgeIfNotTracking(name, creatureId, remaining, originalAmount);
+		// Jad and Zuk tasks (V2 plan 4.1): inside the Fight Caves or the Inferno with that task assigned is Running. While
+		// a drop to zero waits for its completion the task has no name, so the session's is used.
+		final String caveTask = name != null ? name : tracker.getSessionMonster();
+		tracker.setInTaskCave(TaskCaves.isInside(caveTask, place.getRegion()), !restoreChecking);
+		// After this tick's kills, which are activity, and the cave, inside which Away never starts.
+		tracker.checkAway();
 
 		if (pendingFileRestore || pendingReloginSnapshot != null)
 		{
 			runPendingRestoreCheck(remaining, counters);
 		}
-		// After the restore check and this tick's task decision, so a session that one of them ended gets no line.
-		if (pendingAutoPause != null && !pendingFileRestore && pendingReloginSnapshot == null)
+		// After the restore check (a file restore is applied when its load comes back) and this tick's task decision,
+		// so a session that one of them restored is told about and one they ended or restarted gets no line.
+		if (waitingLineDue && !restorePending && !pendingFileRestore && pendingReloginSnapshot == null)
 		{
-			announceAutoPause();
+			announceWaiting();
 		}
 		// Last, so a session this tick started, restored or ended is seen.
 		refreshHistoryModelIfLiveChanged();
+		publishOverlaySnapshot(tickCount);
 	}
 
 	/**
-	 * Client thread, every settled tick. When the task, its kills left, its location or the session changed
-	 * ({@link LedgerHistoryModel#liveInputs}), asks the history model on the EDT to check the waiting chat preview
-	 * again and publish the overlay's historical time per kill; otherwise, while the model waits for today's prices,
-	 * asks it to end that wait once it has run out. So none of these waits for the panel's refresh timer.
+	 * Client thread, at the end of each settled tick. Works out the overlay's snapshot ({@link OverlayFeed}): the
+	 * identity, superiors, XP, the supply runway and the superior moment, so the overlay computes nothing while it draws
+	 *. The runway reads the supplies the diff saw this tick ({@link SupplyTracker#carried}; none seen without its
+	 * baseline) with what a worn blowpipe holds, the session's use, and the history's use per kill published with its
+	 * time per kill. Nothing while the overlay is off, and the feed forgets what it kept between ticks, so turning the
+	 * overlay back on shows no moment for a superior that came while it was off. Either way the overlay may show again
+	 * ({@link #overlaySettled}): this tick has read the logged-in account's task.
+	 */
+	private void publishOverlaySnapshot(int tick)
+	{
+		if (!config.showTaskOverlay() || supplyTracker == null)
+		{
+			overlaySnapshot = null;
+			overlayFeed.reset();
+			overlaySettled = true;
+			return;
+		}
+		final SupplyRunway.Carrying carried = SupplyRunway.carrying(SupplyRunway.carried(supplyTracker.carried()),
+			supplyTracker.hasBaseline(), blowpipeWorn, blowpipeContents, looseScales);
+		overlaySnapshot = overlayFeed.update(tracker, spots, lookups::locationName, carried, supplyTracker::supplyKey,
+			historicalPace, tick);
+		overlaySettled = true;
+	}
+
+	/**
+	 * Client thread, each settled tick before the task is observed. A task kill seen on an earlier tick is paired again
+	 * with the deaths from 2 ticks before it to 1 tick after ({@link SessionTracker#pairKill}): an NPC can die on the
+	 * tick after the count dropped, and it may still backdate the restart the kill caused. When that kill completed the
+	 * task, its session is held for late loot and no longer runs, so a death paired with it on the tick after was
+	 * refused as it died: it is tallied into the held session now ({@link SessionTracker#addHeldNpcKill}).
+	 */
+	private void pairPreviousKill(int tick)
+	{
+		if (pairKillAt == SessionTracker.NO_TIME || tick <= pairTick)
+		{
+			return;
+		}
+		final long killAt = pairKillAt;
+		pairKillAt = SessionTracker.NO_TIME;
+		tracker.pairKill(killAt, damagedNpcs.pairing(pairFromTick, pairTick + 1));
+		damagedNpcs.tallyUntallied(pairFromTick, pairTick + 1, name -> tracker.addHeldNpcKill(killAt, name));
+	}
+
+	/**
+	 * Client thread, after this tick's task decision. Remembers this tick's task kill, if there was one, for
+	 * {@link #pairPreviousKill} on the next tick: its deaths are paired from 2 ticks before it, or before the drop to
+	 * zero a completion on this tick confirms ({@link #zeroDropTick}). When the kill started or restarted the
+	 * session:
+	 * <ul>
+	 * <li>tallies the deaths paired with it so far (from that tick to this one), which died before the session ran and
+	 * so were refused then ({@link DamagedNpcs#tallyUntallied}; a death on T + 1 is tallied as it dies, and none
+	 * twice);</li>
+	 * <li>counts the superior spawns held since the tick before ({@link #heldSuperiorSpawns}).</li>
+	 * </ul>
+	 * Held superior spawns are dropped after the tick after their message. The supplies diff runs while the task is
+	 * assigned, so a (re)start needs no new baseline: the tracker counts its warm-up from the buffer.
+	 */
+	private void noteKillTick(int tick, long killAtBefore, SessionTracker.State stateBefore)
+	{
+		final long killAt = tracker.getLastKillAt();
+		final int from = (zeroDropTick != NO_TICK ? Math.min(tick, zeroDropTick) : tick) - PAIR_TICKS_BEFORE;
+		if (killAt != killAtBefore)
+		{
+			pairKillAt = killAt;
+			pairTick = tick;
+			pairFromTick = from;
+		}
+		if (stateBefore != SessionTracker.State.RUNNING && tracker.getState() == SessionTracker.State.RUNNING)
+		{
+			damagedNpcs.tallyUntallied(from, tick, tracker::addNpcKill);
+			while (heldSuperiorSpawns > 0)
+			{
+				tracker.addSuperiorSpawn();
+				heldSuperiorSpawns--;
+			}
+		}
+		if (heldSuperiorTick < tick)
+		{
+			// Held since an earlier tick, so this tick was its last chance: no kill of the session spawned it.
+			heldSuperiorSpawns = 0;
+		}
+	}
+
+	/**
+	 * The task kills one settled tick counted, waiting for the next one, when the deaths paired with them are all
+	 * known, to be counted as setup contexts ({@link SlayerLedgerPlugin#countKillContexts}). What is read on the kill's
+	 * own tick (the cannon and the worn gear) is kept with them.
+	 */
+	private static final class KillContextsDue
+	{
+		/** The kills' clock time ({@link SessionTracker#getLastKillAt()} just after them). */
+		final long killAt;
+		/** The tick they were counted on. */
+		final int tick;
+		/** The first tick their deaths are paired from (as {@link SlayerLedgerPlugin#pairFromTick}). */
+		final int fromTick;
+		final int kills;
+		final boolean cannon;
+		final Integer prayerBonus;
+
+		KillContextsDue(long killAt, int tick, int fromTick, int kills, boolean cannon, Integer prayerBonus)
+		{
+			this.killAt = killAt;
+			this.tick = tick;
+			this.fromTick = fromTick;
+			this.kills = kills;
+			this.cannon = cannon;
+			this.prayerBonus = prayerBonus;
+		}
+	}
+
+	/**
+	 * Client thread, after this tick's task decision. When the tick counted task kills, keeps them for
+	 * {@link #countKillContexts} on the next settled tick, with what only this tick can tell: whether the cannon
+	 * fired in the last {@link CannonFire#FIRE_WINDOW_TICKS} ticks, and the worn prayer bonus ({@link #readPrayerBonus}).
+	 * Their deaths are paired from 2 ticks before the kill, or before the drop to zero a completion on this tick
+	 * confirms, as {@link #noteKillTick} pairs them.
+	 */
+	private void noteKillContexts(int tick, int kills)
+	{
+		if (kills <= 0)
+		{
+			return;
+		}
+		final int from = (zeroDropTick != NO_TICK ? Math.min(tick, zeroDropTick) : tick) - PAIR_TICKS_BEFORE;
+		killContextsDue = new KillContextsDue(tracker.getLastKillAt(), tick, from, kills, cannonFire.firedWithin(tick),
+			readPrayerBonus());
+	}
+
+	/**
+	 * Client thread, each settled tick before the task is observed. Counts the setup contexts of the kills the previous
+	 * settled tick counted ({@link SessionTracker#addKillContext}): each with the cannon and gear focus of its
+	 * tick, and the style of one of the deaths paired with them, from 2 ticks before to 1 tick after
+	 * ({@link DamagedNpcs#takeStyles}); kills with no such death (a cannon's, say) have no style. A completion held for
+	 * late loot takes its final kill's contexts too.
+	 */
+	private void countKillContexts(int tick)
+	{
+		final KillContextsDue due = killContextsDue;
+		if (due == null || tick <= due.tick)
+		{
+			return;
+		}
+		killContextsDue = null;
+		final List<SetupStyle> styles = damagedNpcs.takeStyles(due.fromTick, due.tick + 1, due.kills);
+		final GearFocus gear = due.prayerBonus == null ? null : SetupDetection.gearFocus(due.prayerBonus);
+		for (int i = 0; i < due.kills; i++)
+		{
+			tracker.addKillContext(due.killAt, due.cannon, i < styles.size() ? styles.get(i) : null, gear,
+				due.prayerBonus);
+		}
+	}
+
+	/**
+	 * Client thread. The total prayer bonus of the worn items, from their equipment stats
+	 * ({@code ItemManager.getItemStats}, RuneLite's copy of the OSRS Wiki's bonuses), for a kill's gear focus;
+	 * {@code null} when nothing worn has stats (none worn, or the stats not loaded yet). A worn item without stats adds
+	 * nothing.
+	 */
+	private Integer readPrayerBonus()
+	{
+		final ItemContainer worn = client.getItemContainer(InventoryID.WORN);
+		if (worn == null)
+		{
+			return null;
+		}
+		int total = 0;
+		boolean known = false;
+		for (Item item : worn.getItems())
+		{
+			if (item == null || item.getId() < 0)
+			{
+				continue;
+			}
+			final ItemStats stats = itemManager.getItemStats(item.getId());
+			if (stats != null && stats.getEquipment() != null)
+			{
+				total += stats.getEquipment().getPrayer();
+				known = true;
+			}
+		}
+		return known ? total : null;
+	}
+
+	/**
+	 * Client thread, each tick after its supplies and XP are read: puts this tick's hits (and any left from the
+	 * settling ticks) down to the player's attacks ({@link DamagedNpcs#applyHits}), and makes the hits on the
+	 * session's known task NPCs activity for Away ({@link SessionTracker#taskNpcHit}) now, so this tick's supplies and
+	 * XP are not after the last activity.
+	 */
+	private void applyHits()
+	{
+		damagedNpcs.applyHits(playerAttacks);
+		for (String name : hitNpcNames)
+		{
+			tracker.taskNpcHit(name);
+		}
+		hitNpcNames.clear();
+	}
+
+	/**
+	 * Client thread, every settled tick and after a loaded active session is applied ({@link #applyActiveSession},
+	 * which runs between ticks). When the task, its master, its kills left, its location or the session changed
+	 * ({@link LedgerHistoryModel#liveInputs}), asks the history model on the EDT to ask for the advisor's plan, check
+	 * the waiting chat line again and publish the overlay's historical time per kill; otherwise, while the model waits
+	 * for today's prices, asks it to end that wait once it has run out, and once the waiting chat line's names wait is
+	 * over ({@link LedgerHistoryModel#isAssignmentLineOverdue}), asks it to check the line again, which then posts it
+	 * with the names there are. So none of these waits for the panel's refresh timer, and a new kills left asks for a
+	 * new plan at most once a tick.
 	 */
 	private void refreshHistoryModelIfLiveChanged()
 	{
@@ -1256,9 +1544,16 @@ public class SlayerLedgerPlugin extends Plugin
 				SwingUtilities.invokeLater(m::refreshLive);
 			}
 		}
-		else if (m != null && m.isWaitingForCurrentPrices())
+		else if (m != null)
 		{
-			SwingUtilities.invokeLater(m::endExpiredCurrentPricesWait);
+			if (m.isWaitingForCurrentPrices())
+			{
+				SwingUtilities.invokeLater(m::endExpiredCurrentPricesWait);
+			}
+			if (m.isAssignmentLineOverdue())
+			{
+				SwingUtilities.invokeLater(m::checkAssignmentLine);
+			}
 		}
 	}
 
@@ -1312,52 +1607,31 @@ public class SlayerLedgerPlugin extends Plugin
 	}
 
 	/**
-	 * Client thread, every settled tick. Tells the player, once per assignment, that a task kill was not tracked because
-	 * no session is running or the session is paused ({@link TrackingNudge}); the overlay row comes from
-	 * {@link #overlayData()}. Only informs: it never starts or resumes a session. Quiet while a restore check is pending
-	 * (the session may yet be restored) and for another account's session.
-	 */
-	private void nudgeIfNotTracking(String name, int creatureId, int remaining, int originalAmount)
-	{
-		SessionTracker.State state = tracker.getState();
-		final boolean suppressed = restorePending || pendingFileRestore || pendingReloginSnapshot != null
-			|| accountHash == SessionTracker.NO_ACCOUNT
-			|| (state == SessionTracker.State.PAUSED && tracker.getSessionAccountHash() != accountHash);
-		final TrackingNudge.Line line = trackingNudge.update(accountHash, name, creatureId, remaining, originalAmount,
-			state, suppressed);
-		if (line == TrackingNudge.Line.NONE)
-		{
-			return;
-		}
-		postChatLine(TrackingNudge.message(line));
-	}
-
-	/**
 	 * Client thread, every settled tick, whether or not a session is running (only varps and varbits are read). Saves
-	 * each assignment that ended without a session, and asks the history model for a new one's chat preview; see
-	 * {@link AssignmentWatch}.
+	 * each assignment that ended without a session, and asks the history model for a new one's advisor chat line
+	 *; see {@link AssignmentWatch}.
 	 */
 	private void watchAssignments(AssignmentWatch.Reading reading)
 	{
 		final List<AssignmentWatch.Ended> ended = assignmentWatch.update(reading, tracker.takeSessionTaskKeys(),
 			System.currentTimeMillis());
-		// Taken every tick, so a new assignment is previewed on the tick it is seen or never.
+		// Taken every tick, so a new assignment gets its line on the tick it is seen or never.
 		final boolean started = assignmentWatch.takeStarted();
 		final long account = accountHash;
 		if (account == SessionTracker.NO_ACCOUNT)
 		{
 			return;
 		}
-		if (started && config.assignmentPreview())
+		if (started && config.advisorChatLine())
 		{
 			// The tracker took this tick's task before the watch did. The history is on the EDT; the history model
-			// posts the line through postAssignmentPreview once it has what it needs.
+			// posts the line through postAssignmentLine once it has what it needs.
 			final int creatureId = tracker.getCurrentCreatureId();
 			final String monster = tracker.getCurrentMonster();
 			final LedgerHistoryModel m = historyModel;
 			if (m != null)
 			{
-				SwingUtilities.invokeLater(() -> m.requestAssignmentPreview(account, creatureId, monster));
+				SwingUtilities.invokeLater(() -> m.requestAssignmentLine(account, creatureId, monster));
 			}
 		}
 		for (AssignmentWatch.Ended e : ended)
@@ -1422,13 +1696,17 @@ public class SlayerLedgerPlugin extends Plugin
 
 	/**
 	 * Client thread. NPC kill loot from the game's own loot tracker, the event core LootTrackerPlugin (1.13.3) uses for
-	 * NPC loot. Counted only while the session is RUNNING, or for a just-completed session during its late-loot grace
-	 * window (enforced by {@link SessionTracker#addLoot}). Loot from any NPC counts, not only the task monster; see
-	 * {@link SessionTracker#addLoot}. Bones and demonic ashes a bonecrusher or ash sanctifier destroyed are left out
-	 * ({@link CrushedLootFilter}), judged by what is carried at the time of this drop, and so are the player's ignored
-	 * items ({@link IgnoredLoot}); see {@link LootFilter}. The kept loot's notable stacks ({@link NotableDrops}) go
-	 * with it; they are only priced while loot is recorded ({@link SessionTracker#isRecordingLoot}), so no price
-	 * lookups run for loot outside a session.
+	 * NPC loot. Where it goes, with the name of the NPC it came from, is decided by
+	 * {@link SessionTracker#addLoot(ItemTally, List, String)}: the running session (or a just-completed one during its
+	 * late-loot grace window), a stopped session when it is a known task NPC's (a paired task kill's late loot), or the
+	 * buffer outside segments while a task is assigned. Loot from any NPC counts, not only the task monster. Bones and
+	 * demonic ashes a bonecrusher or ash sanctifier destroyed are left out ({@link CrushedLootFilter}), judged by what is
+	 * carried at the time of this drop, and so are the player's ignored items ({@link IgnoredLoot}); see
+	 * {@link LootFilter}. The kept loot's notable stacks ({@link NotableDrops}) go with it; they are only priced while
+	 * loot may be kept ({@link SessionTracker#isRecordingLoot}), so no price lookups run while no task is assigned.
+	 * Araxxor's harvest after the task its kill completed was saved goes to that task's record instead
+	 * ({@link SessionTracker#takeHarvestRecord}, {@link #addHarvestToRecord}). Notable stacks a session takes get
+	 * the notable drop line ({@link #announceNotableDrop}).
 	 */
 	@Subscribe
 	public void onServerNpcLoot(ServerNpcLoot event)
@@ -1448,10 +1726,76 @@ public class SlayerLedgerPlugin extends Plugin
 			items.add(stack.getId(), stack.getQuantity());
 		}
 		final ItemTally kept = new LootFilter(crushedLootFilter(), ignoredLoot).apply(items, lookups.lootItemNames());
-		// Priced only while recording. A Play click between the check and addLoot records this kill's loot without its
-		// notable stacks (at most one drop's entries); addLoot still decides loot and drops in one step.
+		final NPCComposition npc = event.getComposition();
+		final String npcName = npc == null ? null : npc.getName();
+		final long account = accountHash;
+		final String harvestRecord = tracker.takeHarvestRecord(account, npcName);
+		if (harvestRecord != null)
+		{
+			addHarvestToRecord(account, harvestRecord, kept);
+			return;
+		}
+		// Priced only while recording. A Resume click between the check and addLoot records this kill's loot without its
+		// notable stacks (at most one drop's entries); addLoot still decides loot and drops in one step. Passed on even
+		// with nothing kept: Araxxor's loot is its harvest whatever it kept, so no harvest window opens after it.
 		final boolean priced = !kept.isEmpty() && tracker.isRecordingLoot();
-		tracker.addLoot(kept, priced ? findNotableDrops(kept) : null);
+		final List<NotableDrop> drops = priced ? findNotableDrops(kept) : null;
+		final boolean added = tracker.addLoot(kept, drops, npcName);
+		if (added && tracker.getState().isClockStopped())
+		{
+			// A stopped session took a paired task kill's late loot: valued again (see updateSessionValues).
+			pausedValuesSession = null;
+		}
+		if (added)
+		{
+			announceNotableDrop(drops, npcName);
+		}
+	}
+
+	/**
+	 * Client thread. Adds Araxxor's harvest that came after the task its kill completed was saved to that task's record
+	 *, as if it had come before the save: its items are priced now, as a save prices a record
+	 * ({@link LedgerRecord#captureValues}), and its notable stacks found at the "Loot price" setting, as for any loot;
+	 * {@link LedgerStore#addLoot} adds them on the executor, after the record's own save, which the client thread queued
+	 * there first. The ledger is then reloaded, like the note and setup edits ({@link #editRecordNote}). The task-complete
+	 * chat line went out with the save, and this loot gets no notable drop line: the task it is added to has ended.
+	 */
+	private void addHarvestToRecord(long account, String id, ItemTally loot)
+	{
+		if (loot.isEmpty())
+		{
+			return;
+		}
+		final ItemValuation.UnitPrices prices = new ItemValuation.UnitPrices();
+		try
+		{
+			ItemValuation.capturePrices(loot, lookups.priceLookup(), prices);
+		}
+		catch (RuntimeException e)
+		{
+			log.warn("Unable to price Araxxor's loot for Slayer Ledger record {}", id, e);
+		}
+		final List<NotableDrop> drops = findNotableDrops(loot, prices);
+		executor.execute(() ->
+		{
+			boolean failed = false;
+			try
+			{
+				store.addLoot(account, id, loot, prices, drops);
+			}
+			catch (IOException | RuntimeException e)
+			{
+				log.warn("Unable to add Araxxor's loot to Slayer Ledger record {}", id, e);
+				failed = true;
+			}
+			// Reload either way so the panel reflects what is actually on disk.
+			reloadLedger(account);
+			if (failed)
+			{
+				// Posted after the reload's update, so the refresh does not immediately clear it.
+				publishHistoryError(account, SlayerLedgerPanel.HARVEST_FAILED_MESSAGE);
+			}
+		});
 	}
 
 	/**
@@ -1468,6 +1812,23 @@ public class SlayerLedgerPlugin extends Plugin
 		{
 			final ItemValuation.UnitPrices prices = new ItemValuation.UnitPrices();
 			ItemValuation.capturePrices(loot, lookups.priceLookup(), prices);
+			return findNotableDrops(loot, prices);
+		}
+		catch (RuntimeException e)
+		{
+			log.debug("Unable to value loot for notable drops", e);
+			return null;
+		}
+	}
+
+	/**
+	 * Client thread. The notable stacks of one kill's kept loot at its unit prices, at the "Loot price" setting (see
+	 * {@link NotableDrops}); none when that fails.
+	 */
+	private List<NotableDrop> findNotableDrops(ItemTally loot, ItemValuation.UnitPrices prices)
+	{
+		try
+		{
 			return NotableDrops.find(loot, prices, lootPriceMode, notableDropThreshold, this::lootItemName,
 				System.currentTimeMillis());
 		}
@@ -1476,6 +1837,86 @@ public class SlayerLedgerPlugin extends Plugin
 			log.debug("Unable to value loot for notable drops", e);
 			return null;
 		}
+	}
+
+	/**
+	 * Client thread. Posts the notable drop line ({@link NotableDropMessage}) for one kill's notable stacks that a
+	 * session took (not buffered loot), unless the "Notable drop line" setting is off: the most valuable item that
+	 * Ground Items' hidden list doesn't hide ({@link #withoutHiddenDrops}; hidden coins still count), with the task's
+	 * kill number while its kills left are known (the overlay bar's kills done of the assigned size). It says the task
+	 * is paid for only when the session's supply cost so far, as last valued ({@link #publishedValues}, at most
+	 * {@link #SESSION_VALUE_TICKS} ticks old), is known exactly and the drop's value covers it, and only once per task
+	 * ({@link #paidForSessionId}).
+	 */
+	private void announceNotableDrop(List<NotableDrop> drops, String npcName)
+	{
+		if (drops == null || drops.isEmpty() || !config.notableDropLine())
+		{
+			return;
+		}
+		final LootPriceMode mode = lootPriceMode;
+		final NotableDrop drop = NotableDropMessage.pick(withoutHiddenDrops(drops), mode);
+		if (drop == null)
+		{
+			return;
+		}
+		int killNumber = 0;
+		int taskSize = 0;
+		final SessionTracker.LiveTask live = tracker.liveTask();
+		final int assigned = tracker.getCurrentOriginalAmount();
+		if (live != null && live.getRemaining() > 0 && assigned >= live.getRemaining())
+		{
+			killNumber = assigned - live.getRemaining();
+			taskSize = assigned;
+		}
+		final SessionValuation.Values values = publishedValues;
+		final Long suppliesCost = values != null && values.getSuppliesUnpriced() == 0 && live != null
+			&& Objects.equals(values.getSessionId(), live.getSessionId()) ? values.getSuppliesGe() : null;
+		final Long value = drop.value(mode);
+		final String sessionId = live == null ? null : live.getSessionId();
+		final boolean paidFor = value != null && sessionId != null && !sessionId.equals(paidForSessionId)
+			&& NotableDropMessage.paysForTask(value, suppliesCost);
+		final String message = NotableDropMessage.chatMessage(drop, mode, npcName, killNumber, taskSize, paidFor);
+		if (message != null)
+		{
+			postChatMessage(message);
+			if (paidFor)
+			{
+				paidForSessionId = sessionId;
+			}
+		}
+	}
+
+	/**
+	 * Client thread. {@code drops} without the item stacks Ground Items' hidden list hides from the loot value
+	 * ({@link #hiddenLoot}, {@link HiddenLoot#leavesOutAny}): every hidden item but coins, which always count. Pets are
+	 * kept. {@code drops} itself when none is left out.
+	 */
+	private List<NotableDrop> withoutHiddenDrops(List<NotableDrop> drops)
+	{
+		final List<Integer> ids = new ArrayList<>();
+		for (NotableDrop drop : drops)
+		{
+			if (drop != null && drop.getItemId() != null)
+			{
+				ids.add(drop.getItemId());
+			}
+		}
+		final HiddenLoot hidden = hiddenLoot(ids);
+		if (!hidden.leavesOutAny(ids))
+		{
+			return drops;
+		}
+		final List<NotableDrop> shown = new ArrayList<>(drops.size());
+		for (NotableDrop drop : drops)
+		{
+			if (drop == null || drop.getItemId() == null
+				|| !hidden.leavesOutAny(Collections.singletonList(drop.getItemId())))
+			{
+				shown.add(drop);
+			}
+		}
+		return shown;
 	}
 
 	/** Client thread. An item's name for a notable drop, or {@code null} when the lookup fails. */
@@ -1519,8 +1960,11 @@ public class SlayerLedgerPlugin extends Plugin
 
 	/**
 	 * Client thread. Remembers the tick of a pickpocket so its server NPC loot is not counted as kill loot, counts
-	 * superior spawns ({@link SuperiorSpawnMessage}; RUNNING only, see {@link SessionTracker#addSuperiorSpawn}), learns
-	 * the blowpipe's dart type from its check message ({@link BlowpipeMessage}), lets a charging message close a
+	 * superior spawns ({@link SuperiorSpawnMessage}; RUNNING only, see {@link SessionTracker#addSuperiorSpawn}, or held
+	 * for a kill that (re)starts the session on this tick or the next, see {@link #heldSuperiorSpawns}), counts
+	 * a Slayer bracelet charge as a supply ({@link SlayerBracelets}; as any supply, see
+	 * {@link SessionTracker#addSupplies}), learns the blowpipe's dart type
+	 * from its check message ({@link BlowpipeMessage}), lets a charging message close a
 	 * {@link ChargeExclusions} window, adds a pet drop ({@link PetMessage}) to the notable drops (by the loot rules,
 	 * see {@link SessionTracker#addPet}), and counts a boss kill count message ({@link KillCountMessage}; by the loot
 	 * rules and {@link BossKillCounts}, see {@link SessionTracker#addBossKillCount}).
@@ -1550,27 +1994,53 @@ public class SlayerLedgerPlugin extends Plugin
 		{
 			return;
 		}
-		if (PICKPOCKET_REGEX.matcher(event.getMessage()).matches())
+		if (PICKPOCKET_REGEX.matcher(GameMessageText.plain(event.getMessage())).matches())
 		{
 			pickpocketTick = client.getTickCount();
 		}
-		if (SuperiorSpawnMessage.matches(type != ChatMessageType.MESBOX, event.getMessage()))
+		if (SuperiorSpawnMessage.matches(type != ChatMessageType.MESBOX, event.getMessage())
+			&& !tracker.addSuperiorSpawn() && tracker.getCurrentRemaining() > 0)
 		{
-			tracker.addSuperiorSpawn();
+			// The kill that spawned it may (re)start the session on this tick's GameTick or the next (noteKillTick).
+			heldSuperiorSpawns++;
+			heldSuperiorTick = client.getTickCount();
+		}
+		final int bracelet = type != ChatMessageType.MESBOX ? SlayerBracelets.chargeUsed(event.getMessage())
+			: SlayerBracelets.NONE;
+		if (bracelet != SlayerBracelets.NONE)
+		{
+			// One charge of the worn bracelet: counted while RUNNING, else buffered while a task is assigned
+			// (SessionTracker.addSupplies).
+			final ItemTally used = new ItemTally();
+			used.add(bracelet, 1);
+			tracker.addSupplies(used, null, Collections.singletonMap(bracelet, SlayerBracelets.CHARGES_PER_BRACELET));
+			// A bracelet of slaughter kept the count after a task kill: handled on the next settled tick, with the NPC
+			// deaths around it. An expeditious bracelet's double drop needs nothing: the kills follow the count.
+			if (bracelet == SlayerBracelets.SLAUGHTER_BRACELET)
+			{
+				slaughterKillPending = true;
+			}
 		}
 		final BlowpipeMessage.Darts darts = BlowpipeMessage.parse(event.getMessage());
 		if (darts != null)
 		{
 			// A check message naming a dart type this plugin doesn't know also forgets the type: darts aren't counted.
 			setBlowpipeDartId(darts.isLoaded() ? darts.getDartId() : ChargedWeaponUsage.NO_ITEM);
+			// The overlay's runway counts what it holds.
+			blowpipeContents.messageSeen(darts);
+		}
+		else if (BlowpipeMessage.isOutOfScales(event.getMessage()))
+		{
+			blowpipeContents.outOfScales();
 		}
 		chargeExclusions.messageSeen(event.getMessage(), client.getTickCount());
 	}
 
 	/**
-	 * Client thread. Remembers "Drop" clicks so the dropped item's decrease is not counted as a supply, and loading,
-	 * charging, unloading or uncharging the blowpipe or a trident ({@link ChargeExclusions}). Only reads the click;
-	 * the menu is never changed.
+	 * Client thread. Remembers "Drop" clicks so the dropped item's decrease is not counted as a supply, teleport scrolls
+	 * stored in the master scroll book ({@link SupplyExclusions#useClicked}), and loading, charging, unloading or
+	 * uncharging the blowpipe, a trident or a powered staff ({@link ChargeExclusions}). Only reads the click; the menu
+	 * is never changed.
 	 */
 	@Subscribe
 	public void onMenuOptionClicked(MenuOptionClicked event)
@@ -1601,8 +2071,25 @@ public class SlayerLedgerPlugin extends Plugin
 			// Only the click that uses the selected item on another one; selecting an item is also "Use".
 			if (event.getMenuAction() == MenuAction.WIDGET_TARGET_ON_WIDGET)
 			{
-				chargeExclusions.menuOptionClicked(option, useItemIds(event), tick);
+				final int[] used = useItemIds(event);
+				chargeExclusions.menuOptionClicked(option, used, tick);
+				supplyExclusions.useClicked(used, tick);
+				for (int id : used)
+				{
+					if (ChargedWeaponUsage.BLOWPIPES.contains(id))
+					{
+						// Darts or scales loaded: what it holds is known again only from a check message.
+						blowpipeContents.forget();
+						break;
+					}
+				}
 			}
+			return;
+		}
+		if ("Charge".equalsIgnoreCase(plain))
+		{
+			// The powered staves' charge prompt takes the runes from the inventory.
+			chargeExclusions.menuOptionClicked(option, new int[]{itemId}, tick);
 			return;
 		}
 		if ("Unload".equalsIgnoreCase(plain) || "Uncharge".equalsIgnoreCase(plain))
@@ -1612,6 +2099,7 @@ public class SlayerLedgerPlugin extends Plugin
 			{
 				// The darts come out; the type is learned again from the next check message.
 				setBlowpipeDartId(ChargedWeaponUsage.NO_ITEM);
+				blowpipeContents.forget();
 			}
 		}
 	}
@@ -1654,7 +2142,7 @@ public class SlayerLedgerPlugin extends Plugin
 		if (BankTripCounter.isBankInterface(event.getGroupId()))
 		{
 			final SessionTracker.State state = tracker.getState();
-			final boolean active = state == SessionTracker.State.RUNNING || state == SessionTracker.State.PAUSED;
+			final boolean active = state.isActive();
 			if (bankTripCounter.bankOpened(tick, state == SessionTracker.State.RUNNING,
 				active ? tracker.getSessionId() : null))
 			{
@@ -1695,7 +2183,9 @@ public class SlayerLedgerPlugin extends Plugin
 	/**
 	 * Client thread. A death of the local player: counted while RUNNING ({@link SessionTracker#addDeath}), and the
 	 * items that leave the inventory after it are not supplies used. A death of an NPC the player damaged
-	 * ({@link #onHitsplatApplied}) is tallied under its name ({@link SessionTracker#addNpcKill}).
+	 * ({@link #onHitsplatApplied}) is kept for pairing with a task kill around it ({@link DamagedNpcs#pairing}, V2 plan
+	 * 4.1) and tallied under its name ({@link SessionTracker#addNpcKill}): now while RUNNING, else by the kill it
+	 * is paired with if that kill (re)starts the session ({@link #noteKillTick}).
 	 */
 	@Subscribe
 	public void onActorDeath(ActorDeath event)
@@ -1712,30 +2202,53 @@ public class SlayerLedgerPlugin extends Plugin
 		else if (event.getActor() instanceof NPC)
 		{
 			final NPC npc = (NPC) event.getActor();
-			if (damagedNpcs.takeDied(worldViewId(npc), npc.getIndex()))
+			final int worldViewId = worldViewId(npc);
+			if (!damagedNpcs.isDamaged(worldViewId, npc.getIndex()))
 			{
-				// Tallied only while RUNNING (the tracker decides); an NPC outside the Catacombs that has a variant's
-				// name is not tallied at all (CatacombsVariants#tallyName).
-				tracker.addNpcKill(CatacombsVariants.tallyName(npc.getId(), npc.getName()));
+				return;
 			}
+			final String name = npc.getName();
+			// An NPC outside the Catacombs with a variant's name is not tallied at all (CatacombsVariants#tallyName).
+			final String tallyName = CatacombsVariants.tallyName(npc.getId(), name);
+			// Tallied now only while RUNNING (the tracker decides). A death before the kill that (re)starts the session
+			// is tallied by that kill (noteKillTick), once.
+			final boolean tallied = tracker.addNpcKill(tallyName);
+			damagedNpcs.died(worldViewId, npc.getIndex(), name, tallyName, tallied, client.getTickCount(),
+				tracker.now(), tracker.getAwayMillis());
 		}
 	}
 
 	/**
-	 * Client thread. Remembers an NPC the player hit while a session is running, so its death counts as the
-	 * player's kill in the session's kills per NPC name ({@link SessionTracker#addNpcKill}). Only the player's own
-	 * hitsplats count ({@code Hitsplat.isMine()}); {@link DamagedNpcs} keeps a bounded number of NPCs.
+	 * Client thread. Remembers an NPC the player hit, with when their run of hits on it began (V2 plan 4.1), while a
+	 * task is assigned, a session exists or a completion is held for late loot (its final kill's last hits may land the
+	 * tick after the task count's drop): its death is the player's kill in the session's kills per NPC name
+	 * ({@link SessionTracker#addNpcKill}), and a task kill paired with it is backdated to that start. It is
+	 * remembered now, so a death later in this tick finds it. The rest waits for this tick's GameTick, after its
+	 * supplies, XP and attack are read ({@link #applyHits}): the hit is put down to the player's attack, for its
+	 * style and to start its run no later than the attack's tick, and a hit on one of the session's known task
+	 * NPCs is activity for Away ({@link SessionTracker#taskNpcHit}). Only the player's own hitsplats count
+	 * ({@code Hitsplat.isMine()}); {@link DamagedNpcs} keeps a bounded number of NPCs.
 	 */
 	@Subscribe
 	public void onHitsplatApplied(HitsplatApplied event)
 	{
 		if (!clientStateReady || !(event.getActor() instanceof NPC) || event.getHitsplat() == null
-			|| !event.getHitsplat().isMine() || tracker.getState() != SessionTracker.State.RUNNING)
+			|| !event.getHitsplat().isMine())
+		{
+			return;
+		}
+		if (!tracker.getState().isActive() && tracker.getCurrentRemaining() <= 0 && !tracker.hasPendingCompletion())
 		{
 			return;
 		}
 		final NPC npc = (NPC) event.getActor();
-		damagedNpcs.damaged(worldViewId(npc), npc.getIndex());
+		damagedNpcs.damaged(worldViewId(npc), npc.getIndex(), tracker.now(), tracker.getAwayMillis(),
+			client.getTickCount());
+		final String name = npc.getName();
+		if (name != null && hitNpcNames.size() < MAX_HIT_NPC_NAMES)
+		{
+			hitNpcNames.add(name);
+		}
 	}
 
 	/** Client thread. Forgets a despawned NPC the player damaged: its index can be reused. */
@@ -1761,35 +2274,42 @@ public class SlayerLedgerPlugin extends Plugin
 	}
 
 	/**
-	 * Client thread. Reads this tick's tracked containers and adds what was used to the session (RUNNING only; the
-	 * diff and its rules are in {@link SupplyTracker}). The baseline always moves to this tick, so changes made inside
-	 * an excluded interface are never counted later. While no session is running (idle, paused or a completion held
-	 * for late loot) the containers are not read and the baseline is dropped: nothing would be counted, and Play
-	 * (start or resume) takes a fresh baseline ({@link #takeSupplyBaseline}); only the inventory is read, once after it
-	 * changes, to note its potions ({@link #notePotionVariants}). Two exceptions keep the old behaviour:
-	 * the excluded interfaces are still checked every tick, so one closed just before Play still shields the first
-	 * ticks after it; and while a cannon is set up or loaded ({@link #cannonInUse}) the containers are still diffed
-	 * (without counting), so cannonballs loaded before Play are still told apart by type
-	 * ({@link SupplyTracker}'s cannonball type is inferred from what leaves the inventory on a load).
+	 * Client thread. Reads this tick's tracked containers and adds what was used ({@link SessionTracker#addSupplies};
+	 * the diff and its rules are in {@link SupplyTracker}): to the session while it runs, otherwise to the buffer
+	 * outside segments, which a (re)start counts from its warm-up (V2 plan 4.1). The baseline always moves to this
+	 * tick, so changes made inside an excluded interface are never counted later.
+	 *
+	 * <p>The diff runs while the tracker collects ({@link SessionTracker#isCollecting}): a session is running, or a task
+	 * is assigned and not Ended (Waiting for the first kill, Away, Paused, after a login). While no task is assigned
+	 * (none, or a completion held for late loot) or it is Ended, the containers are not read and the baseline is
+	 * dropped; only the inventory is read, once after it changes, to note its potions
+	 * ({@link #notePotionVariants}), and the excluded interfaces are still checked every tick, so one closed just before
+	 * the diff resumes still shields its first ticks.</p>
+	 *
+	 * <p>A running session's ticks left out in a long stretch leave a log line with the reason
+	 * ({@link #noteSkippedSupplyTick}), so a silent stop leaves a trace.</p>
+	 *
+	 * <p>Every tick, diffed or not, tells the overlay's feed what the counting leaves out (the whole tick, or dropped
+	 * and charged items; {@link OverlayFeed#suppliesLeftOut}), so a supply that leaves the inventory then, banked or
+	 * dropped, is forgotten by the runway rather than shown as run out.</p>
 	 */
 	private void trackSupplies()
 	{
 		final int tick = client.getTickCount();
-		boolean excludedOpen = false;
-		for (int group : SUPPLY_EXCLUDED_INTERFACES)
-		{
-			// An interface is open while its root widget is loaded (as core plugins check).
-			if (client.getWidget(group, 0) != null)
-			{
-				excludedOpen = true;
-				break;
-			}
-		}
-		supplyExclusions.beginTick(tick, excludedOpen);
+		final int openGroup = openSupplyExcludedInterface();
+		supplyExclusions.beginTick(tick, openGroup != NO_INTERFACE);
+		final boolean excluded = supplyExclusions.isTickExcluded(tick);
+		final Set<Integer> dropped = supplyExclusions.droppedItems();
+		final Set<Integer> charged = chargeExclusions.excludedItems(tick);
+		// Every tick, counted or not: a supply that leaves on such a tick (banked, dropped) never runs out.
+		overlayFeed.suppliesLeftOut(excluded, dropped);
+		overlayFeed.suppliesLeftOut(false, charged);
 
 		final boolean running = tracker.getState() == SessionTracker.State.RUNNING;
-		if (!running && !cannonInUse())
+		looseScales = 0;
+		if (!tracker.isCollecting())
 		{
+			skippedSupplyTicks.reset();
 			supplyTracker.reset();
 			notePotionVariants();
 			return;
@@ -1798,29 +2318,104 @@ public class SlayerLedgerPlugin extends Plugin
 		if (observation == null)
 		{
 			supplyTracker.reset();
+			noteSkippedSupplyTick(running, tick, openGroup, false);
 			return;
 		}
-		final boolean excluded = supplyExclusions.isTickExcluded(tick);
+		looseScales = observation.getItems().getOrDefault(SupplyRunway.ZULRAH_SCALES, 0L);
 		// Charged materials are skipped both ways: loading darts is not a use, and unloading them is not a return.
-		final SupplyTracker.Usage usage = supplyTracker.update(observation, running, excluded,
-			supplyExclusions.droppedItems(), chargeExclusions.excludedItems(tick));
+		final SupplyTracker.Usage usage = supplyTracker.update(observation, true, excluded, dropped, charged);
 		if (!usage.isEmpty())
 		{
 			tracker.addSupplies(usage.getUsed(), usage.getReturned(), usage.getDoses());
 		}
+		if (excluded)
+		{
+			noteSkippedSupplyTick(running, tick, openGroup, true);
+		}
+		else
+		{
+			skippedSupplyTicks.reset();
+		}
 	}
 
 	/**
-	 * Client thread, while no supplies diff runs. The diff used to see the inventory every tick, and each potion's use
-	 * is recorded under the highest-dose variant the tracker has seen ({@link SupplyTracker}); so, after the inventory
-	 * changed, its items alone are read once and their potions noted. A potion drunk from 4 to 3 doses before
-	 * Play is still recorded as the 4-dose item.
+	 * Client thread. The first of {@link #SUPPLY_EXCLUDED_INTERFACES} open now, or {@link #NO_INTERFACE}. An interface
+	 * is open while its root widget is loaded and shown ({@code !isHidden()}, as core ItemStatPlugin checks the GE offers
+	 * interface, 1.13.4). A loaded root widget alone is not enough: the game's own widget lookup also loads a
+	 * group whenever a script or server packet refers to one of its components, without opening it or posting
+	 * WidgetLoaded, so a group can stay loaded after its interface was closed. Its root widget then has no parent, so
+	 * it reads hidden; taking it for open would leave every later tick out of supply counting.
+	 */
+	private int openSupplyExcludedInterface()
+	{
+		for (int group : SUPPLY_EXCLUDED_INTERFACES)
+		{
+			final Widget root = client.getWidget(group, 0);
+			if (root != null && !root.isHidden())
+			{
+				return group;
+			}
+		}
+		return NO_INTERFACE;
+	}
+
+	/**
+	 * Client thread. A tick whose supplies were not counted. While a session runs, an unusually long stretch of such
+	 * ticks leaves a rate-limited log line with the reason ({@link SkippedSupplyTicks}): the first at debug level, the
+	 * repeats (ten minutes or more, rare for a real visit) at info, so a silent stop of supply counting leaves a trace
+	 * in the default client log. Cheap: the reason is only worked out when a line is due.
+	 *
+	 * @param openGroup       the excluded interface open on this tick, or {@link #NO_INTERFACE}
+	 * @param inventoryLoaded whether the inventory could be read
+	 */
+	private void noteSkippedSupplyTick(boolean running, int tick, int openGroup, boolean inventoryLoaded)
+	{
+		if (!running)
+		{
+			skippedSupplyTicks.reset();
+			return;
+		}
+		if (!skippedSupplyTicks.skipped())
+		{
+			return;
+		}
+		final String reason;
+		if (!inventoryLoaded)
+		{
+			reason = "the inventory is not loaded";
+		}
+		else if (openGroup != NO_INTERFACE)
+		{
+			reason = "excluded interface " + openGroup + " is open";
+		}
+		else
+		{
+			reason = supplyExclusions.exclusionReason(tick);
+		}
+		final int length = skippedSupplyTicks.length();
+		if (length > SkippedSupplyTicks.FIRST_REPORT_TICKS)
+		{
+			// Ten minutes or more is rare for a real visit, so it reaches the default (INFO) client log.
+			log.info("Supplies not counted for {} game ticks in a row while the session runs: {}", length, reason);
+		}
+		else
+		{
+			log.debug("Supplies not counted for {} game ticks in a row while the session runs: {}", length, reason);
+		}
+	}
+
+	/**
+	 * Client thread, while no supplies diff runs (no task assigned, or it is Ended). The diff used to see the inventory
+	 * every tick, and each potion's use is recorded under the highest-dose variant the tracker has seen
+	 * ({@link SupplyTracker}); so, after the inventory changed, its items alone are read once and their potions noted
+	 *. A potion drunk from 4 to 3 doses before a task is assigned is still recorded as the 4-dose item.
 	 *
 	 * <p>Each read notes every item whose data is loaded. An item whose data is not loaded yet is retried on the next
 	 * idle ticks, at most {@link #INVENTORY_NOTE_TRIES} reads per change: apart from a lookup that threw, only a
-	 * wieldable item waiting for its item stats can be in that state ({@link SupplyReader#classifyItem}), and that is
-	 * never a potion, so stopping loses no potion. Counting is unchanged: the diff classifies every item it sees while
-	 * a session runs.</p>
+	 * wieldable item waiting for its item stats, which is never a potion, or a members item seen on a free world
+	 * ({@link SupplyReader#classifyItem}) can be in that state. A login or hop to a members world reads the inventory
+	 * again, so stopping loses no potion. Counting is unchanged: the diff classifies every item it sees while it
+	 * runs.</p>
 	 */
 	private void notePotionVariants()
 	{
@@ -1852,61 +2447,152 @@ public class SlayerLedgerPlugin extends Plugin
 	}
 
 	/**
-	 * Client thread. Whether the player's cannon is being set up or is set up ({@code DROPCANNON} not 0; core
-	 * CannonPlugin treats 4 as placed, 1.13.4) or holds cannonballs ({@code ROCKTHROWER}). A cannon can only be loaded
-	 * once it is set up, which takes several ticks, so the supplies diff has a baseline before any load.
+	 * Client thread. Counts this tick's blowpipe shot or trident or powered staff cast ({@link ChargedWeaponUsage}) from
+	 * the worn weapon and cape, the local player's animation and frame, and the weapon's cast graphics
+	 * ({@link ChargedWeaponUsage#castGraphics}, {@code Actor#hasSpotAnim}, 1.13.4), and adds what it used
+	 * ({@link SessionTracker#addSupplies}: to the session while it runs, otherwise to the buffer outside segments).
+	 * Only while the supplies diff runs ({@link SessionTracker#isCollecting}): otherwise the carry-overs, the dart
+	 * hint and the recent attacks are reset, apart from the attacks while a completion is held for late loot, whose
+	 * final kill's last hits may land on the next tick. Also shows or hides the panel's "Check your blowpipe"
+	 * hint, while the session runs, and notes this tick's attack for the styles of the hits it lands
+	 * ({@link #noteAttack}).
+	 *
+	 * @param tickStart when this tick began (clock millis), before its supplies and XP were read
 	 */
-	private boolean cannonInUse()
+	private void trackChargedWeapons(long tickStart)
 	{
-		return client.getVarpValue(VarPlayerID.DROPCANNON) != 0 || client.getVarpValue(VarPlayerID.ROCKTHROWER) > 0;
-	}
-
-	/**
-	 * Client thread. Counts this tick's blowpipe shot or trident cast ({@link ChargedWeaponUsage}) from the worn weapon
-	 * and cape, the local player's animation and frame, and the trident cast graphic ({@code Actor#hasSpotAnim},
-	 * 1.13.4), and adds what it used to the session's supplies. Only while RUNNING: otherwise the carry-overs and the
-	 * dart hint are reset, so a stopped or paused session never counts a shot later. Also shows or hides the panel's
-	 * "Check your blowpipe" hint.
-	 */
-	private void trackChargedWeapons()
-	{
-		final Player player = tracker.getState() == SessionTracker.State.RUNNING ? client.getLocalPlayer() : null;
+		final Player player = tracker.isCollecting() ? client.getLocalPlayer() : null;
 		if (player == null)
 		{
 			chargedWeaponUsage.reset();
+			// What the blowpipe holds is kept, between tasks and after End task too, though shots now are not taken out
+			// of it: only loading, Unload, Uncharge, logout and another account forget it.
+			blowpipeWorn = false;
+			if (tracker.hasPendingCompletion())
+			{
+				playerAttacks.forgetXp();
+			}
+			else
+			{
+				playerAttacks.clear();
+			}
 			publishDartHint(false);
 			return;
 		}
 		final ItemContainer worn = client.getItemContainer(InventoryID.WORN);
 		final int weaponId = SupplyReader.wornItemId(worn, EquipmentInventorySlot.WEAPON);
 		final int animationId = player.getAnimation();
-		boolean tridentGraphic = false;
-		if (ChargedWeaponUsage.TRIDENT_ANIMATIONS.contains(animationId))
+		final int animationFrame = player.getAnimationFrame();
+		noteAttack(player, weaponId, animationId, animationFrame, tickStart);
+		boolean castGraphic = false;
+		for (int graphic : ChargedWeaponUsage.castGraphics(weaponId, animationId))
 		{
-			for (int graphic : ChargedWeaponUsage.TRIDENT_GRAPHICS)
-			{
-				tridentGraphic |= player.hasSpotAnim(graphic);
-			}
+			castGraphic |= player.hasSpotAnim(graphic);
 		}
 		final Map<Integer, Integer> used = chargedWeaponUsage.update(ChargedWeaponUsage.Tick.builder()
 			.tick(client.getTickCount())
 			.weaponId(weaponId)
 			.animationId(animationId)
-			.animationFrame(player.getAnimationFrame())
+			.animationFrame(animationFrame)
 			.capeId(SupplyReader.wornItemId(worn, EquipmentInventorySlot.CAPE))
 			// Dizana's quiver setting (varbit 9803) is not verified in game yet: assume it saves 80%.
 			.quiverAmmoSave(null)
-			.tridentGraphic(tridentGraphic)
+			.castGraphic(castGraphic)
 			.vorkathsHeadUpgrade(config.vorkathsHeadUpgrade())
 			.dartId(blowpipeDartId)
 			.build());
+		blowpipeWorn = ChargedWeaponUsage.BLOWPIPES.contains(weaponId);
 		if (!used.isEmpty())
 		{
 			final ItemTally items = new ItemTally();
 			used.forEach(items::add);
 			tracker.addSupplies(items, null, null);
+			if (blowpipeWorn)
+			{
+				blowpipeContents.used(used);
+			}
 		}
-		publishDartHint(chargedWeaponUsage.isDartCheckNeeded() && ChargedWeaponUsage.BLOWPIPES.contains(weaponId));
+		publishDartHint(tracker.getState() == SessionTracker.State.RUNNING && chargedWeaponUsage.isDartCheckNeeded()
+			&& ChargedWeaponUsage.BLOWPIPES.contains(weaponId));
+	}
+
+	/**
+	 * Client thread. Notes the player's attack starting this tick on the NPC they are interacting with
+	 * ({@link PlayerAttacks}): an animation at its first frame (as {@link ChargedWeaponUsage} counts attacks), not
+	 * eating or drinking, while the player is interacting with an NPC, so loading a cannon or picking something up is
+	 * not one, and with XP gained this tick in {@link AttackStyles#ATTACK_XP_SKILLS}, so a block is not one either. The
+	 * XP is read every tick for that. Its style comes from the animation and the worn weapon
+	 * ({@link AttackStyles#attackStyle}); an attack whose style isn't known (the weapon's stats not loaded yet) is not
+	 * noted.
+	 */
+	private void noteAttack(Player player, int weaponId, int animationId, int animationFrame, long tickStart)
+	{
+		final boolean xpRose = playerAttacks.xpRose(readAttackXp());
+		final Actor target = player.getInteracting();
+		if (animationFrame != 0 || !AttackStyles.mayBeAttack(animationId) || !(target instanceof NPC) || !xpRose)
+		{
+			return;
+		}
+		final NPC npc = (NPC) target;
+		final SetupStyle weapon = AttackStyles.isSpell(animationId) ? null : weaponStyle(weaponId);
+		playerAttacks.add(client.getTickCount(), AttackStyles.attackStyle(animationId, weapon), tickStart,
+			DamagedNpcs.key(worldViewId(npc), npc.getIndex()), AttackStyles.splashes(animationId, weaponId));
+	}
+
+	/**
+	 * Client thread. The total XP of {@link AttackStyles#ATTACK_XP_SKILLS} now, or {@link PlayerAttacks#NO_XP} before
+	 * the stats are loaded (Hitpoints XP reads 0, as {@link #observeSkillXp} checks).
+	 */
+	private long readAttackXp()
+	{
+		if (client.getSkillExperience(Skill.HITPOINTS) <= 0)
+		{
+			return PlayerAttacks.NO_XP;
+		}
+		long total = 0;
+		for (Skill skill : AttackStyles.ATTACK_XP_SKILLS)
+		{
+			total += client.getSkillExperience(skill);
+		}
+		return total;
+	}
+
+	/**
+	 * Client thread. The worn weapon's style from its equipment stats ({@link AttackStyles#weaponStyle}): Melee when
+	 * nothing is wielded (unarmed), {@code null} when its stats are not loaded.
+	 */
+	private SetupStyle weaponStyle(int weaponId)
+	{
+		if (weaponId == ChargedWeaponUsage.NO_ITEM)
+		{
+			return SetupStyle.MELEE;
+		}
+		final ItemStats stats = itemManager.getItemStats(weaponId);
+		final ItemEquipmentStats e = stats == null ? null : stats.getEquipment();
+		if (e == null)
+		{
+			return null;
+		}
+		return AttackStyles.weaponStyle(e.getAstab(), e.getAslash(), e.getAcrush(), e.getAmagic(), e.getArange(),
+			e.getRstr());
+	}
+
+	/**
+	 * Client thread. Reads whether the player's cannon is placed ({@code DROPCANNON} 4) and decayed
+	 * ({@code MCANNON_DECAYED} 1), as core CannonPlugin reads them (1.13.4), and its loaded cannonballs
+	 * ({@code ROCKTHROWER}) for {@link CannonFire}. Only while the supplies diff runs
+	 * ({@link SessionTracker#isCollecting}), so nothing is read while no task is assigned; otherwise its shots are
+	 * forgotten.
+	 */
+	private void trackCannon()
+	{
+		if (!tracker.isCollecting())
+		{
+			cannonFire.reset();
+			return;
+		}
+		cannonFire.update(client.getTickCount(), client.getVarpValue(VarPlayerID.DROPCANNON) == CannonFire.PLACED,
+			client.getVarbitValue(VarbitID.MCANNON_DECAYED) == 1, client.getVarpValue(VarPlayerID.ROCKTHROWER));
 	}
 
 	/** Client thread. Shows or hides the panel's "Check your blowpipe" hint (on the EDT) when it changes. */
@@ -1925,19 +2611,20 @@ public class SlayerLedgerPlugin extends Plugin
 	}
 
 	/**
-	 * Client thread. Values the running or paused session's loot and supplies for the panel, at most once every
+	 * Client thread. Values the active session's loot and supplies for the panel, at most once every
 	 * {@link #SESSION_VALUE_TICKS} ticks. ItemManager is only called here, on the client thread; {@link SessionValuation}
 	 * caches unit prices for the session and skips the lookups when nothing changed. Results reach the panel on the
 	 * EDT, and only when they differ from what it shows. When no session is active the values are cleared.
 	 *
-	 * <p>A paused session's loot and supplies can't change, so once it has been valued while paused with every GE price
-	 * known, it is not valued again (no copy of its tallies is taken) until it is resumed or the "Loot price" setting
+	 * <p>A stopped (Away, Paused or Logged out) session's supplies can't change (they are buffered), nor its loot apart
+	 * from a paired task kill's late loot, so once it has been valued while stopped with every GE price known, it is not
+	 * valued again (no copy of its tallies is taken) until such loot arrives, it restarts or the "Loot price" setting
 	 * changes. While a price is unavailable it keeps being valued, so the retry can still fill it in.</p>
 	 */
 	private void updateSessionValues()
 	{
 		final SessionTracker.State state = tracker.getState();
-		if (state != SessionTracker.State.RUNNING && state != SessionTracker.State.PAUSED)
+		if (!state.isActive())
 		{
 			if (publishedValues != null)
 			{
@@ -1953,13 +2640,15 @@ public class SlayerLedgerPlugin extends Plugin
 		final GroundItemsHidden hiddenList = groundItemsHidden;
 		// A new "Loot price" setting or hidden list is valued at once (once: a failing valuation is still throttled).
 		final boolean modeChanged = mode != sessionValueMode || !hiddenList.equals(sessionValueHidden);
-		if (state != SessionTracker.State.PAUSED)
+		final boolean stopped = state.isClockStopped();
+		if (!stopped)
 		{
 			pausedValuesSession = null;
 		}
 		else if (!modeChanged && pausedValuesSession != null && pausedValuesSession.equals(tracker.getSessionId()))
 		{
-			// Valued while paused already, in this mode and with every price known: nothing can have changed.
+			// Valued while stopped (Away, Paused or Logged out) already, in this mode and with every price known:
+			// nothing can have changed.
 			return;
 		}
 		final int tick = client.getTickCount();
@@ -1989,7 +2678,7 @@ public class SlayerLedgerPlugin extends Plugin
 			return;
 		}
 		// The state read above: a session resumed meanwhile is RUNNING on the next tick, which clears this again.
-		pausedValuesSession = state == SessionTracker.State.PAUSED && values.getLootUnpriced() == 0
+		pausedValuesSession = stopped && values.getLootUnpriced() == 0
 			&& values.getSuppliesUnpriced() == 0 ? active.getSessionId() : null;
 		if (!values.equals(publishedValues))
 		{
@@ -2009,7 +2698,9 @@ public class SlayerLedgerPlugin extends Plugin
 	}
 
 	/**
-	 * Client thread. Takes a fresh supplies baseline now, so nothing from before a Play (start or resume) is counted.
+	 * Client thread. Takes a fresh supplies baseline now, so nothing from before it is counted: only for the
+	 * {@link #startSessionNow} test seam, which counts nothing from before it as the removed Play did. A real (re)start
+	 * needs none: the diff runs while a task is assigned, and the tracker counts the warm-up from its buffer.
 	 */
 	private void takeSupplyBaseline()
 	{
@@ -2078,56 +2769,101 @@ public class SlayerLedgerPlugin extends Plugin
 
 	// ---- Panel actions (EDT) ----
 
-	boolean play()
+	/**
+	 * Test seam: starts a session at once ({@link SessionTracker#startNow}), as the removed Play did, for tests whose
+	 * subject is not how a session starts; the player starts sessions with a task kill.
+	 */
+	boolean startSessionNow()
 	{
-		if (!loggedIn || restorePending || !tracker.play(accountHash))
+		if (!loggedIn || restorePending || !tracker.startNow(accountHash))
 		{
 			return false;
 		}
-		// Supplies count from now: anything used before Play (while idle or paused) is never counted.
+		// Supplies count from now: anything used before is never counted.
 		clientThread.invoke(this::takeSupplyBaseline);
 		refreshHistoryModel();
 		return true;
 	}
 
+	/** Pause: the running session's segment closes now. */
 	void pause()
 	{
 		tracker.pause();
 		refreshHistoryModel();
 	}
 
-	void stop()
+	/**
+	 * Resume, while Paused: opens a segment at once, a restart, so the supplies used in the warm-up before it count
+	 * (V2 plan 4.1); the supplies diff kept running while paused, so it needs no new baseline.
+	 */
+	boolean resume()
 	{
-		endSession(SaveDecision.EndReason.PLAYER_STOP);
+		if (!canResume() || !tracker.resume(accountHash))
+		{
+			return false;
+		}
 		refreshHistoryModel();
+		return true;
 	}
 
-	boolean canPlay()
+	/** Whether Resume would succeed: logged in, no restore check pending, and the session is this account's and Paused. */
+	boolean canResume()
 	{
-		return loggedIn && !restorePending && tracker.canPlay(accountHash);
+		return loggedIn && !restorePending && tracker.canResume(accountHash);
 	}
 
 	/**
-	 * What the task overlay shows, or {@code null} when no running or paused session has a task (idle, a no-task
-	 * session, or a completed one held for late loot) and no not-tracking nudge is shown. The task comes from one
-	 * {@link SessionTracker#liveTask()} call; the live values and the historical time per kill
-	 * ({@link #publishHistoricalPace}) are those last published, used only when they belong to the same session. The
-	 * Task row shows the name the task box shows: the Catacombs variant and {@code (cannon)}
-	 * ({@link SessionTracker#getCurrentTaskSelection}). While IDLE after a task kill
-	 * ({@link TrackingNudge}), only the nudge is shown; it goes as soon as the session is no longer IDLE. Called by the
-	 * overlay on the client thread every frame, so it stays cheap.
+	 * End task: the session, if any, is saved through the Keep / Discard decision (as Stop was), and its assignment is
+	 * Ended: no kill on it starts a session until Track again (V2 plan 4.1).
+	 */
+	void endTask()
+	{
+		// Any completed session still held for late loot is saved first, as completed.
+		flushPendingCompletion();
+		handleEndedSession(tracker.endTask(), SaveDecision.EndReason.PLAYER_STOP);
+		refreshHistoryModel();
+	}
+
+	/**
+	 * Track again: the Ended assignment waits for its first kill again. Its marker, if a logout wrote one (Track again
+	 * can be pressed at the login screen), is deleted, so the next login or client start can't make it Ended again.
+	 */
+	void trackAgain()
+	{
+		final long account = tracker.getEndedAccount();
+		if (tracker.trackAgain())
+		{
+			deleteEndedMarker(account);
+		}
+		refreshHistoryModel();
+	}
+
+	/**
+	 * What the task overlay shows, or {@code null} when there is nothing to show: no active session with a task (idle, a
+	 * no-task session, or a completed one held for late loot) and no assigned task waiting for its first kill or Ended.
+	 * The task comes from one {@link SessionTracker#liveTask()} call, which carries its status for the state line, its
+	 * kills, active time and kills left, so the clock and a Pause show at once. The rest is what was last published,
+	 * used only when it belongs to the same session: the tick's snapshot ({@link #publishOverlaySnapshot}: the name with
+	 * its variant and cannon, the spot, the tags, superiors, XP, the runway and the moment), the live values and the
+	 * historical time per kill ({@link #publishHistoricalPace}). Without a session, the state line with the assignment's
+	 * snapshot (V2 plan 4.1: the state shows whenever time isn't running). Nothing after the plugin's start or a logout
+	 * until the first settled tick has read the logged-in account's task ({@link #overlaySettled}), so another account
+	 * never sees the last one's state. Called by the overlay on the client thread every frame, so it only reads.
 	 */
 	OverlayRows.Data overlayData()
 	{
-		if (tracker == null || !clientStateReady)
+		if (tracker == null || !clientStateReady || !overlaySettled)
 		{
 			return null;
 		}
+		final OverlayRows.Snapshot snapshot = overlaySnapshot;
 		SessionTracker.LiveTask task = tracker.liveTask();
 		if (task == null)
 		{
-			return trackingNudge.isRowShown() && tracker.getState() == SessionTracker.State.IDLE
-				? OverlayRows.Data.notTracking() : null;
+			final SessionTracker.Status status = tracker.getStatus();
+			return loggedIn && (status == SessionTracker.Status.WAITING_FOR_FIRST_KILL
+				|| status == SessionTracker.Status.ENDED) ? OverlayRows.Data.stateOnly(status,
+				snapshot != null && snapshot.getSessionId() == null ? snapshot : null) : null;
 		}
 
 		SessionValuation.Values values = publishedValues;
@@ -2136,10 +2872,9 @@ public class SlayerLedgerPlugin extends Plugin
 			values = null;
 		}
 		final OverlayRows.HistoricalPace pace = historicalPace;
-		// The variant and cannon use the task box shows. The variant is used only when it is this task's,
-		// as a separate call could see a new session; a new session can't have fired a cannonball in between.
-		final TaskSelection selection = tracker.getCurrentTaskSelection().forTask(task.getMonster());
-		return new OverlayRows.Data(task, values, pace == null ? null : pace.millisPerKillFor(task), selection);
+		return new OverlayRows.Data(task,
+			snapshot != null && Objects.equals(task.getSessionId(), snapshot.getSessionId()) ? snapshot : null,
+			values, pace == null ? null : pace.millisPerKillFor(task));
 	}
 
 	/**
@@ -2201,6 +2936,31 @@ public class SlayerLedgerPlugin extends Plugin
 	}
 
 	/**
+	 * Loads a setup tag's game image for the sidebar ({@link SetupIcons}, the live card's toggles and the Task
+	 * history rows, which ask for each image once through {@link SetupImages}), on the EDT. The cannon barrels come
+	 * from {@code ItemManager.getImage}, as {@link #applyItemIcon}: a cached image at once, drawn later on the client
+	 * thread, which then runs {@code repaint}. A spell or skill sprite comes from
+	 * {@code SpriteManager.getSpriteAsync}, which reads only its own cache and otherwise queues the read on the client
+	 * thread (until the game's cache is loaded); it calls back there, or at once when cached, so the image is handed to
+	 * {@code show} with {@code invokeLater} (DESIGN_PRINCIPLES.md 4.5).
+	 */
+	void loadSetupIcon(SetupTagIcons.Icon icon, Consumer<Image> show, Runnable repaint)
+	{
+		if (icon.isItem())
+		{
+			AsyncBufferedImage image = itemManager.getImage(icon.getId(), 1, false);
+			if (image != null)
+			{
+				image.onLoaded(repaint);
+				show.accept(image);
+			}
+			return;
+		}
+		spriteManager.getSpriteAsync(icon.getId(), 0,
+			(BufferedImage sprite) -> SwingUtilities.invokeLater(() -> show.accept(sprite)));
+	}
+
+	/**
 	 * Deletes a saved ledger record (history Delete or the partial notice's Discard) on the executor, then reloads
 	 * the account's ledger and refreshes the panel. Never touches the active (in-progress) session or its file.
 	 */
@@ -2259,6 +3019,17 @@ public class SlayerLedgerPlugin extends Plugin
 	}
 
 	/**
+	 * Saves the "Advisor metric" setting as the advisor card's tabs choose it (EDT, as RuneLite's own
+	 * config panel sets settings). RuneLite's {@code ConfigManager} posts {@link ConfigChanged} for a new value, and
+	 * {@link #onConfigChanged} applies it to the history model like an edit in the config panel, so the plan is worked
+	 * out again on that path only.
+	 */
+	void setAdvisorMetric(AdvisorMetric metric)
+	{
+		configManager.setConfiguration(SlayerLedgerConfig.GROUP, SlayerLedgerConfig.ADVISOR_METRIC, metric);
+	}
+
+	/**
 	 * Sets the note of the session the panel's note box belongs to (see {@link SessionTracker#setNote}). If that
 	 * session has ended and was handed off for saving meanwhile (for example the task completed while the player was
 	 * typing), the note is written to its saved record instead: via the client thread, so the record's save, which is
@@ -2271,6 +3042,21 @@ public class SlayerLedgerPlugin extends Plugin
 			return;
 		}
 		clientThread.invokeLater(() -> editRecordNote(account, sessionId, note));
+	}
+
+	/**
+	 * Sets the setup overrides (cannon, style, gear; each {@code null} to clear it) of the session the panel's setup
+	 * toggles belong to ({@link SessionTracker#setSetupOverrides}). If that session has ended and was handed off for saving
+	 * meanwhile, they are written to its saved record instead, through the client thread as {@link #setSessionNote}
+	 * does, so the record's save is queued first.
+	 */
+	void setSessionSetup(long account, String sessionId, SetupOverrides overrides)
+	{
+		if (sessionId == null || tracker.setSetupOverrides(sessionId, overrides))
+		{
+			return;
+		}
+		clientThread.invokeLater(() -> editRecordSetup(account, sessionId, overrides));
 	}
 
 	/**
@@ -2310,7 +3096,8 @@ public class SlayerLedgerPlugin extends Plugin
 	/**
 	 * Sets (or, with an empty name, clears) the location name of a saved ledger record on the executor, then reloads
 	 * the account's ledger and refreshes the panel, like {@link #editRecordNote}. Only that record's name changes: its
-	 * region, the region's name and other records are kept. Never touches the active session.
+	 * spot, its region, the region's name and other records are kept, so it still groups with its spot's other
+	 * tasks. Never touches the active session.
 	 */
 	void editRecordLocation(long account, String id, String location)
 	{
@@ -2337,6 +3124,41 @@ public class SlayerLedgerPlugin extends Plugin
 			{
 				// Posted after the reload's update, so the refresh does not immediately clear it.
 				publishHistoryError(account, SlayerLedgerPanel.EDIT_LOCATION_FAILED_MESSAGE);
+			}
+		});
+	}
+
+	/**
+	 * Sets the player's setup overrides (cannon, style, gear; each {@code null} to clear it) of a saved ledger record on
+	 * the executor, then reloads the account's ledger and refreshes the panel, like {@link #editRecordNote}. Only that
+	 * record's overrides change: its detected tags and other records are kept. Never touches the active session (whose
+	 * overrides are set through {@link #setSessionSetup}).
+	 */
+	void editRecordSetup(long account, String id, SetupOverrides overrides)
+	{
+		if (account == SessionTracker.NO_ACCOUNT || id == null)
+		{
+			return;
+		}
+		final SetupOverrides value = overrides == null ? SetupOverrides.NONE : overrides;
+		executor.execute(() ->
+		{
+			boolean failed = false;
+			try
+			{
+				store.updateSetup(account, id, value);
+			}
+			catch (IOException | RuntimeException e)
+			{
+				log.warn("Unable to update the setup of Slayer Ledger record", e);
+				failed = true;
+			}
+			// Reload either way so the panel reflects what is actually on disk.
+			reloadLedger(account);
+			if (failed)
+			{
+				// Posted after the reload's update, so the refresh does not immediately clear it.
+				publishHistoryError(account, SlayerLedgerPanel.EDIT_SETUP_FAILED_MESSAGE);
 			}
 		});
 	}
@@ -2399,7 +3221,7 @@ public class SlayerLedgerPlugin extends Plugin
 			{
 				final LedgerRecord record = LedgerRecord.fromSummary(summary, false);
 				final LootPriceMode mode = lootPriceMode;
-				return saveRecord(account, record, () -> announceCompletedTask(record, mode));
+				return saveRecord(account, record, () -> announceCompletedTask(account, record, mode));
 			}
 			case SAVE_PARTIAL:
 				return saveRecord(account, LedgerRecord.fromSummary(summary, true), null);
@@ -2407,9 +3229,16 @@ public class SlayerLedgerPlugin extends Plugin
 			{
 				final LedgerRecord record = LedgerRecord.fromSummary(summary, true);
 				final SlayerLedgerPanel noticePanel = panel;
-				// The notice is posted only after the append succeeds, so a failed save never claims "saved".
+				// The notice is posted only after the append succeeds, so a failed save never claims "saved"; and only
+				// while that account is still the one logged in (an account switch clears it, see checkAccount).
 				return saveRecord(account, record, noticePanel == null ? null
-					: () -> SwingUtilities.invokeLater(() -> noticePanel.showPartialNotice(account, record)));
+					: () -> SwingUtilities.invokeLater(() ->
+					{
+						if (account == accountHash)
+						{
+							noticePanel.showPartialNotice(account, record);
+						}
+					}));
 			}
 			case PERSIST_ACTIVE:
 				return persistActive(summary);
@@ -2444,54 +3273,97 @@ public class SlayerLedgerPlugin extends Plugin
 	}
 
 	/**
-	 * Any thread. Queues a completed-task summary after its ledger record has been appended successfully; it is worked
-	 * out on the client thread, where the loot Ground Items hides is known.
+	 * Any thread. Queues a completed task's chat lines after its ledger record has been appended successfully. First,
+	 * on the EDT, the history model works out whether the task is a record-fast one
+	 * ({@link LedgerHistoryModel#fastestTaskLine}, from the account's records, which the append's
+	 * {@link #publishRecords} gave it before this runs); none without a model (the plugin is stopping) or once another
+	 * account's history is shown. Then {@link #postCompletedTask} posts the lines.
 	 */
-	private void announceCompletedTask(LedgerRecord record, LootPriceMode mode)
+	private void announceCompletedTask(long account, LedgerRecord record, LootPriceMode mode)
+	{
+		final LedgerHistoryModel m = historyModel;
+		if (m == null)
+		{
+			postCompletedTask(record, mode, null);
+			return;
+		}
+		SwingUtilities.invokeLater(() -> postCompletedTask(record, mode,
+			account == historyAccount ? m.fastestTaskLine(account, record) : null));
+	}
+
+	/**
+	 * Any thread. On the client thread, where the loot Ground Items hides is known: the task-complete line
+	 * ({@link TaskCompleteMessage}, its "Task-complete line" setting) and its notification ("Task-complete
+	 * notification", the same text, whether or not the line is on), then the record-fast task line
+	 * ({@link FastestTaskMessage}) unless its "Record task line" setting is off. When the record line follows, the
+	 * task-complete line leaves out its {@code Gz.}, so only one of them carries personality.
+	 *
+	 * @param fastestLine the record-fast task line as a chat message, or {@code null} when the task is no record
+	 */
+	private void postCompletedTask(LedgerRecord record, LootPriceMode mode, String fastestLine)
 	{
 		clientThread.invoke(() ->
 		{
-			final String message = TaskCompleteMessage.format(record, mode,
-				hiddenLoot(record.getLoot() == null ? null : record.getLoot().keySet()));
-			if (message == null)
+			final boolean fastest = fastestLine != null && config.recordTaskLine();
+			final String line = TaskCompleteMessage.format(record, mode,
+				hiddenLoot(record.getLoot() == null ? null : record.getLoot().keySet()), !fastest);
+			if (line == null)
 			{
 				return;
 			}
-			postChatLine(message);
+			if (config.taskCompleteLine())
+			{
+				postChatMessage(TaskCompleteMessage.chatMessage(record, line));
+			}
 			if (config.taskCompleteNotification())
 			{
-				notifier.notify(message);
+				notifier.notify(line);
+			}
+			if (fastest)
+			{
+				postChatMessage(fastestLine);
 			}
 		});
 	}
 
 	/**
-	 * EDT. Queues a new assignment's chat preview ({@link AssignmentPreviewMessage}) like the task-complete
-	 * summary, unless the "New-task chat preview" setting was turned off meanwhile.
+	 * EDT. Queues a new assignment's advisor chat line, a chat message the history model built with
+	 * {@link TaskPlanText#chatMessage}, like the task-complete summary, unless the "Advisor chat line" setting was
+	 * turned off meanwhile.
 	 */
-	void postAssignmentPreview(String message)
+	void postAssignmentLine(String message)
 	{
 		clientThread.invoke(() ->
 		{
-			if (config.assignmentPreview())
+			if (config.advisorChatLine())
 			{
-				postChatLine(message);
+				postChatMessage(message);
 			}
 		});
 	}
 
 	/**
-	 * Client thread. Posts one of the plugin's chat lines (task complete, assignment preview, auto-pause, not
-	 * tracking) as a console message named "Slayer Ledger". The plain text is always escaped with
-	 * {@link Text#escapeJagex}, so any player-typed part (a location name, a note) shows as typed and can't add tags.
-	 * The lines are plain text with no markup of their own, so nothing is escaped twice.
+	 * Client thread. Posts the plugin's plain-text chat line (waiting for the next kill) as a console message named
+	 * "Slayer Ledger". The plain text is always escaped with {@link Text#escapeJagex}, so it can't add tags. The line is
+	 * plain text with no markup of its own, so nothing is escaped twice. The other lines are built with
+	 * {@link net.runelite.client.chat.ChatMessageBuilder} and posted with {@link #postChatMessage}.
 	 */
 	private void postChatLine(String text)
+	{
+		postChatMessage(Text.escapeJagex(text));
+	}
+
+	/**
+	 * Client thread. Posts a chat message already in RuneLite's format (escaped plain text and
+	 * {@link net.runelite.client.chat.ChatColorType} tags, as {@link net.runelite.client.chat.ChatMessageBuilder}
+	 * builds it) as a console message named "Slayer Ledger".
+	 */
+	private void postChatMessage(String message)
 	{
 		chatMessageManager.queue(QueuedMessage.builder()
 			.type(ChatMessageType.CONSOLE)
 			.name("Slayer Ledger")
-			.runeLiteFormattedMessage(Text.escapeJagex(text))
+			.runeLiteFormattedMessage(message)
 			.build());
 	}
 
@@ -2532,8 +3404,8 @@ public class SlayerLedgerPlugin extends Plugin
 	}
 
 	/**
-	 * Client thread. On logout the in-memory session is kept (and auto-paused) but a copy is persisted in case the
-	 * client is closed before the next login.
+	 * Client thread. On logout the in-memory session is kept (and Logged out) but a copy is persisted in case the
+	 * client is closed before the next login. Without a session, an Ended assignment's marker is persisted instead.
 	 */
 	private void persistOnLogout()
 	{
@@ -2548,14 +3420,35 @@ public class SlayerLedgerPlugin extends Plugin
 		else
 		{
 			logoutSnapshot = null;
+			if (summary == null)
+			{
+				persistEndedMarker();
+			}
 		}
 	}
 
 	/**
-	 * Captures the record's item prices on the client thread (prices are recorded as of the save), and its location
-	 * name when the task had no assigned area (the player's name for its dominant region, as of the save), then appends
-	 * it on the executor and removes the account's active session file if it holds the same session. {@code onSaved},
-	 * if given, runs on the executor after a successful append. If pricing fails the record is saved without values.
+	 * Any thread. Persists the Ended assignment's marker ({@link SessionTracker#endedMarker}) as the account's active
+	 * session file, so the assignment stays Ended after a client restart; it never becomes a record. Only while no
+	 * session is active (End task ended it), so it never replaces a session's file.
+	 *
+	 * @return the pending write, or {@code null} when nothing is Ended
+	 */
+	private Future<?> persistEndedMarker()
+	{
+		if (tracker.getState().isActive())
+		{
+			return null;
+		}
+		final SessionSnapshot marker = tracker.endedMarker(lastCompletionCounters, System.currentTimeMillis());
+		return marker == null ? null : persistActive(marker);
+	}
+
+	/**
+	 * Captures the record's item prices on the client thread (prices are recorded as of the save), then appends it on
+	 * the executor and removes the account's active session file if it holds the same session. Its spot was decided
+	 * with the record ({@link LedgerRecord#fromSummary}); no location name is saved. {@code onSaved}, if given,
+	 * runs on the executor after a successful append. If pricing fails the record is saved without values.
 	 *
 	 * @return completes when the write has finished (or failed)
 	 */
@@ -2566,17 +3459,6 @@ public class SlayerLedgerPlugin extends Plugin
 		// consumers are awaited, so this also completes on client exit.
 		clientThread.invoke(() ->
 		{
-			try
-			{
-				if (record.getLocation() == null && record.getLocationRegion() != null)
-				{
-					record.setLocation(TaskLocation.recordName(null, lookups.locationName(record.getLocationRegion())));
-				}
-			}
-			catch (RuntimeException e)
-			{
-				log.warn("Unable to name the location of Slayer Ledger record {}", record.getId(), e);
-			}
 			try
 			{
 				record.captureValues(lookups.priceLookup());
@@ -2683,6 +3565,12 @@ public class SlayerLedgerPlugin extends Plugin
 		{
 			log.warn("Unable to remove saved Slayer Ledger active session {}", record.getId(), e);
 		}
+		// A partial notice for an earlier session stays until a later session is saved: this one.
+		final SlayerLedgerPanel savedPanel = panel;
+		if (savedPanel != null)
+		{
+			SwingUtilities.invokeLater(() -> savedPanel.sessionSaved(record.getId()));
+		}
 		if (onSaved != null)
 		{
 			try
@@ -2754,6 +3642,26 @@ public class SlayerLedgerPlugin extends Plugin
 		});
 	}
 
+	/** Any thread. Deletes the account's Ended marker, if its active session file holds one, on the executor. */
+	private Future<?> deleteEndedMarker(long account)
+	{
+		if (account == SessionTracker.NO_ACCOUNT)
+		{
+			return null;
+		}
+		return executor.submit(() ->
+		{
+			try
+			{
+				store.deleteEndedMarker(account);
+			}
+			catch (IOException e)
+			{
+				log.warn("Unable to delete the Ended Slayer Ledger assignment's marker", e);
+			}
+		});
+	}
+
 	/**
 	 * Client thread. Loads the account's active session file on the executor, then applies it on the client thread.
 	 */
@@ -2781,8 +3689,9 @@ public class SlayerLedgerPlugin extends Plugin
 	}
 
 	/**
-	 * Client thread. Restores a loaded active session as PAUSED if the task still matches, otherwise saves it as a
-	 * partial record with the Discard notice.
+	 * Client thread. Restores a loaded active session as Logged out (the next task kill restarts it) if the task still
+	 * matches, otherwise saves it as a partial record with the Discard notice. An Ended assignment's marker restores
+	 * only the Ended flag, and is deleted either way once read: it never becomes a record.
 	 */
 	private void applyActiveSession(long account, SessionSnapshot snapshot, int generation)
 	{
@@ -2812,6 +3721,11 @@ public class SlayerLedgerPlugin extends Plugin
 			}
 			// The file is per account; it is authoritative for which account the session belongs to.
 			snapshot.setAccountHash(account);
+			if (snapshot.isEndedMarker())
+			{
+				applyEndedMarker(account, snapshot);
+				return;
+			}
 			switch (tracker.restore(snapshot, lastCompletionCounters))
 			{
 				case RESTORED:
@@ -2824,14 +3738,36 @@ public class SlayerLedgerPlugin extends Plugin
 				case MISMATCH:
 				default:
 					log.debug("Active Slayer Ledger session {} does not match the current task", snapshot.getSessionId());
-					handleEndedSession(snapshot.toSummary(), SaveDecision.EndReason.RESTORE_MISMATCH);
+					// Its spot is decided with the table, as for a live session.
+					handleEndedSession(snapshot.toSummary(spots), SaveDecision.EndReason.RESTORE_MISMATCH);
 					break;
 			}
 		}
 		finally
 		{
 			restorePending = false;
+			// Applied after the tick's own live check: a session it restored (or ended) is told to the history model
+			// now, not on the next tick, so the advisor card collapses for it whatever the EDT ran first.
+			refreshHistoryModelIfLiveChanged();
 		}
+	}
+
+	/**
+	 * Client thread. An Ended assignment's marker: the assignment stays Ended when it is still the current one
+	 * ({@link SessionTracker#restoreEnded}); the marker is deleted either way (the next logout writes a new one while it
+	 * is Ended), unless the check must wait for a session in memory.
+	 */
+	private void applyEndedMarker(long account, SessionSnapshot marker)
+	{
+		final SessionTracker.RestoreResult result = tracker.restoreEnded(marker, lastCompletionCounters);
+		if (result == SessionTracker.RestoreResult.REFUSED)
+		{
+			// A session is active in memory; keep the file and check again after the next login.
+			restoreCheckNeeded = true;
+			return;
+		}
+		log.debug("Ended Slayer Ledger assignment {}: {}", marker.getSessionId(), result);
+		deleteActive(account, marker.getSessionId());
 	}
 
 	/** Loads the account's ledger on the executor and shows it in the panel. */
@@ -2961,9 +3897,18 @@ public class SlayerLedgerPlugin extends Plugin
 			return;
 		}
 		accountHash = hash;
+		tracker.setAccount(hash);
 		tracker.clearCurrentTask();
+		// A partial notice of the previous account's session is not this account's to Discard.
+		final SlayerLedgerPanel p = panel;
+		if (p != null)
+		{
+			SwingUtilities.invokeLater(() -> p.accountChanged(hash));
+		}
 		// The XP read so far was the previous account's.
 		resetXpBaseline();
+		// So was the blowpipe.
+		blowpipeContents.forget();
 		// The watched assignment belonged to the previous account.
 		assignmentWatch.forget();
 		cancelPendingRestore();
@@ -3031,10 +3976,8 @@ public class SlayerLedgerPlugin extends Plugin
 		taskRewards.reset();
 		// Drops an undecided end; the next reading is a baseline. The current assignment is kept (not ended by logout).
 		assignmentWatch.reset();
-		// The next reading is a baseline too; the nudged assignment is kept, so a relogin onto it is not nudged again.
-		trackingNudge.reset();
 		settleTicks = LOGIN_SETTLE_TICKS;
-		// Containers and the tick count are re-sent after (re)login or a hop; start supplies from a fresh baseline.
+		// Containers are re-sent after (re)login or a hop; start supplies from a fresh baseline.
 		if (supplyTracker != null)
 		{
 			supplyTracker.reset();
@@ -3042,10 +3985,22 @@ public class SlayerLedgerPlugin extends Plugin
 		// Includes the plugin starting while logged in, when no ItemContainerChanged comes for the current inventory.
 		inventoryNoteTries = INVENTORY_NOTE_TRIES;
 		supplyExclusions.reset();
+		skippedSupplyTicks.reset();
 		chargedWeaponUsage.reset();
 		chargeExclusions.reset();
-		// NPC indexes are re-sent after (re)login or a hop.
+		// NPC indexes are re-sent after (re)login or a hop; the deaths kept for pairing go with them, and so do the
+		// attacks, cannon shots, hits and kills their styles and contexts would come from.
 		damagedNpcs.clear();
+		playerAttacks.clear();
+		cannonFire.reset();
+		hitNpcNames.clear();
+		killContextsDue = null;
+		pairKillAt = SessionTracker.NO_TIME;
+		// The first settled reading after it is a baseline, never a drop.
+		zeroDropTick = NO_TICK;
+		lastRemainingRead = -1;
+		slaughterKillPending = false;
+		heldSuperiorSpawns = 0;
 		// Hidden after a login or hop, and in step with a new panel (startUp), which starts with it hidden.
 		publishDartHint(false);
 		sessionValueTick = SupplyExclusions.NEVER_TICK;

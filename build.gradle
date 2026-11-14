@@ -14,8 +14,9 @@ repositories {
 }
 
 // Pinned so a RuneLite release can't change the build under us; the weekly workflow builds against
-// latest.release (-PruneLiteVersion=latest.release) to warn early.
-def runeLiteVersion = project.findProperty('runeLiteVersion') ?: '1.13.4'
+// latest.release (-PruneLiteVersion=latest.release) to warn early. Keep it at the live client's release:
+// the dev client (`run`) uses it too, and 1.13.4's GPU plugin crashed on the owner's machine.
+def runeLiteVersion = project.findProperty('runeLiteVersion') ?: '1.13.6'
 def pluginMainClass = 'com.shmayvan.slayerledger.SlayerLedgerPluginTest'
 
 dependencies {

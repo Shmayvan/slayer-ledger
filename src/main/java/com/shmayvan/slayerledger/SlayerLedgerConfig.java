@@ -38,14 +38,15 @@ public interface SlayerLedgerConfig extends Config
 
 	@ConfigSection(
 		name = "Task overlay",
-		description = "The in-game overlay showing the running or paused session's task.",
+		description = "The in-game overlay showing the assigned task's progress, and its four groups of rows.",
 		position = 3
 	)
 	String taskOverlaySection = "taskOverlay";
 
 	@ConfigSection(
 		name = "Task advisor",
-		description = "Consider skip / Consider block advice in the sidebar's task box, from your completed tasks.",
+		description = "What the advisor ranks your setups by, and the Consider skip / Consider block advice on the"
+			+ " sidebar's advisor card, from your completed tasks.",
 		position = 4
 	)
 	String taskAdvisorSection = "taskAdvisorSection";
@@ -69,10 +70,42 @@ public interface SlayerLedgerConfig extends Config
 		name = "Confirm before saving incomplete tasks",
 		position = 0,
 		section = trackingSection,
-		description = "When stopping a session before the task is complete, ask whether to keep it (saved as partial)"
-			+ " or discard it. When off, incomplete sessions are kept as partial automatically."
+		description = "When you press End task before the task is complete, ask whether to keep the session (saved as"
+			+ " partial) or discard it. When off, incomplete sessions are kept as partial automatically."
 	)
 	default boolean confirmIncomplete()
+	{
+		return true;
+	}
+
+	String AWAY_MINUTES = "awayMinutes";
+
+	@ConfigItem(
+		keyName = AWAY_MINUTES,
+		name = "Away after",
+		position = 4,
+		section = trackingSection,
+		description = "After this many minutes without a task kill or a hit on a task monster, the session goes Away:"
+			+ " its time stops at your last kill or hit, and your next task kill starts it again."
+	)
+	@Range(min = SessionTracker.MIN_AWAY_MINUTES, max = SessionTracker.MAX_AWAY_MINUTES)
+	@Units(Units.MINUTES)
+	default int awayMinutes()
+	{
+		return SessionTracker.DEFAULT_AWAY_MINUTES;
+	}
+
+	String TASK_COMPLETE_LINE = "taskCompleteLine";
+
+	@ConfigItem(
+		keyName = TASK_COMPLETE_LINE,
+		name = "Task-complete line",
+		position = 0,
+		section = chatSection,
+		description = "When a completed Slayer task is saved, post one chat line with its kills, active time, profit"
+			+ " and superiors."
+	)
+	default boolean taskCompleteLine()
 	{
 		return true;
 	}
@@ -80,25 +113,60 @@ public interface SlayerLedgerConfig extends Config
 	@ConfigItem(
 		keyName = "taskCompleteNotification",
 		name = "Task-complete notification",
-		position = 0,
+		position = 1,
 		section = chatSection,
-		description = "Show a RuneLite notification when a completed Slayer task is saved. The in-game chat summary is"
-			+ " always shown."
+		description = "Show a RuneLite notification when a completed Slayer task is saved, with the same text as the"
+			+ " task-complete line. Works whether or not that line is on."
 	)
 	default boolean taskCompleteNotification()
 	{
 		return false;
 	}
 
+	String RECORD_TASK_LINE = "recordTaskLine";
+
 	@ConfigItem(
-		keyName = "assignmentPreview",
-		name = "New-task chat preview",
-		position = 1,
+		keyName = RECORD_TASK_LINE,
+		name = "Record task line",
+		position = 2,
 		section = chatSection,
-		description = "When a new Slayer task is assigned, post one chat line with what your completed tasks of it took"
-			+ " for the kills left: time, profit and bank trips. Nothing is posted without completed history."
+		description = "When a completed task has your best time per kill for that monster (same Catacombs variant or"
+			+ " boss, and same cannon use), post one chat line with its time and how far under your old best it was."
+			+ " Needs 3 or more earlier completed tasks of it."
 	)
-	default boolean assignmentPreview()
+	default boolean recordTaskLine()
+	{
+		return true;
+	}
+
+	String NOTABLE_DROP_LINE = "notableDropLine";
+
+	@ConfigItem(
+		keyName = NOTABLE_DROP_LINE,
+		name = "Notable drop line",
+		position = 3,
+		section = chatSection,
+		description = "Post one chat line when a loot item stack from one kill during a task is worth at least the"
+			+ " Notable drop value: the item, its value and the monster or kill number."
+	)
+	default boolean notableDropLine()
+	{
+		return true;
+	}
+
+	/** The key 1.x saved its "New-task chat preview" under, kept so the player's choice carries over. */
+	String ADVISOR_CHAT_LINE = "assignmentPreview";
+
+	@ConfigItem(
+		keyName = ADVISOR_CHAT_LINE,
+		name = "Advisor chat line",
+		position = 4,
+		section = chatSection,
+		description = "When a new Slayer task is assigned, post one chat line with the advisor's pick from your"
+			+ " completed tasks of it: setup, location, time for the kills left, what to bring, and the best setup with"
+			+ " the other cannon choice. Says so when you have no completed tasks of it."
+	)
+	default boolean advisorChatLine()
 	{
 		return true;
 	}
@@ -108,58 +176,79 @@ public interface SlayerLedgerConfig extends Config
 		name = "Show task overlay",
 		position = 0,
 		section = taskOverlaySection,
-		description = "Show the Slayer Ledger overlay while a session is running or paused, and its Not tracking"
-			+ " reminder after an untracked task kill."
+		description = "Show the Slayer Ledger overlay while a Slayer task is assigned: its progress and, whenever the"
+			+ " clock isn't running, its state (waiting for a kill, Away, Paused or Ended)."
 	)
 	default boolean showTaskOverlay()
 	{
 		return true;
 	}
 
+	/**
+	 * The overlay's Progress and identity group. The key 1.x saved its "Show task row" under (the task name and
+	 * kills left), kept so the player's choice carries over.
+	 */
+	String OVERLAY_PROGRESS = "overlayTask";
+
 	@ConfigItem(
-		keyName = "overlayTask",
-		name = "Show task row",
+		keyName = OVERLAY_PROGRESS,
+		name = "Progress and identity",
 		position = 1,
 		section = taskOverlaySection,
-		description = "Show the task name and remaining kills in the Slayer Ledger overlay."
+		description = "Show the task's icon and name, its spot and setup, the progress bar, and the kills left with the"
+			+ " time left."
 	)
-	default boolean overlayTask()
+	default boolean overlayProgress()
 	{
 		return true;
 	}
 
+	/** The overlay's Pace group. */
+	String OVERLAY_PACE = "overlayPace";
+
 	@ConfigItem(
-		keyName = "overlayKills",
-		name = "Show kills row",
+		keyName = OVERLAY_PACE,
+		name = "Pace",
 		position = 2,
 		section = taskOverlaySection,
-		description = "Show the session's kills in the Slayer Ledger overlay."
+		description = "Show the time per kill and kills per hour (after 3 kills and a minute), and the elapsed time."
 	)
-	default boolean overlayKills()
+	default boolean overlayPace()
 	{
 		return true;
 	}
 
+	/**
+	 * The overlay's Haul group. The key 1.x saved its "Show profit row" under, kept so the player's choice carries
+	 * over.
+	 */
+	String OVERLAY_HAUL = "overlayProfit";
+
 	@ConfigItem(
-		keyName = "overlayTimeLeft",
-		name = "Show time left row",
+		keyName = OVERLAY_HAUL,
+		name = "Haul",
 		position = 3,
 		section = taskOverlaySection,
-		description = "Show the estimated time left in the Slayer Ledger overlay."
+		description = "Show the superiors, profit and XP, and one line for about 10 seconds when a superior spawns."
 	)
-	default boolean overlayTimeLeft()
+	default boolean overlayHaul()
 	{
 		return true;
 	}
 
+	/** The overlay's Supply runway group. */
+	String OVERLAY_RUNWAY = "overlayRunway";
+
 	@ConfigItem(
-		keyName = "overlayProfit",
-		name = "Show profit row",
+		keyName = OVERLAY_RUNWAY,
+		name = "Supply runway",
 		position = 4,
 		section = taskOverlaySection,
-		description = "Show the session's profit in the Slayer Ledger overlay."
+		description = "Warn when a supply you carry (prayer, restores, food, cannonballs, runes, ammo, darts or scales)"
+			+ " will run out before the task ends: at this task's rate after 10 kills, before that at your completed"
+			+ " tasks' rate."
 	)
-	default boolean overlayProfit()
+	default boolean overlayRunway()
 	{
 		return true;
 	}
@@ -192,21 +281,6 @@ public interface SlayerLedgerConfig extends Config
 	default String ignoredLoot()
 	{
 		return "";
-	}
-
-	String RESET_LOCATION_SKIPS = "resetLocationSkips";
-
-	@ConfigItem(
-		keyName = RESET_LOCATION_SKIPS,
-		name = "Ask again about skipped places",
-		position = 3,
-		section = trackingSection,
-		description = "Tick while logged in to forget the places you chose Skip for in the Name this location box on"
-			+ " this account, so kills there ask for a name again. It clears itself once done; the box shows unticked the next time the settings are opened."
-	)
-	default boolean resetLocationSkips()
-	{
-		return false;
 	}
 
 	String LOOT_PRICE_MODE = "lootPriceMode";
@@ -273,34 +347,6 @@ public interface SlayerLedgerConfig extends Config
 		return false;
 	}
 
-	String SHOW_WHAT_TO_BRING = "showWhatToBring";
-
-	@ConfigItem(
-		keyName = SHOW_WHAT_TO_BRING,
-		name = "What to bring",
-		position = 0,
-		section = panelSectionsSection,
-		description = "Show the What to bring section in the sidebar."
-	)
-	default boolean showWhatToBring()
-	{
-		return true;
-	}
-
-	String SHOW_TRENDS = "showTrends";
-
-	@ConfigItem(
-		keyName = SHOW_TRENDS,
-		name = "Trends",
-		position = 1,
-		section = panelSectionsSection,
-		description = "Show the Trends section in the sidebar."
-	)
-	default boolean showTrends()
-	{
-		return true;
-	}
-
 	String SHOW_OVERALL_TOTALS = "showOverallTotals";
 
 	@ConfigItem(
@@ -311,20 +357,6 @@ public interface SlayerLedgerConfig extends Config
 		description = "Show the Overall totals section in the sidebar."
 	)
 	default boolean showOverallTotals()
-	{
-		return true;
-	}
-
-	String SHOW_LUCK_METER = "showLuckMeter";
-
-	@ConfigItem(
-		keyName = SHOW_LUCK_METER,
-		name = "Luck meter",
-		position = 3,
-		section = panelSectionsSection,
-		description = "Show the Luck meter section in the sidebar."
-	)
-	default boolean showLuckMeter()
 	{
 		return true;
 	}
@@ -350,28 +382,30 @@ public interface SlayerLedgerConfig extends Config
 		name = "Task advisor",
 		position = 0,
 		section = taskAdvisorSection,
-		description = "Show advice for the current task in the sidebar's task box: Consider block when the monster's"
-			+ " rate on the goal is in the bottom 10% of your monsters and it has 5+ tasks, Consider skip in the bottom"
-			+ " 25%, otherwise Do. Only monsters with 3+ completed tasks and 30+ minutes count, and at least 6 must."
-			+ " Boss tasks are ranked separately. Advice only."
+		description = "Show advice for the current task on the sidebar's advisor card: Consider block when the monster's"
+			+ " rate is in the bottom 10% of your monsters and it has 5+ tasks, Consider skip in the bottom 25%,"
+			+ " otherwise nothing is shown. The rate follows the Advisor metric: Slayer XP per hour under Fastest"
+			+ " finish, profit per hour otherwise. Only monsters with 3+ completed tasks and 30+ minutes count, and at"
+			+ " least 6 must. Boss tasks are ranked separately. Advice only."
 	)
 	default boolean taskAdvisor()
 	{
 		return true;
 	}
 
-	String TASK_ADVISOR_GOAL = "taskAdvisorGoal";
+	String ADVISOR_METRIC = "advisorMetric";
 
 	@ConfigItem(
-		keyName = TASK_ADVISOR_GOAL,
-		name = "Task advisor goal",
+		keyName = ADVISOR_METRIC,
+		name = "Advisor metric",
 		position = 1,
 		section = taskAdvisorSection,
-		description = "Which rate the task advisor compares, as the Trends list shows it: profit per hour (at the Loot"
-			+ " price setting), Slayer XP per hour or Slayer points per hour."
+		description = "What the advisor picks a setup by: Fastest finish (least time for the kills left), Profit per"
+			+ " hour (at the Loot price setting) or Cheapest (least supply cost). The task advice ranks by Slayer XP"
+			+ " per hour under Fastest finish and by profit per hour otherwise."
 	)
-	default TaskAdvisorGoal taskAdvisorGoal()
+	default AdvisorMetric advisorMetric()
 	{
-		return TaskAdvisorGoal.PROFIT;
+		return AdvisorMetric.DEFAULT;
 	}
 }

@@ -72,7 +72,7 @@ public class HarnessLedgerDirectoryTest
 	{
 		harness.setTask(TASK, TASK_NAME, 10, 10);
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.setRemaining(8);
 		harness.lootOnNextTick(ItemID.BONES, 1);
 		harness.tick();
@@ -108,7 +108,7 @@ public class HarnessLedgerDirectoryTest
 		assertEquals("executor", resolvedOn.get(0));
 
 		loginPlayAndKillTwo();
-		harness.stop();
+		harness.endTask();
 		harness.onlyRecord(ACCOUNT);
 		harness.shutDown();
 		assertEquals("kept for the plugin's lifetime", 1, resolvedOn.size());
@@ -122,9 +122,10 @@ public class HarnessLedgerDirectoryTest
 		loginPlayAndKillTwo();
 		assertEquals("tracking still works", 2, harness.tracker().getKills());
 
-		harness.stop();
+		harness.endTask();
 		assertEquals(SessionTracker.State.IDLE, harness.sessionState());
-		assertTrue(harness.play());
+		harness.trackAgain();
+		assertTrue(harness.startNow());
 		harness.setRemaining(7);
 		harness.tick();
 		// Shutdown with a running session tries to persist it and fails quietly (logged), like any IO failure.
@@ -142,7 +143,7 @@ public class HarnessLedgerDirectoryTest
 		harness.startUp();
 		assertEquals(1, resolvedOn.size());
 		loginPlayAndKillTwo();
-		harness.stop();
+		harness.endTask();
 
 		final LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		assertEquals(2, record.getKills());

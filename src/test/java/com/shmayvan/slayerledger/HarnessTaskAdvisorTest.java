@@ -11,13 +11,15 @@ import java.util.Collections;
 import java.util.List;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
 /**
- * The task box's advice row as wired in the plugin ({@link PluginHarness}): shown for the current task with
- * enough history, hidden otherwise, following the "Task advisor" settings live and never worked out on the refresh
- * timer. {@link TaskAdvisorTest} covers the rules.
+ * The task advisor's skip / block badge as wired in the plugin ({@link PluginHarness}), on the advisor card
+ * since shown for the current task with enough history, hidden otherwise, following the "Task advisor"
+ * setting and the "Advisor metric" live and never worked out on the refresh timer. {@link TaskAdvisorTest}
+ * covers the rules; {@link HarnessAdvisorCardTest} the rest of the card.
  */
 public class HarnessTaskAdvisorTest
 {
@@ -31,18 +33,26 @@ public class HarnessTaskAdvisorTest
 	@Rule
 	public final PluginHarness harness = new PluginHarness();
 
+	/** The records below have profit and no Slayer XP: the badge ranks by profit/h under this metric. */
+	@Before
+	public void rankByProfit()
+	{
+		harness.config.advisorMetric = AdvisorMetric.PROFIT_PER_HOUR;
+	}
+
 	@Test
-	public void shownAsTheThirdLineOnAnAssignmentWithEnoughHistory()
+	public void shownOnTheAdvisorCardOnAnAssignmentWithEnoughHistory()
 	{
 		harness.setAssignment(SlayerMaster.KONAR, 0, null);
 		harness.setVarbit(VarbitID.SLAYER_TASKS_COMPLETED, 47);
 		start(monsters(6));
 
-		assertEquals("Advice: Consider skip (n=3)", advice());
+		assertEquals("Consider skip (n=3)", advice());
 		String tooltip = tooltip();
 		assertTrue(tooltip, tooltip.contains("Profit (GE)/h 10K: 1st lowest of your 6 monsters (bottom 25%)"));
-		assertEquals(Arrays.asList("Abyssal demons · 10 left", "Konar · bonus in 3",
-			"Advice: Consider skip (n=3)"), taskBoxRows());
+		// Under the card's title; the task box has only the task's lines.
+		harness.onEdt(() -> assertEquals("Based on 3 Abyssal demons tasks", harness.ui().getAdvisor().getTitle()));
+		assertEquals(Arrays.asList("Abyssal demons", "Konar · 10 left · bonus in 3"), taskBoxRows());
 	}
 
 	@Test
@@ -53,14 +63,14 @@ public class HarnessTaskAdvisorTest
 
 		// The lowest of 10 with 3 tasks: Consider block needs 5, so Consider skip.
 		harness.onEdt(() -> harness.historyModel().setRecords(PluginHarness.ACCOUNT, history(monsters(10))));
-		assertEquals("Advice: Consider skip (n=3)", advice());
+		assertEquals("Consider skip (n=3)", advice());
 		assertTrue(tooltip(), tooltip().contains("(bottom 10%, block from 5 tasks)"));
 		harness.onEdt(() -> harness.historyModel().setRecords(PluginHarness.ACCOUNT, history(monsters(10), 5)));
-		assertEquals("Advice: Consider block (n=5)", advice());
+		assertEquals("Consider block (n=5)", advice());
 		assertTrue(tooltip(), tooltip().contains("From 5 completed tasks of this monster (n)"));
-		// The main advice pools Catacombs variant and cannon tasks, which Trends shows apart.
-		assertTrue(tooltip(), tooltip().contains(
-			"as in the Trends list, Catacombs variant and cannon tasks pooled with their task."));
+		// The advice pools each task's Catacombs variant and cannon tasks with it.
+		assertTrue(tooltip(), tooltip().contains("(n), Catacombs variant and cannon tasks pooled with their task."));
+		assertFalse("Trends is gone", tooltip().contains("Trends"));
 
 		harness.setRemaining(0);
 		harness.tick();
@@ -71,12 +81,12 @@ public class HarnessTaskAdvisorTest
 	public void theSettingTurnsItOffAndOnLive()
 	{
 		start(monsters(6));
-		assertEquals("Advice: Consider skip (n=3)", advice());
+		assertEquals("Consider skip (n=3)", advice());
 
 		harness.setTaskAdvisor(false);
 		assertNull(advice());
 		harness.setTaskAdvisor(true);
-		assertEquals("Advice: Consider skip (n=3)", advice());
+		assertEquals("Consider skip (n=3)", advice());
 	}
 
 	@Test
@@ -88,28 +98,40 @@ public class HarnessTaskAdvisorTest
 	}
 
 	@Test
-	public void changingTheGoalChangesTheAdvice()
+	public void theAdvisorMetricChangesTheAdvice()
 	{
 		List<LedgerRecord> records = monsters(6);
-		// The task's monster has the lowest profit but the most Slayer XP and points.
+		// The task's monster has the lowest profit but the most Slayer XP.
 		for (int i = 0; i < records.size(); i++)
 		{
 			records.get(i).setXpGained(Collections.singletonMap("SLAYER", (60 - i) * 1_000L));
-			records.get(i).setPointsEarned(i == 0 ? 100 : 10 + i);
 		}
 		start(records);
-		assertEquals("Advice: Consider skip (n=3)", advice());
+		assertEquals("Consider skip (n=3)", advice());
 
-		harness.setTaskAdvisorGoal(TaskAdvisorGoal.SLAYER_XP);
+		// Fastest finish (the default) ranks by Slayer XP/h (V2 plan 6).
+		harness.setAdvisorMetric(AdvisorMetric.FASTEST_FINISH);
 		assertDo();
 		assertTrue(tooltip(), tooltip().contains("Slayer XP/h 60K: 1st highest of your 6 monsters"));
 
-		harness.setTaskAdvisorGoal(TaskAdvisorGoal.POINTS);
-		assertDo();
-		assertTrue(tooltip(), tooltip().contains("Points/h 100: 1st highest"));
+		// Cheapest ranks by profit/h, as Profit per hour does.
+		harness.setAdvisorMetric(AdvisorMetric.CHEAPEST);
+		assertEquals("Consider skip (n=3)", advice());
+		assertTrue(tooltip(), tooltip().contains("Profit (GE)/h 10K"));
+	}
 
-		harness.setTaskAdvisorGoal(TaskAdvisorGoal.PROFIT);
-		assertEquals("Advice: Consider skip (n=3)", advice());
+	@Test
+	public void fastestFinishIsTheDefaultAndRanksBySlayerXp()
+	{
+		harness.config.advisorMetric = AdvisorMetric.DEFAULT;
+		List<LedgerRecord> records = monsters(6);
+		for (int i = 0; i < records.size(); i++)
+		{
+			records.get(i).setXpGained(Collections.singletonMap("SLAYER", (60 - i) * 1_000L));
+		}
+		start(records);
+		assertDo();
+		assertTrue(tooltip(), tooltip().contains("Slayer XP/h 60K"));
 	}
 
 	@Test
@@ -122,7 +144,7 @@ public class HarnessTaskAdvisorTest
 		}
 		records.get(0).setLootHaValue(500_000L);
 		start(records);
-		assertEquals("Advice: Consider skip (n=3)", advice());
+		assertEquals("Consider skip (n=3)", advice());
 
 		harness.setLootPriceMode(LootPriceMode.HIGH_ALCH);
 		assertDo();
@@ -134,7 +156,7 @@ public class HarnessTaskAdvisorTest
 	{
 		List<LedgerRecord> records = monsters(6);
 		start(records);
-		assertEquals("Advice: Consider skip (n=3)", advice());
+		assertEquals("Consider skip (n=3)", advice());
 		int builds = builds();
 
 		// The refresh timer and game ticks work nothing out.
@@ -143,7 +165,7 @@ public class HarnessTaskAdvisorTest
 			harness.onEdt(() -> harness.panel().refresh());
 		}
 		harness.ticks(5);
-		assertEquals("Advice: Consider skip (n=3)", advice());
+		assertEquals("Consider skip (n=3)", advice());
 		assertEquals(builds, builds());
 
 		// New records.
@@ -158,12 +180,19 @@ public class HarnessTaskAdvisorTest
 		harness.onEdt(() -> harness.panel().refresh());
 		assertEquals(builds + 2, builds());
 
-		// The goal.
-		harness.setTaskAdvisorGoal(TaskAdvisorGoal.SLAYER_XP);
+		// The metric's rate: Fastest finish ranks by Slayer XP/h.
+		harness.setAdvisorMetric(AdvisorMetric.FASTEST_FINISH);
 		assertNull("no XP recorded", advice());
 		assertEquals(builds + 3, builds());
 		harness.onEdt(() -> harness.panel().refresh());
 		assertEquals("hidden for too little data, still not worked out again", builds + 3, builds());
+
+		// Profit per hour and Cheapest rank by the same rate: worked out once.
+		harness.setAdvisorMetric(AdvisorMetric.PROFIT_PER_HOUR);
+		assertDo();
+		harness.setAdvisorMetric(AdvisorMetric.CHEAPEST);
+		assertDo();
+		assertEquals(builds + 4, builds());
 	}
 
 	@Test
@@ -181,7 +210,7 @@ public class HarnessTaskAdvisorTest
 		}
 		start(records);
 		harness.drain();
-		assertEquals("Advice: Consider skip (n=3)", advice());
+		assertEquals("Consider skip (n=3)", advice());
 		int builds = builds();
 
 		// The task's tasks are saved again with a ranarr seed, saved at 10K but 500K today, not priced yet.
@@ -197,7 +226,7 @@ public class HarnessTaskAdvisorTest
 			harness.historyModel().setRecords(PluginHarness.ACCOUNT, withSeed);
 			panel.refresh();
 			assertTrue(harness.historyModel().isWaitingForCurrentPrices());
-			assertEquals("the shown row stays", "Advice: Consider skip (n=3)", ui.getTaskBox().getAdviceText());
+			assertEquals("the shown badge stays", "Consider skip (n=3)", ui.getAdvisor().getBadge());
 			assertEquals(builds, harness.historyModel().getAdviceBuildCount());
 		});
 
@@ -212,14 +241,14 @@ public class HarnessTaskAdvisorTest
 	public void hiddenByTheHistoryMessageAndNeverShowsAnotherAccountsAdvice()
 	{
 		start(monsters(6));
-		assertEquals("Advice: Consider skip (n=3)", advice());
+		assertEquals("Consider skip (n=3)", advice());
 
 		harness.onEdt(() -> harness.historyModel().clearRecords(PluginHarness.ACCOUNT,
 			SlayerLedgerPanel.LOGGED_OUT_MESSAGE));
 		assertNull("no records shown", advice());
 
 		harness.onEdt(() -> harness.historyModel().setRecords(PluginHarness.ACCOUNT, history(monsters(6))));
-		assertEquals("Advice: Consider skip (n=3)", advice());
+		assertEquals("Consider skip (n=3)", advice());
 
 		// Another account's records: its advice, where the task's monster is the best.
 		List<LedgerRecord> other = monsters(6);
@@ -238,7 +267,7 @@ public class HarnessTaskAdvisorTest
 	public void hiddenOnLogout()
 	{
 		start(monsters(6));
-		assertEquals("Advice: Consider skip (n=3)", advice());
+		assertEquals("Consider skip (n=3)", advice());
 
 		harness.logout();
 		harness.drain();
@@ -278,35 +307,38 @@ public class HarnessTaskAdvisorTest
 	}
 
 	/**
-	 * The advice row after a panel refresh, once the advice worked out off the EDT is back: the harness drains
-	 * the executor and the EDT first.
+	 * The advisor card's badge after a panel refresh, once the advice worked out off the EDT is back: the harness
+	 * drains the executor and the EDT first.
 	 */
 	private String advice()
 	{
 		String[] text = new String[1];
 		harness.onEdt(() -> harness.panel().refresh());
 		harness.drain();
-		harness.onEdt(() -> text[0] = harness.ui().getTaskBox().getAdviceText());
+		harness.onEdt(() -> text[0] = harness.ui().getAdvisor().getBadge());
 		return text[0];
 	}
 
-	/** Do adds no row to the task box: it is in the task line's tooltip, with its reason. */
+	/** Do adds no line to the card: the model's advice is Do, and its reason is in {@link #tooltip}. */
 	private void assertDo()
 	{
-		assertNull("no row for Do", advice());
-		String tooltip = tooltip();
-		assertTrue(tooltip, tooltip != null && tooltip.contains("<br>Advice: Do<br>"));
+		assertNull("no line for Do", advice());
+		harness.onEdt(() -> assertEquals(TaskAdvisor.Advice.DO, harness.historyModel().advice().getAdvice()));
 	}
 
-	/** The advice row's tooltip, or for Do the task line's tooltip that has it. */
+	/**
+	 * The badge's tooltip, or for Do, which has no badge, the same lines from the model's advice
+	 * ({@link TaskPlanText#badgeReason}).
+	 */
 	private String tooltip()
 	{
 		String[] text = new String[1];
 		harness.drain();
 		harness.onEdt(() ->
 		{
-			PanelProbe.TaskBoxProbe box = harness.ui().getTaskBox();
-			text[0] = box.getAdviceText() != null ? box.getAdviceTooltip() : box.getTaskTooltip();
+			PanelProbe.AdvisorCardProbe card = harness.ui().getAdvisor();
+			text[0] = card.getBadge() != null ? card.getBadgeTooltip() : String.join("<br>",
+				TaskPlanText.badgeReason(harness.historyModel().advice(), harness.historyModel().lootPriceMode()));
 		});
 		return text[0];
 	}

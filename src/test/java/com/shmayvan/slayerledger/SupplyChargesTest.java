@@ -16,8 +16,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 /**
- * Slayer consumables (bag of salt, ice cooler), teleport tablets, and items used per charge (teleport jewellery and the
- * fungicide spray), through the same per-tick diff, exclusions and valuation as the other supplies.
+ * Slayer consumables (bag of salt, ice cooler), teleport tablets and scrolls, and items used per charge (teleport
+ * jewellery and the fungicide spray), through the same per-tick diff, exclusions and valuation as the other supplies.
  */
 public class SupplyChargesTest
 {
@@ -259,6 +259,66 @@ public class SupplyChargesTest
 		assertEquals(1, usage.getUsed().get(ItemID.POH_TABLET_TELEPORTTOHOUSE));
 		assertEquals("not a teleport tablet", 0, usage.getUsed().get(UNIDENTIFIED_FRAGMENT));
 		assertTrue(usage.getDoses().isEmpty());
+	}
+
+	// ---- Teleport scrolls ----
+
+	@Test
+	public void teleportScrollIdsMatchTheGameValues()
+	{
+		// Checked against net.runelite.api.gameval.ItemID in RuneLite 1.13.4, core ItemIdentification's Type.SCROLL list
+		// and the OSRS Wiki infoboxes (Zul-andra teleport 12938, Revenant cave teleport 21802).
+		assertEquals(12938, ItemID.TELEPORTSCROLL_ZULANDRA);
+		assertEquals(21802, ItemID.TELEPORTSCROLL_REVENANTS);
+		assertEquals(13249, ItemID.TELEPORTSCROLL_CERBERUS);
+		assertEquals(12402, ItemID.TELEPORTSCROLL_NARDAH);
+		assertEquals(20, SupplyTracker.TELEPORT_SCROLLS.size());
+		assertTrue(SupplyTracker.TELEPORT_SCROLLS.contains(ItemID.TELEPORTSCROLL_MOSLES));
+		assertTrue(SupplyTracker.TELEPORT_SCROLLS.contains(ItemID.TELEPORTSCROLL_CHASMOFFIRE));
+		// The book's interface icons, bank placeholders and the book are not the scroll itself.
+		for (int notAScroll : new int[]{ItemID.TELEPORTSCROLL_ZULANDRA_DUMMY, ItemID.TELEPORTSCROLL_ZULANDRA_SELECTED_DUMMY,
+			ItemID.Placeholder.TELEPORTSCROLL_ZULANDRA, ItemID.DUMMY_TELEPORTSCROLL, ItemID.BOOKOFSCROLLS_CHARGED})
+		{
+			assertFalse(notAScroll + " is not a teleport scroll", SupplyTracker.TELEPORT_SCROLLS.contains(notAScroll));
+		}
+		for (int scroll : SupplyTracker.TELEPORT_SCROLLS)
+		{
+			assertTrue(SupplyTracker.classifiesById(scroll));
+			assertFalse(SupplyTracker.CHARGED_ITEMS.containsKey(scroll) || SupplyTracker.MULTI_BITE_FOOD.containsKey(scroll)
+				|| SupplyTracker.SLAYER_CONSUMABLES.contains(scroll));
+		}
+	}
+
+	@Test
+	public void eachTeleportScrollReadCountsAsOne()
+	{
+		final String[] teleport = {"Teleport", null, null, null, "Drop"};
+		assertEquals(SupplyTracker.Category.TELEPORT_SCROLL, SupplyTracker.classify(ItemID.TELEPORTSCROLL_ZULANDRA,
+			"Zul-andra teleport", teleport, false, false, false).getCategory());
+		assertEquals("a Teleport action alone is not a scroll", SupplyTracker.Category.OTHER,
+			SupplyTracker.classify(1_000_002, "Teleport crystal (4)", teleport, false, false, false).getCategory());
+
+		SupplyTracker.Usage usage = total(
+			new int[]{ItemID.TELEPORTSCROLL_ZULANDRA, 10, ItemID.TELEPORTSCROLL_REVENANTS, 3},
+			new int[]{ItemID.TELEPORTSCROLL_ZULANDRA, 9, ItemID.TELEPORTSCROLL_REVENANTS, 3},
+			// Bought or looted: never a use or a return.
+			new int[]{ItemID.TELEPORTSCROLL_ZULANDRA, 15, ItemID.TELEPORTSCROLL_REVENANTS, 3},
+			// The last scroll of a stack.
+			new int[]{ItemID.TELEPORTSCROLL_ZULANDRA, 15, ItemID.TELEPORTSCROLL_REVENANTS, 2},
+			new int[]{ItemID.TELEPORTSCROLL_ZULANDRA, 15});
+		assertEquals(1, usage.getUsed().get(ItemID.TELEPORTSCROLL_ZULANDRA));
+		assertEquals(3, usage.getUsed().get(ItemID.TELEPORTSCROLL_REVENANTS));
+		assertTrue("counted per scroll, not in doses", usage.getDoses().isEmpty());
+		assertTrue(usage.getReturned().isEmpty());
+	}
+
+	@Test
+	public void storedOrDroppedScrollsAreNotUsed()
+	{
+		tick(ItemID.TELEPORTSCROLL_CERBERUS, 5, ItemID.TELEPORTSCROLL_MOSLES, 2);
+		// The plugin passes a scroll stored in the master scroll book like a dropped one (SupplyExclusions.useClicked).
+		assertTrue(supplies.update(SupplyTrackerTest.obs(), true, false, new HashSet<>(Arrays.asList(
+			ItemID.TELEPORTSCROLL_CERBERUS, ItemID.TELEPORTSCROLL_MOSLES))).isEmpty());
 	}
 
 	// ---- Jewellery charges ----

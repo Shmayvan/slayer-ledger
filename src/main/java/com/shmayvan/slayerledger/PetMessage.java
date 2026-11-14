@@ -1,9 +1,8 @@
 package com.shmayvan.slayerledger;
 
-import net.runelite.client.util.Text;
-
 /**
- * Recognises the game messages sent when a pet drops. Pure (RuneLite's static {@link Text} only).
+ * Recognises the game messages sent when a pet drops. Pure; tags and markup are stripped by
+ * {@link GameMessageText}.
  *
  * <p>The texts are the three core ScreenshotPlugin (RuneLite 1.13.4, {@code PET_MESSAGES}) takes a pet screenshot on,
  * for the same chat types (game, spam, trade and friends chat notification messages). Core uses {@code contains};
@@ -36,7 +35,7 @@ final class PetMessage
 		{
 			return null;
 		}
-		final String text = Text.removeTags(message).trim();
+		final String text = GameMessageText.plain(message);
 		if (text.startsWith(FOLLOWED) || text.startsWith(BACKPACK))
 		{
 			return NotableDrop.Pet.RECEIVED;

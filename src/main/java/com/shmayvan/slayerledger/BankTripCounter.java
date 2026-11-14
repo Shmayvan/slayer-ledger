@@ -27,7 +27,7 @@ final class BankTripCounter
 
 	/** Last tick a bank interface was opened or closed, or {@code null} for none. */
 	private Integer lastBankTick;
-	/** Session (running or paused) active when a bank was last opened, or {@code null} for none. */
+	/** Session (running or stopped) active when a bank was last opened, or {@code null} for none. */
 	private String lastSessionId;
 
 	/** Whether {@code groupId} is the bank, a deposit box or group storage. */
@@ -53,7 +53,7 @@ final class BankTripCounter
 	 * A bank interface opened on {@code tick}.
 	 *
 	 * @param running   whether the session is RUNNING
-	 * @param sessionId the running or paused session's id, or {@code null} when there is none
+	 * @param sessionId the active session's id, or {@code null} when there is none
 	 * @return whether this opening is a new trip to add to the running session
 	 */
 	boolean bankOpened(int tick, boolean running, String sessionId)

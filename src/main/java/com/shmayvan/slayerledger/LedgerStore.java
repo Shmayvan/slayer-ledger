@@ -51,9 +51,9 @@ import net.runelite.client.util.Filepath;
  * {@link SessionSnapshot#CURRENT_SCHEMA_VERSION} are raised only for a change an older build cannot read safely: a
  * field whose type or meaning changes, or a field that is removed. A new field is added without a raise and must be
  * nullable and additive (a file without it reads as {@code null}). A build that does not know a field still keeps it
- * in the ledger file: every rewrite (append, delete, note and location edits, assignment changes) starts from the
- * file's JSON and writes back the members this build does not bind, both top-level members of the file and members of
- * each record and assignment entry that stays in the file. A member counts as unknown when it is missing after the
+ * in the ledger file: every rewrite (append, delete, note, location and setup edits, late loot, assignment changes)
+ * starts from the file's JSON and writes back the members this build does not bind, both top-level members of the file
+ * and members of each record and assignment entry that stays in the file. A member counts as unknown when it is missing after the
  * freshly bound object is serialized again, so it never replaces a known value or an edit. Members nested deeper
  * (inside a loot map, a notable drop and so on) are not kept, and the active session file is replaced as a whole by
  * each new snapshot. Do not add {@code @SerializedName} alternates to these classes without handling them here: a
@@ -65,6 +65,11 @@ import net.runelite.client.util.Filepath;
  * {@link #load} still reads a newer ledger file on a best-effort basis, and fails with
  * {@link UnsupportedSchemaException} if it does not bind. Only a file that is not valid JSON for this layout at a
  * supported version is moved aside (renamed with a {@code .corrupt-<time>} suffix) when it would be written.</p>
+ *
+ * <p><b>Migration on read.</b> A raise may come with a migration of older records, done where records are read (the
+ * ledger file and kept side files) and in memory only, after the unknown members are taken: a migrated record's saved
+ * form changes when the file is next written. Version 3 migrates 1.x records' setup tags and gives them the boss flag
+ * ({@link SetupMigration}).</p>
  */
 @Slf4j
 public class LedgerStore
@@ -74,8 +79,16 @@ public class LedgerStore
 	 * with loot, supplies and values) replaced 1 because builds before it rewrote the file without the fields they did
 	 * not know; those builds refuse to write a version 2 file. Fields added since are additive and kept by every
 	 * rewrite, so they did not raise it. Version 1 files are read and upgraded on the next write.
+	 *
+	 * <p>Version 3 (2.0) adds the records' setup tags ({@link LedgerRecord}'s version 3), which change what a
+	 * task's cannon means: the player's override wins over what the supplies show. A 1.x build would ignore the overrides
+	 * and could append records the 2.0 rules never saw, so 1.x builds must refuse to write a 2.0 ledger, and they do
+	 * (they still read it on a best-effort basis, with their own meaning). Every record below version 3 is migrated
+	 * when it is read ({@link SetupMigration}), in memory: its saved form changes only when the file is next written,
+	 * and a migrated record is written at version 3, so it is never migrated again. Version 1 and 2 files are read and
+	 * upgraded on the next write.</p>
 	 */
-	static final int FILE_SCHEMA_VERSION = 2;
+	static final int FILE_SCHEMA_VERSION = 3;
 
 	/** The member holding a file's schema version, read before binding. */
 	private static final String SCHEMA_VERSION = "schemaVersion";
@@ -309,6 +322,41 @@ public class LedgerStore
 			r.setLocation(location);
 			return true;
 		});
+	}
+
+	/**
+	 * Sets the player's setup overrides ({@link SetupOverrides}: cannon, style and gear, each {@code null} to clear it)
+	 * of the record with the given id, if present, and returns the updated record list; its detected tags and everything
+	 * else are kept. Rewritten and failing like {@link #updateNote}.
+	 */
+	public synchronized List<LedgerRecord> updateSetup(long accountHash, String id, SetupOverrides overrides)
+		throws IOException
+	{
+		final SetupOverrides value = overrides == null ? SetupOverrides.NONE : overrides;
+		return updateRecord(accountHash, id, r ->
+		{
+			if (SetupOverrides.from(r).equals(value))
+			{
+				return false;
+			}
+			value.copyTo(r);
+			return true;
+		});
+	}
+
+	/**
+	 * Adds loot that came after the record with the given id was saved, if present, and returns the updated record list
+	 * (Araxxor's harvest after its task-completing kill): its items, its unit prices where the record has none and
+	 * its notable stacks, with the record's loot values worked out again ({@link LedgerRecord#addLateLoot}); everything
+	 * else is kept. Rewritten and failing like {@link #updateNote}.
+	 *
+	 * @param prices the loot's unit prices when it came, or {@code null} when it could not be priced
+	 * @param drops  the loot's notable stacks, or {@code null} when none
+	 */
+	public synchronized List<LedgerRecord> addLoot(long accountHash, String id, ItemTally loot,
+		ItemValuation.UnitPrices prices, List<NotableDrop> drops) throws IOException
+	{
+		return updateRecord(accountHash, id, r -> r.addLateLoot(loot, prices, drops));
 	}
 
 	/**
@@ -579,6 +627,33 @@ public class LedgerStore
 		return true;
 	}
 
+	/**
+	 * Deletes the account's active session file if it holds an Ended assignment's marker
+	 * ({@link SessionSnapshot#isEndedMarker()}), for Track again. A session's file, an unparseable file, or a
+	 * newer-schema file is left untouched.
+	 *
+	 * @return whether the file was deleted
+	 */
+	public synchronized boolean deleteEndedMarker(long accountHash) throws IOException
+	{
+		Filepath path = activeFileFor(accountHash);
+		SessionSnapshot snapshot;
+		try
+		{
+			snapshot = readActiveFile(path);
+		}
+		catch (LedgerParseException | UnsupportedSchemaException e)
+		{
+			return false;
+		}
+		if (snapshot == null || !snapshot.isEndedMarker())
+		{
+			return false;
+		}
+		path.deleteIfExists();
+		return true;
+	}
+
 	/** The account's active session file, {@code <dir>/<accountHash>.active.json}. */
 	Filepath activeFileFor(long accountHash) throws IOException
 	{
@@ -831,6 +906,8 @@ public class LedgerStore
 		{
 			throw new LedgerParseException("The kept record file " + path + " holds no record", null);
 		}
+		// A 1.x build's kept record is migrated like one in the ledger.
+		SetupMigration.migrate(file.record);
 		return file.record;
 	}
 
@@ -1029,6 +1106,11 @@ public class LedgerStore
 		return unknown;
 	}
 
+	/**
+	 * The file's records without nulls, in file order, each migrated if it is older ({@link SetupMigration}; in place,
+	 * so a later call for the same file finds it done). The unknown members were taken when the file was read, before
+	 * this, so a migrated record keeps them.
+	 */
 	private static List<LedgerRecord> records(StoredFile stored)
 	{
 		List<LedgerRecord> records = new ArrayList<>();
@@ -1039,6 +1121,7 @@ public class LedgerStore
 			{
 				if (r != null)
 				{
+					SetupMigration.migrate(r);
 					records.add(r);
 				}
 			}

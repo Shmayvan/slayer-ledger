@@ -19,8 +19,8 @@ import lombok.extern.slf4j.Slf4j;
  * Old School RuneScape Wiki, bundled as a class resource under {@link #DIRECTORY} (Jagex's art, credited in the README).
  *
  * <p>Every image is optional: a missing or unreadable file gives {@link SmallItemIcon#EMPTY}, the same 18 by 16 slot,
- * and nothing throws, so deleting the {@code masters/} folder removes the faces with no code change.
- * Images are read with {@code getResourceAsStream}, as the bundled JSON is (no
+ * and nothing throws, so deleting the {@code masters/} folder removes the faces with no code change (see
+ * {@code docs/PUBLISHING.md}). Images are read with {@code getResourceAsStream}, as the bundled JSON is (no
  * {@code java.io} file APIs), the first time a master's icon is asked for, then kept (a missing one is remembered too).
  * A name two masters share ({@link SlayerMaster#displayName}, for example {@code Duradel/Kuradal}) shows the first
  * master's face; an unknown master shows the empty slot. EDT only.</p>

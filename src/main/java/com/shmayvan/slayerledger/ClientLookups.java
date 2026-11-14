@@ -1,9 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -366,8 +364,8 @@ class ClientLookups
 
 	/**
 	 * Client thread. Saves {@code normalized} as the player's name for {@code region} in the RSProfile config and the
-	 * cache. The config is written first: the write may create the profile, and the profile change it posts clears the
-	 * cache.
+	 * cache (the history's "Rename place" for a region the spot table doesn't list). The config is written first:
+	 * the write may create the profile, and the profile change it posts clears the cache.
 	 */
 	void saveLocationName(int region, String normalized)
 	{
@@ -376,85 +374,9 @@ class ClientLookups
 		locationNames.put(region, normalized);
 	}
 
-	/**
-	 * Client thread. Whether the player chose Skip for map region {@code region}'s name in the active RuneScape profile
-	 *; {@code false} without a profile.
-	 */
-	boolean isLocationSkipped(int region)
-	{
-		return LocationTally.isRegion(region) && Boolean.parseBoolean(configManager.getRSProfileConfiguration(
-			SlayerLedgerConfig.GROUP, SlayerLedgerPlugin.LOCATION_SKIP_KEY_PREFIX + region));
-	}
-
-	/**
-	 * Client thread. Keeps the player's Skip for {@code region} in the active RuneScape profile's config, so it is not
-	 * asked about again after a restart. The write may create the profile, as for {@link #saveLocationName}.
-	 */
-	void saveLocationSkip(int region)
-	{
-		configManager.setRSProfileConfiguration(SlayerLedgerConfig.GROUP,
-			SlayerLedgerPlugin.LOCATION_SKIP_KEY_PREFIX + region, true);
-	}
-
-	/**
-	 * Client thread. Removes every skipped region from the active RuneScape profile's config.
-	 *
-	 * @return whether there was a profile to clear
-	 */
-	boolean clearLocationSkips()
-	{
-		final String profile = configManager.getRSProfileKey();
-		if (profile == null)
-		{
-			return false;
-		}
-		final List<String> keys = configManager.getRSProfileConfigurationKeys(SlayerLedgerConfig.GROUP, profile,
-			SlayerLedgerPlugin.LOCATION_SKIP_KEY_PREFIX);
-		if (keys != null)
-		{
-			for (String key : keys)
-			{
-				configManager.unsetRSProfileConfiguration(SlayerLedgerConfig.GROUP, key);
-			}
-		}
-		return true;
-	}
-
 	/** Client thread. Another account or RuneScape profile is active: its region names are read afresh. */
 	void forgetLocationNames()
 	{
 		locationNames.clear();
-	}
-
-	/**
-	 * Client thread. Every name the player gave a region in the active RuneScape profile (the prompt suggests them, as
-	 * a place can span several regions); empty without a profile.
-	 */
-	List<String> profileLocationNames()
-	{
-		final String prefix = SlayerLedgerPlugin.LOCATION_NAME_KEY_PREFIX;
-		final List<String> names = new ArrayList<>();
-		final List<String> keys = configManager.getRSProfileConfigurationKeys(SlayerLedgerConfig.GROUP,
-			configManager.getRSProfileKey(), prefix);
-		if (keys == null)
-		{
-			return names;
-		}
-		for (String key : keys)
-		{
-			try
-			{
-				final String name = locationName(Integer.parseInt(key.substring(prefix.length())));
-				if (name != null)
-				{
-					names.add(name);
-				}
-			}
-			catch (RuntimeException e)
-			{
-				log.debug("Ignoring a location name key that is not a region: {}", key);
-			}
-		}
-		return names;
 	}
 }

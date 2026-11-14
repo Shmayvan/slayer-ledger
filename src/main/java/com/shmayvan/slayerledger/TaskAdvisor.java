@@ -8,10 +8,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 
 /**
- * The task box's advice for the current task: Do, Consider skip or Consider block, from how the monster's rate
+ * The advisor card's badge for the current task: Do, Consider skip or Consider block, from how the monster's rate
  * on the goal metric compares with the player's other monsters'. Advice only. Pure: no RuneLite types.
  *
- * <p>The rates are {@link TaskRanking}'s, exactly as the Trends list shows them (records only, completed and not
+ * <p>The rates are {@link TaskRanking}'s (records only, completed and not
  * partial, a rate from 1 minute of active time, Points/h only from tasks tracked from the start of the assignment and
  * not bonus tasks). Whole-monster history, not the current location's, as the rankings. How often a task is assigned
  * is not used (owner decision).</p>
@@ -35,24 +35,19 @@ import lombok.Builder;
  * <p><b>Minimum data</b> (owner decision): the current monster qualifies and at least {@link #MIN_MONSTERS} monsters
  * of its pool, itself included, qualify; otherwise no advice.</p>
  *
- * <p><b>Catacombs variants</b> (owner decision): the advice above pools a task's standard and Catacombs variant
- * records, as before. Beside it, for a task with a variant ({@link CatacombsVariants}), {@link #adviseVariant} says
- * which version has the better rate on the goal metric, when both versions qualify on their own records (at least
- * {@link #MIN_TASKS} tasks and {@link #MIN_ACTIVE_MILLIS} of active time each, as above), whatever the other monsters.
- * Equal rates, or either version short of data, give no variant advice.</p>
+ * <p><b>Catacombs variants and cannon</b> (owner decision): the advice pools a task's standard and
+ * Catacombs variant records ({@link CatacombsVariants}) and its tasks with and without a cannon ({@link CannonTasks}),
+ * as before. The 1.x "Better:" line, which compared the versions and the tasks with and without a cannon, went with
+ * the advisor card: its options are split by spot and cannon use, and its counterpart is the best
+ * setup with the other cannon choice ({@link TaskPlanner}).</p>
  *
- * <p><b>Cannon</b> (owner decision): likewise the advice above pools a task's tasks with and without a cannon
- * ({@link CannonTasks}), and {@link #adviseCannon} says which has the better rate on the goal metric, when both qualify
- * on their own records, whatever the other monsters. The variant advice pools cannon use and the cannon advice pools
- * the versions, so each compares one thing; they are worked out independently and the task box shows them together
- * ({@link #betterText}).</p>
+ * <p><b>Metric</b> (V2 plan 6): the badge follows the advisor's metric ({@link AdvisorMetric}): it ranks by
+ * Slayer XP per hour under {@link AdvisorMetric#FASTEST_FINISH} and by profit per hour under the others
+ * ({@link #badgeMetric}). The methods that take a {@link TaskRanking.Metric} rank by that rate; the plugin's views pass
+ * them {@link #badgeMetric} of the "Advisor metric" setting (the 1.x "Task advisor goal" setting is gone).</p>
  */
 final class TaskAdvisor
 {
-	/** The cannon advice's label when cannon tasks are better. */
-	static final String WITH_CANNON = "with cannon";
-	/** The cannon advice's label when tasks without a cannon are better. */
-	static final String WITHOUT_CANNON = "without cannon";
 	/** Qualifying monsters in the current monster's pool, itself included, needed for any advice. */
 	static final int MIN_MONSTERS = 6;
 	/** Tasks with the metric a monster needs to qualify. */
@@ -87,6 +82,16 @@ final class TaskAdvisor
 	}
 
 	/**
+	 * The rate the badge ranks by under the advisor's {@code metric}: Slayer XP per hour for
+	 * {@link AdvisorMetric#FASTEST_FINISH} (and {@code null}, its default), profit per hour for the others.
+	 */
+	static TaskRanking.Metric badgeMetric(AdvisorMetric metric)
+	{
+		return AdvisorMetric.orDefault(metric) == AdvisorMetric.FASTEST_FINISH ? TaskRanking.Metric.XP
+			: TaskRanking.Metric.PROFIT;
+	}
+
+	/**
 	 * The advice for the current task ({@code creatureId}, {@code monster}) from {@code records} on {@code metric},
 	 * valued as {@link TaskRanking#rank} values it; {@code null} without enough data.
 	 */
@@ -110,132 +115,7 @@ final class TaskAdvisor
 		TaskRanking.TaskKey current = TaskRanking.currentTaskKey(records, creatureId, monster);
 		// The task's Catacombs variant and cannon records are pooled with its others here, as before.
 		return current == null ? null
-			: advise(TaskRanking.rank(records, metric, mode, currentGe, hidden, TaskRanking.Split.NONE), current,
-				metric);
-	}
-
-	/**
-	 * The advice ({@link #advise(Collection, int, String, TaskRanking.Metric, LootPriceMode, Map, HiddenLoot)}), the
-	 * variant advice ({@link #adviseVariant}) and the cannon advice ({@link #adviseCannon}) for the current task, worked
-	 * out together (the task box shows them all), each with the loot items {@code hidden} hides left out of the profit.
-	 */
-	static Outcome adviseAll(Collection<LedgerRecord> records, int creatureId, String monster,
-		TaskRanking.Metric metric, LootPriceMode mode, Map<Integer, Long> currentGe, HiddenLoot hidden)
-	{
-		return new Outcome(advise(records, creatureId, monster, metric, mode, currentGe, hidden),
-			adviseVariant(records, creatureId, monster, metric, mode, currentGe, hidden),
-			adviseCannon(records, creatureId, monster, metric, mode, currentGe, hidden));
-	}
-
-	/**
-	 * Which version of the current task, standard or Catacombs variant, has the better rate on {@code metric},
-	 * from {@code records} split by version with cannon use pooled ({@link TaskRanking.Split#VARIANT}); {@code null} for
-	 * a task without a variant, when either version doesn't {@link #qualifies qualify}, or when their rates are equal.
-	 * Its label is the better version's name, for example "Deviant spectres". The loot items {@code hidden} hides are
-	 * left out of the profit.
-	 */
-	static VersionAdvice adviseVariant(Collection<LedgerRecord> records, int creatureId, String monster,
-		TaskRanking.Metric metric, LootPriceMode mode, Map<Integer, Long> currentGe, HiddenLoot hidden)
-	{
-		CatacombsVariants.Variant variant = CatacombsVariants.forTask(monster);
-		if (variant == null || records == null || records.isEmpty() || metric == null)
-		{
-			return null;
-		}
-		TaskRanking.TaskKey standardKey = TaskRanking.currentTaskKey(records, creatureId, monster, null, false);
-		TaskRanking.TaskKey variantKey = TaskRanking.currentTaskKey(records, creatureId, monster, variant.getName(),
-			false);
-		return compare(TaskRanking.rank(records, metric, mode, currentGe, hidden, TaskRanking.Split.VARIANT), metric,
-			variantKey, null, standardKey, null);
-	}
-
-	/**
-	 * Whether the current task's tasks with a cannon or without one have the better rate on {@code metric}, from
-	 * {@code records} split by cannon use with the versions pooled ({@link TaskRanking.Split#CANNON}); {@code null}
-	 * when either doesn't {@link #qualifies qualify}, or when their rates are equal. Its label is
-	 * {@link #WITH_CANNON} or {@link #WITHOUT_CANNON}; for a task with a Catacombs variant its reason names both groups
-	 * as pooled across versions. The loot items {@code hidden} hides are left out of the profit.
-	 */
-	static VersionAdvice adviseCannon(Collection<LedgerRecord> records, int creatureId, String monster,
-		TaskRanking.Metric metric, LootPriceMode mode, Map<Integer, Long> currentGe, HiddenLoot hidden)
-	{
-		if (records == null || records.isEmpty() || metric == null)
-		{
-			return null;
-		}
-		TaskRanking.TaskKey withoutKey = TaskRanking.currentTaskKey(records, creatureId, monster, null, false);
-		TaskRanking.TaskKey withKey = TaskRanking.currentTaskKey(records, creatureId, monster, null, true);
-		VersionAdvice advice = compare(
-			TaskRanking.rank(records, metric, mode, currentGe, hidden, TaskRanking.Split.CANNON), metric, withKey,
-			WITH_CANNON, withoutKey, WITHOUT_CANNON);
-		if (advice == null || CatacombsVariants.forTask(monster) == null)
-		{
-			return advice;
-		}
-		// Both groups hold the Catacombs variant's tasks too, so the reason says so rather than naming them after the
-		// standard monster: "Aberrant spectres, any version, with cannon".
-		String task = (WITH_CANNON.equals(advice.getLabel()) ? advice.other : advice.better).getMonster();
-		String better = task + ", any version, " + advice.getLabel();
-		String other = task + ", any version, " + (WITH_CANNON.equals(advice.getLabel()) ? WITHOUT_CANNON
-			: WITH_CANNON);
-		return new VersionAdvice(metric, advice.better, advice.other, advice.getLabel(), better, other);
-	}
-
-	/**
-	 * The better of the groups {@code firstKey} and {@code secondKey} in {@code ranking}, labelled
-	 * {@code firstLabel} or {@code secondLabel} ({@code null}: the group's name); {@code null} when either is missing
-	 * or doesn't {@link #qualifies qualify}, or their rates are equal.
-	 */
-	private static VersionAdvice compare(List<TaskRanking.Entry> ranking, TaskRanking.Metric metric,
-		TaskRanking.TaskKey firstKey, String firstLabel, TaskRanking.TaskKey secondKey, String secondLabel)
-	{
-		if (firstKey == null || secondKey == null)
-		{
-			return null;
-		}
-		TaskRanking.Entry first = null;
-		TaskRanking.Entry second = null;
-		for (TaskRanking.Entry entry : ranking)
-		{
-			if (entry.getKey().equals(firstKey))
-			{
-				first = entry;
-			}
-			else if (entry.getKey().equals(secondKey))
-			{
-				second = entry;
-			}
-		}
-		if (first == null || second == null || !qualifies(first) || !qualifies(second))
-		{
-			return null;
-		}
-		int compare = Long.compare(first.getRatePerHour(), second.getRatePerHour());
-		if (compare == 0)
-		{
-			return null;
-		}
-		return compare > 0
-			? new VersionAdvice(metric, first, second, firstLabel != null ? firstLabel : first.getMonster())
-			: new VersionAdvice(metric, second, first, secondLabel != null ? secondLabel : second.getMonster());
-	}
-
-	/**
-	 * The task box's line for the variant and cannon advice, plain text: {@code Better: Deviant spectres},
-	 * {@code Better: with cannon}, or both in one line, {@code Better: Deviant spectres, without cannon}; {@code null}
-	 * when both are {@code null}. The two are separate comparisons (each pools the other dimension).
-	 */
-	static String betterText(VersionAdvice variant, VersionAdvice cannon)
-	{
-		if (variant == null && cannon == null)
-		{
-			return null;
-		}
-		if (variant == null || cannon == null)
-		{
-			return "Better: " + (variant != null ? variant : cannon).getLabel();
-		}
-		return "Better: " + variant.getLabel() + ", " + cannon.getLabel();
+			: advise(TaskRanking.rank(records, metric, mode, currentGe, hidden), current, metric);
 	}
 
 	/** The advice for the monster {@code current} in a {@link TaskRanking#rank} ranking; {@code null} without data. */
@@ -342,95 +222,6 @@ final class TaskAdvisor
 		}
 	}
 
-	/** The task box's two pieces of advice for the current task; either may be {@code null}. Immutable. */
-	static final class Outcome
-	{
-		private final Result advice;
-		private final VersionAdvice variant;
-		private final VersionAdvice cannon;
-
-		Outcome(Result advice, VersionAdvice variant, VersionAdvice cannon)
-		{
-			this.advice = advice;
-			this.variant = variant;
-			this.cannon = cannon;
-		}
-
-		/** The advice on the task ({@link #advise}), or {@code null} without enough data. */
-		Result getAdvice()
-		{
-			return advice;
-		}
-
-		/** Which version of the task is better ({@link #adviseVariant}), or {@code null}. */
-		VersionAdvice getVariant()
-		{
-			return variant;
-		}
-
-		/** Whether the task is better with or without a cannon ({@link #adviseCannon}), or {@code null}. */
-		VersionAdvice getCannon()
-		{
-			return cannon;
-		}
-	}
-
-	/**
-	 * Which of two groups of a task's records has the better rate on the goal metric: its standard monster or its
-	 * Catacombs variant ({@link #adviseVariant}), or its tasks with or without a cannon (* {@link #adviseCannon}). The two groups' entries in a split {@link TaskRanking#rank}, the better first, and the
-	 * better one's label. Immutable.
-	 */
-	static final class VersionAdvice
-	{
-		private final TaskRanking.Metric metric;
-		private final TaskRanking.Entry better;
-		private final TaskRanking.Entry other;
-		private final String label;
-		/** What the reason calls the better group: its name in the ranking unless given. */
-		private final String betterName;
-		/** What the reason calls the other group: its name in the ranking unless given. */
-		private final String otherName;
-
-		VersionAdvice(TaskRanking.Metric metric, TaskRanking.Entry better, TaskRanking.Entry other, String label)
-		{
-			this(metric, better, other, label, better.getMonster(), other.getMonster());
-		}
-
-		VersionAdvice(TaskRanking.Metric metric, TaskRanking.Entry better, TaskRanking.Entry other, String label,
-			String betterName, String otherName)
-		{
-			this.metric = metric;
-			this.better = better;
-			this.other = other;
-			this.label = label;
-			this.betterName = betterName;
-			this.otherName = otherName;
-		}
-
-		/** What the task box says is better: "Deviant spectres", {@link #WITH_CANNON} or {@link #WITHOUT_CANNON}. */
-		String getLabel()
-		{
-			return label;
-		}
-
-		/**
-		 * Why, plain text: {@code Profit (GE)/h: Deviant spectres 450K (n=4), Aberrant spectres 300K (n=5)}, each rate
-		 * as Trends shows it, with {@code ~} when some prices were unavailable. The cannon advice on a task with a
-		 * Catacombs variant names its groups as pooled across versions: {@code Aberrant spectres, any version, with
-		 * cannon}.
-		 */
-		String reason(LootPriceMode mode)
-		{
-			return metric.label(mode) + ": " + part(betterName, better) + ", " + part(otherName, other);
-		}
-
-		private static String part(String name, TaskRanking.Entry entry)
-		{
-			return name + " " + LedgerHistory.formatAmount(entry.getRatePerHour(), entry.isApproximate())
-				+ " (n=" + entry.getSampleCount() + ")";
-		}
-	}
-
 	@Builder
 	@AllArgsConstructor(access = AccessLevel.PRIVATE)
 	static final class Result
@@ -486,8 +277,8 @@ final class TaskAdvisor
 		}
 
 		/**
-		 * Why: {@code Profit (GE)/h 210K: 5th lowest of your 24 monsters (bottom 25%)}, the metric named as in Trends
-		 * ({@link TaskRanking.Metric#label}), the rate compact with {@code ~} when some prices were unavailable. In the
+		 * Why: {@code Profit (GE)/h 210K: 5th lowest of your 24 monsters (bottom 25%)}, the metric named by
+		 * {@link TaskRanking.Metric#label}, the rate compact with {@code ~} when some prices were unavailable. In the
 		 * upper half ({@code position * 2 > monsters}) it counts from the top instead: 20th of 24 is
 		 * {@code 5th highest of your 24 monsters}. A boss task says {@code bosses}; a bottom-10% monster with too few
 		 * tasks to block says {@code (bottom 10%, block from 5 tasks)}.

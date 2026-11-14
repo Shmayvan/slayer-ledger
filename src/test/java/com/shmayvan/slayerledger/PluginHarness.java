@@ -43,6 +43,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
@@ -51,6 +52,8 @@ import net.runelite.api.Actor;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.Constants;
+import net.runelite.api.EnumComposition;
+import net.runelite.api.EnumID;
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.GameState;
 import net.runelite.api.Hitsplat;
@@ -101,6 +104,7 @@ import net.runelite.client.game.ItemStats;
 import net.runelite.client.game.LootManager;
 import net.runelite.client.game.NpcUtil;
 import net.runelite.client.game.SkillIconManager;
+import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.AsyncBufferedImage;
@@ -130,15 +134,21 @@ import org.mockito.invocation.InvocationOnMock;
  * <p>What is faked: {@link Client}, {@link ItemManager}, item compositions, item containers, the local player, the
  * top-level world view, NPC definitions, NPCs ({@link #npc}) and interface widgets are thread-checked Mockito fakes;
  * the client, item and container fakes return values the test sets (game state, tick count, account, varps/varbits,
- * inventory/equipment, open interfaces, the item dialog's text, the selected "Use" item, task names, item definitions
- * and prices), and the local player its animation, frame, spotanims and location ({@link #setPlayerRegion}; none
+ * inventory/equipment, open interfaces and those only loaded ({@link #loadInterfaceWithoutOpening}), the item
+ * dialog's text, the selected "Use" item, task names, item definitions and prices, item stats for the stackable
+ * weapons and ammo defined, the rune pouch enum), and the local player its
+ * animation, frame, spotanims and location ({@link #setPlayerRegion} or {@link #setPlayerTile}; none
  * until set; on a Sailing boat's world view with {@link #setPlayerOnBoat}); {@link ClientToolbar},
  * {@link ConfigManager} and LootManager's {@link NpcUtil} are mocks (the config manager keeps one RSProfile's config
- * in memory, and with {@link #setNoRsProfileWhileLoggedOut} has no profile while logged out); the config is
- * {@link HarnessConfig}. {@code ItemManager.getImage} is the one fake call allowed off the client thread, as RuneLite
- * allows it: the panel calls it on the EDT (the harness fails a call from any other thread), it returns a blank image
- * that is never drawn, and {@link #iconText} tells what an icon shows. {@link SkillIconManager} is a fake too, for the
- * XP lists' skill icons: EDT only as well, a blank image per call, read by {@link #iconText}.</p>
+ * in memory, and with {@link #setNoRsProfileWhileLoggedOut} has no profile while logged out; setting the "Advisor
+ * metric", as the advisor card's tabs do, stores it and posts {@code ConfigChanged} as ConfigManager does); the
+ * config is {@link HarnessConfig}. {@code ItemManager.getImage} is a fake call allowed off the client
+ * thread, as RuneLite allows it: the panel calls it on the EDT and the overlay on the client thread (the harness fails
+ * a call from any other thread), it returns a blank image, and {@link #iconText} tells what an icon shows.
+ * {@link SkillIconManager} is a fake too, for the XP lists' skill icons: EDT only, a blank image per call, read by
+ * {@link #iconText}. The {@code SpriteManager} fake has no sprites for the overlay ({@code getSprite}, client thread
+ * only); the sidebar's {@code getSpriteAsync} (EDT) gets a blank image on the client thread, read by
+ * {@link #iconText}.</p>
  *
  * <p>Threading. The test thread plays the client thread: {@code client.isClientThread()} is true on it, except while
  * it runs an executor task. So, as in the client, {@code clientThread.invoke} runs at once on the test thread but is
@@ -169,7 +179,10 @@ final class PluginHarness implements TestRule
 	/** The RSProfile key the config manager mock reports for its one profile. */
 	static final String RS_PROFILE_KEY = "rsprofile.harness";
 	static final long OTHER_ACCOUNT = 987_654_321L;
-	/** NPC whose kills {@link #lootOnNextTick} reports; {@code client.getNpcDefinition} names it LOOT_NPC_NAME. */
+	/**
+	 * NPC whose kills {@link #lootOnNextTick(int, int)} reports; {@code client.getNpcDefinition} names it
+	 * LOOT_NPC_NAME.
+	 */
 	static final int LOOT_NPC_ID = 415;
 	static final String LOOT_NPC_NAME = "Abyssal demon";
 	static final int MAX_DRAIN_PASSES = 100;
@@ -196,38 +209,38 @@ final class PluginHarness implements TestRule
 	static final class HarnessConfig implements SlayerLedgerConfig
 	{
 		volatile boolean confirmIncomplete;
+		volatile boolean taskCompleteLine = true;
 		volatile boolean taskCompleteNotification;
-		volatile boolean assignmentPreview = true;
+		volatile boolean recordTaskLine = true;
+		volatile boolean notableDropLine = true;
+		volatile boolean advisorChatLine = true;
 		volatile boolean showTaskOverlay = true;
-		volatile boolean overlayTask = true;
-		volatile boolean overlayKills = true;
-		volatile boolean overlayTimeLeft = true;
-		volatile boolean overlayProfit = true;
+		volatile boolean overlayProgress = true;
+		volatile boolean overlayPace = true;
+		volatile boolean overlayHaul = true;
+		volatile boolean overlayRunway = true;
 		volatile BonecrusherMode bonecrusherHandling = BonecrusherMode.AUTO;
 		volatile String ignoredLoot = "";
 		volatile LootPriceMode lootPriceMode = LootPriceMode.GE;
 		volatile boolean vorkathsHeadUpgrade;
 		volatile int notableDropThreshold = NotableDrops.DEFAULT_THRESHOLD;
-		volatile boolean showWhatToBring = true;
-		volatile boolean showTrends = true;
 		volatile boolean showOverallTotals = true;
-		volatile boolean showLuckMeter = true;
 		volatile boolean showSkippedBlocked = true;
 		volatile boolean taskAdvisor = true;
-		volatile TaskAdvisorGoal taskAdvisorGoal = TaskAdvisorGoal.PROFIT;
-		volatile boolean resetLocationSkips;
+		volatile AdvisorMetric advisorMetric = AdvisorMetric.DEFAULT;
 		volatile boolean hideGroundItemsHidden = true;
+		volatile int awayMinutes = SessionTracker.DEFAULT_AWAY_MINUTES;
+
+		@Override
+		public int awayMinutes()
+		{
+			return awayMinutes;
+		}
 
 		@Override
 		public boolean hideGroundItemsHidden()
 		{
 			return hideGroundItemsHidden;
-		}
-
-		@Override
-		public boolean resetLocationSkips()
-		{
-			return resetLocationSkips;
 		}
 
 		@Override
@@ -237,33 +250,15 @@ final class PluginHarness implements TestRule
 		}
 
 		@Override
-		public TaskAdvisorGoal taskAdvisorGoal()
+		public AdvisorMetric advisorMetric()
 		{
-			return taskAdvisorGoal;
-		}
-
-		@Override
-		public boolean showWhatToBring()
-		{
-			return showWhatToBring;
-		}
-
-		@Override
-		public boolean showTrends()
-		{
-			return showTrends;
+			return advisorMetric;
 		}
 
 		@Override
 		public boolean showOverallTotals()
 		{
 			return showOverallTotals;
-		}
-
-		@Override
-		public boolean showLuckMeter()
-		{
-			return showLuckMeter;
 		}
 
 		@Override
@@ -297,15 +292,33 @@ final class PluginHarness implements TestRule
 		}
 
 		@Override
+		public boolean taskCompleteLine()
+		{
+			return taskCompleteLine;
+		}
+
+		@Override
 		public boolean taskCompleteNotification()
 		{
 			return taskCompleteNotification;
 		}
 
 		@Override
-		public boolean assignmentPreview()
+		public boolean recordTaskLine()
 		{
-			return assignmentPreview;
+			return recordTaskLine;
+		}
+
+		@Override
+		public boolean notableDropLine()
+		{
+			return notableDropLine;
+		}
+
+		@Override
+		public boolean advisorChatLine()
+		{
+			return advisorChatLine;
 		}
 
 		@Override
@@ -315,27 +328,27 @@ final class PluginHarness implements TestRule
 		}
 
 		@Override
-		public boolean overlayTask()
+		public boolean overlayProgress()
 		{
-			return overlayTask;
+			return overlayProgress;
 		}
 
 		@Override
-		public boolean overlayKills()
+		public boolean overlayPace()
 		{
-			return overlayKills;
+			return overlayPace;
 		}
 
 		@Override
-		public boolean overlayTimeLeft()
+		public boolean overlayHaul()
 		{
-			return overlayTimeLeft;
+			return overlayHaul;
 		}
 
 		@Override
-		public boolean overlayProfit()
+		public boolean overlayRunway()
 		{
-			return overlayProfit;
+			return overlayRunway;
 		}
 
 		@Override
@@ -374,6 +387,9 @@ final class PluginHarness implements TestRule
 	final SkillIconManager skillIconManager = mock(SkillIconManager.class,
 		withSettings().stubOnly().defaultAnswer(this::answerSkillIconManager));
 	final ClientToolbar clientToolbar = mock(ClientToolbar.class);
+	/** The overlay's tag sprites: client thread only, and no sprite (the overlay draws none). */
+	final SpriteManager spriteManager = mock(SpriteManager.class,
+		withSettings().stubOnly().defaultAnswer(this::answerSpriteManager));
 	final ConfigManager configManager = mock(ConfigManager.class);
 	final ChatMessageManager chatMessageManager = mock(ChatMessageManager.class);
 	final Notifier notifier = mock(Notifier.class);
@@ -412,14 +428,18 @@ final class PluginHarness implements TestRule
 	private volatile int animation = -1;
 	private volatile int animationFrame;
 	private final Set<Integer> spotAnims = new HashSet<>();
+	/** What the local player is interacting with ({@link #setInteracting}), or {@code null}. */
+	private volatile Actor interacting;
 	private final Player localPlayer = mock(Player.class, withSettings().stubOnly().defaultAnswer(
 		this::answerPlayer));
 	/**
-	 * The local player's tile ({@link #setPlayerRegion}); {@link #NO_LOCATION} for none, when
+	 * The local player's tile ({@link #setPlayerRegion}, {@link #setPlayerTile}); {@link #NO_LOCATION} for none, when
 	 * {@code Player.getLocalLocation()} and the world views read {@code null}.
 	 */
 	private volatile int playerWorldX = NO_LOCATION;
 	private volatile int playerWorldY = NO_LOCATION;
+	/** The local player's plane, the world view's ({@link #setPlayerTile}). */
+	private volatile int playerPlane;
 	/** The top-level world view (not an instance) around the local player's tile, while it has one. */
 	private final WorldView worldView = mock(WorldView.class, withSettings().stubOnly().defaultAnswer(
 		this::answerWorldView));
@@ -446,7 +466,20 @@ final class PluginHarness implements TestRule
 	private final Map<String, String> otherConfig = new ConcurrentHashMap<>();
 	private final Widget openWidget = mock(Widget.class, withSettings().stubOnly().defaultAnswer(
 		invocation -> answerChecked("Widget", invocation)));
+	/**
+	 * Interface groups the game has loaded without opening them ({@link #loadInterfaceWithoutOpening}): their root
+	 * widget is {@link #loadedClosedWidget}.
+	 */
+	private final Set<Integer> loadedClosedInterfaces = new HashSet<>();
+	/** The root widget of a group loaded but not open: it has no parent, so {@code isHidden()} is true. */
+	private final Widget loadedClosedWidget = mock(Widget.class, withSettings().stubOnly().defaultAnswer(invocation ->
+	{
+		final Object answer = answerChecked("Widget", invocation);
+		return "isHidden".equals(invocation.getMethod().getName()) ? Boolean.TRUE : answer;
+	}));
 	private final Map<Integer, NPCComposition> npcDefinitions = new HashMap<>();
+	/** NPC definitions' names other than {@link #LOOT_NPC_NAME}, by NPC id ({@link #lootOnNextTick(int, String, int, int)}). */
+	private final Map<Integer, String> npcDefinitionNames = new HashMap<>();
 	private final Map<Integer, ItemDef> itemDefs = new HashMap<>();
 	private final Map<Integer, Long> gePrices = new HashMap<>();
 	/** {@code ItemManager.getItemComposition} calls by item id, see {@link #itemCompositionLookups}. */
@@ -460,8 +493,19 @@ final class PluginHarness implements TestRule
 	private final Map<Image, String> itemImages = Collections.synchronizedMap(new IdentityHashMap<>());
 	/** Calls to the {@code ItemManager.getImage} fake so far; see {@link #itemImageRequests}. */
 	private final AtomicInteger itemImageRequests = new AtomicInteger();
+	/** Calls to the {@code SpriteManager.getSpriteAsync} fake so far; see {@link #spriteImageRequests}. */
+	private final AtomicInteger spriteImageRequests = new AtomicInteger();
 	/** Items defined by {@link #defineStackableWeapon}. */
 	private final Set<Integer> stackableWeapons = new HashSet<>();
+	/** Items defined by {@link #defineAmmo}. */
+	private final Set<Integer> ammoItems = new HashSet<>();
+	/** Equipment stats of the items defined by {@link #defineEquipment}. */
+	private final Map<Integer, ItemEquipmentStats> equipmentStats = new HashMap<>();
+	/**
+	 * The rune pouch enum's runes ({@link #setRunePouchRunes}): the rune item id of each rune type, from type 1; empty
+	 * while {@code client.getEnum(EnumID.RUNEPOUCH_RUNE)} reads {@code null}.
+	 */
+	private volatile int[] runePouchRunes = new int[0];
 	/** Noted item id to its unnoted item id, see {@link #defineNotedItem}. */
 	private final Map<Integer, Integer> notedItems = new HashMap<>();
 	private final Map<Integer, ItemComposition> compositions = new HashMap<>();
@@ -551,6 +595,7 @@ final class PluginHarness implements TestRule
 			binder.bind(ChatMessageManager.class).toProvider(Providers.of(chatMessageManager));
 			binder.bind(ItemManager.class).toProvider(Providers.of(itemManager));
 			binder.bind(SkillIconManager.class).toProvider(Providers.of(skillIconManager));
+			binder.bind(SpriteManager.class).toProvider(Providers.of(spriteManager));
 			binder.bind(Notifier.class).toProvider(Providers.of(notifier));
 			binder.bind(EventBus.class).toInstance(eventBus);
 			binder.bind(ScheduledExecutorService.class).toInstance(executor);
@@ -560,12 +605,6 @@ final class PluginHarness implements TestRule
 		// The real LootManager, created by Guice as in the client (it registers itself with the event bus).
 		lootManager = parent.getInstance(LootManager.class);
 		when(configManager.getConfig(SlayerLedgerConfig.class)).thenReturn(config);
-		// Unsetting "Ask again about skipped places" (the plugin unticks it) reads as its default afterwards.
-		doAnswer(invocation ->
-		{
-			config.resetLocationSkips = false;
-			return null;
-		}).when(configManager).unsetConfiguration(SlayerLedgerConfig.GROUP, SlayerLedgerConfig.RESET_LOCATION_SKIPS);
 		otherConfig.put(GroundItemsHidden.GROUP + "." + GroundItemsHidden.HIDDEN_ITEMS_KEY, "");
 		when(configManager.getConfiguration(anyString(), anyString())).thenAnswer(invocation ->
 			otherConfig.get(invocation.getArgument(0) + "." + invocation.getArgument(1)));
@@ -585,6 +624,25 @@ final class PluginHarness implements TestRule
 			rsProfileConfig.remove(invocation.getArgument(0) + "." + invocation.getArgument(1));
 			return null;
 		}).when(configManager).unsetRSProfileConfiguration(anyString(), anyString());
+		// The advisor card's tabs save the "Advisor metric": as ConfigManager.setConfiguration, a new
+		// value is stored and ConfigChanged is posted at once, on the calling thread (the EDT); the same value posts
+		// nothing.
+		doAnswer(invocation ->
+		{
+			final AdvisorMetric metric = invocation.getArgument(2);
+			if (SlayerLedgerConfig.GROUP.equals(invocation.getArgument(0))
+				&& SlayerLedgerConfig.ADVISOR_METRIC.equals(invocation.getArgument(1))
+				&& metric != config.advisorMetric)
+			{
+				config.advisorMetric = metric;
+				final ConfigChanged event = new ConfigChanged();
+				event.setGroup(SlayerLedgerConfig.GROUP);
+				event.setKey(SlayerLedgerConfig.ADVISOR_METRIC);
+				event.setNewValue(metric.name());
+				eventBus.post(event);
+			}
+			return null;
+		}).when(configManager).setConfiguration(anyString(), anyString(), any(AdvisorMetric.class));
 		// The keys of the one profile, as ConfigManager lists them (whole keys after the group, "prefix..."); none, as
 		// with no profile, while the RSProfile config reads null.
 		when(configManager.getRSProfileKey()).thenAnswer(invocation ->
@@ -788,6 +846,16 @@ final class PluginHarness implements TestRule
 		drain();
 	}
 
+	/**
+	 * One game tick as {@link #tick()}, without draining the work it queued: an executor load (such as the restore
+	 * check's) has not come back when this returns. {@link #drain()} runs it.
+	 */
+	void tickWithoutDrain()
+	{
+		postWithoutDrain(new GameTick());
+		tickCount++;
+	}
+
 	void ticks(int n)
 	{
 		for (int i = 0; i < n; i++)
@@ -908,8 +976,18 @@ final class PluginHarness implements TestRule
 	 */
 	void setPlayerRegion(int region)
 	{
-		playerWorldY = ((region & 0xFF) << 6) + 32;
-		playerWorldX = ((region >> 8) << 6) + 32;
+		setPlayerTile(((region >> 8) << 6) + 32, ((region & 0xFF) << 6) + 32, 0);
+	}
+
+	/**
+	 * Puts the local player on tile {@code (x, y)} of plane {@code plane} (outside any instance), as
+	 * {@code WorldPoint.fromLocalInstance(client, player.getLocalLocation())} reads it.
+	 */
+	void setPlayerTile(int x, int y, int plane)
+	{
+		playerPlane = plane;
+		playerWorldY = y;
+		playerWorldX = x;
 	}
 
 	/**
@@ -1028,6 +1106,42 @@ final class PluginHarness implements TestRule
 	}
 
 	/**
+	 * Defines ammo such as arrows or bolts: a {@link #defineItem} item that is stackable and whose item stats are
+	 * loaded, with the ammo slot.
+	 */
+	void defineAmmo(int id, String name, long gePrice)
+	{
+		defineItem(id, name, gePrice, 0, null, "Wield", null, null, "Drop");
+		ammoItems.add(id);
+	}
+
+	/**
+	 * Defines a wearable item (weapon or armour, not stackable) whose item stats are loaded with {@code stats}, as
+	 * {@code ItemManager.getItemStats} gives them: what the plugin reads for the worn weapon's style and the worn prayer
+	 * bonus.
+	 */
+	void defineEquipment(int id, String name, ItemEquipmentStats stats)
+	{
+		defineItem(id, name, 0, 0, null, "Wear", null, null, "Drop");
+		equipmentStats.put(id, stats);
+	}
+
+	/** Sets what the local player is interacting with ({@code Player.getInteracting()}); {@code null} for nothing. */
+	void setInteracting(Actor actor)
+	{
+		interacting = actor;
+	}
+
+	/**
+	 * Makes {@code client.getEnum(EnumID.RUNEPOUCH_RUNE)} map rune type 1 to {@code runeItemIds[0]}, type 2 to
+	 * {@code runeItemIds[1]} and so on, as the game's enum maps the RUNE_POUCH_TYPE varbits' values to rune items.
+	 */
+	void setRunePouchRunes(int... runeItemIds)
+	{
+		runePouchRunes = runeItemIds.clone();
+	}
+
+	/**
 	 * Defines a noted item: its composition is noted ({@code getNote()} is not -1) and links to {@code unnotedId}, whose
 	 * name it shares, as in the game; {@code ItemManager.canonicalize} returns the unnoted id.
 	 */
@@ -1058,6 +1172,17 @@ final class PluginHarness implements TestRule
 		post(event);
 	}
 
+	/** Sets the "Away after" setting and posts {@link ConfigChanged} for it, as the config panel does. */
+	void setAwayMinutes(int minutes)
+	{
+		config.awayMinutes = minutes;
+		ConfigChanged event = new ConfigChanged();
+		event.setGroup(SlayerLedgerConfig.GROUP);
+		event.setKey(SlayerLedgerConfig.AWAY_MINUTES);
+		event.setNewValue(Integer.toString(minutes));
+		post(event);
+	}
+
 	/** Sets the "Notable drop value" setting and posts {@link ConfigChanged} for it, as the config panel does. */
 	void setNotableDropThreshold(int gp)
 	{
@@ -1077,17 +1202,8 @@ final class PluginHarness implements TestRule
 	{
 		switch (key)
 		{
-			case SlayerLedgerConfig.SHOW_WHAT_TO_BRING:
-				config.showWhatToBring = shown;
-				break;
-			case SlayerLedgerConfig.SHOW_TRENDS:
-				config.showTrends = shown;
-				break;
 			case SlayerLedgerConfig.SHOW_OVERALL_TOTALS:
 				config.showOverallTotals = shown;
-				break;
-			case SlayerLedgerConfig.SHOW_LUCK_METER:
-				config.showLuckMeter = shown;
 				break;
 			case SlayerLedgerConfig.SHOW_SKIPPED_BLOCKED:
 				config.showSkippedBlocked = shown;
@@ -1111,29 +1227,6 @@ final class PluginHarness implements TestRule
 		event.setKey(SlayerLedgerConfig.TASK_ADVISOR);
 		event.setNewValue(Boolean.toString(enabled));
 		post(event);
-	}
-
-	/**
-	 * Ticks "Ask again about skipped places" and posts {@link ConfigChanged} for it, as the config panel does; while the
-	 * plugin is stopped only the value is set, as the event then reaches no plugin.
-	 */
-	void tickResetLocationSkips()
-	{
-		config.resetLocationSkips = true;
-		if (running)
-		{
-			ConfigChanged event = new ConfigChanged();
-			event.setGroup(SlayerLedgerConfig.GROUP);
-			event.setKey(SlayerLedgerConfig.RESET_LOCATION_SKIPS);
-			event.setNewValue("true");
-			post(event);
-		}
-	}
-
-	/** Whether "Ask again about skipped places" is ticked (the plugin unticks it once done). */
-	boolean isResetLocationSkipsTicked()
-	{
-		return config.resetLocationSkips;
 	}
 
 	/**
@@ -1175,14 +1268,14 @@ final class PluginHarness implements TestRule
 		post(event);
 	}
 
-	/** Sets the "Task advisor goal" setting and posts {@link ConfigChanged} for it, as the config panel does. */
-	void setTaskAdvisorGoal(TaskAdvisorGoal goal)
+	/** Sets the "Advisor metric" setting and posts {@link ConfigChanged} for it, as the config panel does. */
+	void setAdvisorMetric(AdvisorMetric metric)
 	{
-		config.taskAdvisorGoal = goal;
+		config.advisorMetric = metric;
 		ConfigChanged event = new ConfigChanged();
 		event.setGroup(SlayerLedgerConfig.GROUP);
-		event.setKey(SlayerLedgerConfig.TASK_ADVISOR_GOAL);
-		event.setNewValue(goal.name());
+		event.setKey(SlayerLedgerConfig.ADVISOR_METRIC);
+		event.setNewValue(metric.name());
 		post(event);
 	}
 
@@ -1241,26 +1334,53 @@ final class PluginHarness implements TestRule
 	 */
 	void lootOnNextTick(int id, int quantity)
 	{
+		lootOnNextTick(LOOT_NPC_ID, LOOT_NPC_NAME, id, quantity);
+	}
+
+	/**
+	 * As {@link #lootOnNextTick(int, int)}, from the NPC {@code npcId}, which {@code client.getNpcDefinition} names
+	 * {@code npcName} from now on.
+	 */
+	void lootOnNextTick(int npcId, String npcName, int id, int quantity)
+	{
+		npcDefinitionNames.put(npcId, npcName);
 		final ScriptEvent scriptEvent = mock(ScriptEvent.class, withSettings().stubOnly());
 		// Argument 0 is the script; LootManager reads the NPC, event, item and quantity from 1 to 4.
 		when(scriptEvent.getArguments()).thenReturn(new Object[]{
-			ScriptID.LOOTTRACKER_ADD_LOOT, LOOT_NPC_ID, tickCount, id, quantity});
+			ScriptID.LOOTTRACKER_ADD_LOOT, npcId, tickCount, id, quantity});
 		final ScriptPreFired event = new ScriptPreFired(ScriptID.LOOTTRACKER_ADD_LOOT);
 		event.setScriptEvent(scriptEvent);
 		postWithoutDrain(event);
 	}
 
-	/** Posts {@link ServerNpcLoot} now (between ticks), then drains. */
+	/** Posts {@link ServerNpcLoot} now (between ticks), from an NPC whose name is unknown, then drains. */
 	void postLoot(int id, int quantity)
 	{
 		post(new ServerNpcLoot(mock(NPCComposition.class), Collections.singletonList(new ItemStack(id, quantity))));
 	}
 
+	/** Posts {@link ServerNpcLoot} now (between ticks), from an NPC named {@code npcName}, then drains. */
+	void postLoot(String npcName, int id, int quantity)
+	{
+		final NPCComposition composition = mock(NPCComposition.class, withSettings().stubOnly());
+		when(composition.getName()).thenReturn(npcName);
+		post(new ServerNpcLoot(composition, Collections.singletonList(new ItemStack(id, quantity))));
+	}
+
+	/** Posts one kill's {@link ServerNpcLoot} of several stacks now, from an NPC named {@code npcName}, then drains. */
+	void postLoot(String npcName, ItemStack... stacks)
+	{
+		final NPCComposition composition = mock(NPCComposition.class, withSettings().stubOnly());
+		when(composition.getName()).thenReturn(npcName);
+		post(new ServerNpcLoot(composition, Arrays.asList(stacks)));
+	}
+
 	// ---- Interfaces, menu, actors, chat ----
 
-	/** Opens an interface: its root widget is loaded from now on and {@link WidgetLoaded} is posted. */
+	/** Opens an interface: its root widget is loaded (and shown) from now on and {@link WidgetLoaded} is posted. */
 	void openInterface(int groupId)
 	{
+		loadedClosedInterfaces.remove(groupId);
 		openInterfaces.add(groupId);
 		WidgetLoaded event = new WidgetLoaded();
 		event.setGroupId(groupId);
@@ -1271,7 +1391,21 @@ final class PluginHarness implements TestRule
 	void closeInterface(int groupId)
 	{
 		openInterfaces.remove(groupId);
+		loadedClosedInterfaces.remove(groupId);
 		post(new WidgetClosed(groupId, 0, true));
+	}
+
+	/**
+	 * The game loads an interface group without opening it, as the client's own widget lookup does for any group a
+	 * script or server packet refers to (RuneLite 1.13.4's injected client loads a missing group there, posting
+	 * no WidgetLoaded): from now on {@code client.getWidget(groupId, 0)} returns its root widget, which has no parent,
+	 * so its {@code isHidden()} is true. No event is posted. Here it stays loaded across logouts and hops (the worst
+	 * case; whether the game unloads it then is not known) until {@link #openInterface} or {@link #closeInterface}.
+	 */
+	void loadInterfaceWithoutOpening(int groupId)
+	{
+		openInterfaces.remove(groupId);
+		loadedClosedInterfaces.add(groupId);
 	}
 
 	/** Posts {@link MenuOptionClicked} for {@code option} on an inventory item. */
@@ -1475,32 +1609,54 @@ final class PluginHarness implements TestRule
 
 	// ---- Panel actions (EDT) ----
 
-	/** Presses Play, on the EDT as the panel does. */
-	boolean play()
+	/**
+	 * Starts a session at once through the plugin's test seam ({@link SlayerLedgerPlugin#startSessionNow}), on the EDT,
+	 * as the removed Play did: for tests whose subject is not how a session starts. Like Play, it counts nothing used or
+	 * gained before it (no warm-up). The player starts one with a task kill: the count dropping ({@link #setRemaining},
+	 * then a tick), with the NPCs they hit ({@link #hitsplat}, {@link #npcDies}) paired with it.
+	 */
+	boolean startNow()
 	{
 		final boolean[] result = new boolean[1];
-		onEdt(() -> result[0] = plugin.play());
+		onEdt(() -> result[0] = plugin.startSessionNow());
 		drain();
 		return result[0];
 	}
 
+	/** Presses Pause, on the EDT as the panel does. */
 	void pause()
 	{
 		onEdt(plugin::pause);
 		drain();
 	}
 
-	void stop()
+	/** Presses Resume, on the EDT as the panel does. */
+	boolean resume()
 	{
-		onEdt(plugin::stop);
+		final boolean[] result = new boolean[1];
+		onEdt(() -> result[0] = plugin.resume());
+		drain();
+		return result[0];
+	}
+
+	/** Presses End task, on the EDT as the panel does. */
+	void endTask()
+	{
+		onEdt(plugin::endTask);
 		drain();
 	}
 
-	boolean canPlay()
+	/** Presses Track again, on the EDT as the panel does. */
+	void trackAgain()
 	{
-		final boolean[] result = new boolean[1];
-		onEdt(() -> result[0] = plugin.canPlay());
-		return result[0];
+		onEdt(plugin::trackAgain);
+		drain();
+	}
+
+	/** What tracking is doing ({@link SessionTracker#getStatus()}). */
+	SessionTracker.Status status()
+	{
+		return tracker().getStatus();
 	}
 
 	// ---- Keep/Discard prompt (EDT) ----
@@ -1711,6 +1867,16 @@ final class PluginHarness implements TestRule
 		}
 	}
 
+	/**
+	 * The account's persisted session ({@link #activeSession}), or {@code null} when the file is missing or holds only
+	 * an Ended assignment's marker ({@link SessionSnapshot#isEndedMarker()}), which is no session.
+	 */
+	SessionSnapshot persistedSession(long account)
+	{
+		final SessionSnapshot snapshot = activeSession(account);
+		return snapshot == null || snapshot.isEndedMarker() ? null : snapshot;
+	}
+
 	/** The plugin's session tracker (read-only use: state and held completion). */
 	SessionTracker tracker()
 	{
@@ -1738,11 +1904,17 @@ final class PluginHarness implements TestRule
 		return itemImageRequests.get();
 	}
 
+	/** How many sprites the sidebar asked for so far ({@code SpriteManager.getSpriteAsync}). */
+	int spriteImageRequests()
+	{
+		return spriteImageRequests.get();
+	}
+
 	/**
 	 * What an icon from the {@code ItemManager.getImage} fake shows: {@code "<item id>"}, or
 	 * {@code "<item id> x<quantity>"} when the quantity is drawn on it; from the {@code SkillIconManager} fake,
-	 * {@code "skill <SKILL>"} for a small icon ({@code "skill <SKILL> large"} for a large one); {@code null} for no icon
-	 * or another icon.
+	 * {@code "skill <SKILL>"} for a small icon ({@code "skill <SKILL> large"} for a large one); from the
+	 * {@code SpriteManager.getSpriteAsync} fake, {@code "sprite <archive>"}; {@code null} for no icon or another icon.
 	 */
 	String iconText(Icon icon)
 	{
@@ -2052,6 +2224,13 @@ final class PluginHarness implements TestRule
 				break;
 			case "getSelectedWidget":
 				return selectedItemId >= 0 ? itemWidget(selectedItemId) : null;
+			case "getEnum":
+				if (intParams(method, 1) && invocation.<Integer>getArgument(0) == EnumID.RUNEPOUCH_RUNE)
+				{
+					final int[] runes = runePouchRunes;
+					return runes.length == 0 ? null : runePouchEnum(runes);
+				}
+				break;
 			case "getWidget":
 				if (intParams(method, 1))
 				{
@@ -2063,7 +2242,12 @@ final class PluginHarness implements TestRule
 				{
 					final int group = invocation.getArgument(0);
 					final int child = invocation.getArgument(1);
-					return child == 0 && openInterfaces.contains(group) ? openWidget : null;
+					if (child != 0)
+					{
+						return null;
+					}
+					return openInterfaces.contains(group) ? openWidget
+						: loadedClosedInterfaces.contains(group) ? loadedClosedWidget : null;
 				}
 				break;
 			case "getDBRowsByValue":
@@ -2147,7 +2331,10 @@ final class PluginHarness implements TestRule
 			})));
 	}
 
-	/** NPC definition fake for {@code client.getNpcDefinition}, named {@link #LOOT_NPC_NAME}. */
+	/**
+	 * NPC definition fake for {@code client.getNpcDefinition}, named {@link #LOOT_NPC_NAME} unless
+	 * {@link #lootOnNextTick(int, String, int, int)} named it.
+	 */
 	private NPCComposition npcDefinition(int id)
 	{
 		return npcDefinitions.computeIfAbsent(id, k -> mock(NPCComposition.class,
@@ -2163,7 +2350,7 @@ final class PluginHarness implements TestRule
 					case "getId":
 						return k;
 					case "getName":
-						return LOOT_NPC_NAME;
+						return npcDefinitionNames.getOrDefault(k, LOOT_NPC_NAME);
 					default:
 						return RETURNS_DEFAULTS.answer(invocation);
 				}
@@ -2185,6 +2372,8 @@ final class PluginHarness implements TestRule
 				return animation;
 			case "getAnimationFrame":
 				return animationFrame;
+			case "getInteracting":
+				return interacting;
 			case "hasSpotAnim":
 				synchronized (spotAnims)
 				{
@@ -2202,7 +2391,7 @@ final class PluginHarness implements TestRule
 
 	/**
 	 * The top-level world view (and the boat's, which differs only in its id and in not being top-level): never an
-	 * instance, plane 0, its base SCENE_OFFSET tiles below the player's tile.
+	 * instance, on the player's plane ({@link #setPlayerTile}), its base SCENE_OFFSET tiles below the player's tile.
 	 */
 	private Object answerWorldView(InvocationOnMock invocation) throws Throwable
 	{
@@ -2219,7 +2408,7 @@ final class PluginHarness implements TestRule
 			case "isTopLevel":
 				return invocation.getMock() != boatView;
 			case "getPlane":
-				return 0;
+				return playerPlane;
 			case "isInstance":
 				return false;
 			case "getBaseX":
@@ -2229,6 +2418,34 @@ final class PluginHarness implements TestRule
 			default:
 				return RETURNS_DEFAULTS.answer(invocation);
 		}
+	}
+
+	/**
+	 * A thread-checked fake of the rune pouch enum ({@link #setRunePouchRunes}): {@code getIntValue(type)} is the rune
+	 * of that type (from 1; -1 for none, as the game's enum default), {@code getIntVals()} every rune.
+	 */
+	private EnumComposition runePouchEnum(int[] runes)
+	{
+		return mock(EnumComposition.class, withSettings().stubOnly().defaultAnswer(invocation ->
+		{
+			if (invocation.getMethod().getDeclaringClass() == Object.class)
+			{
+				return RETURNS_DEFAULTS.answer(invocation);
+			}
+			checkClientThread("EnumComposition." + invocation.getMethod().getName());
+			switch (invocation.getMethod().getName())
+			{
+				case "getIntVals":
+					return runes.clone();
+				case "getIntValue":
+				{
+					final int type = invocation.getArgument(0);
+					return type >= 1 && type <= runes.length ? runes[type - 1] : -1;
+				}
+				default:
+					return RETURNS_DEFAULTS.answer(invocation);
+			}
+		}));
 	}
 
 	/** A thread-checked widget fake holding an item (the selected "Use" item). */
@@ -2294,6 +2511,40 @@ final class PluginHarness implements TestRule
 		return RETURNS_DEFAULTS.answer(invocation);
 	}
 
+	/**
+	 * The {@code SpriteManager} fake: {@code getSprite} (the overlay's) on the client thread only, with no sprite
+	 * loaded. {@code getSpriteAsync} with a callback (the sidebar's setup tag images) from the EDT or the client
+	 * thread, as RuneLite allows it (it reads only its own cache, else queues the read on the client thread): the
+	 * callback gets a blank image on the client thread, which {@link #iconText} reads as {@code "sprite <archive>"}. It
+	 * reads nothing from the client, so it is not counted as a client read; {@link #spriteImageRequests} counts it.
+	 */
+	@SuppressWarnings("unchecked")
+	private Object answerSpriteManager(InvocationOnMock invocation) throws Throwable
+	{
+		final Method method = invocation.getMethod();
+		if (method.getDeclaringClass() != Object.class && "getSprite".equals(method.getName()))
+		{
+			checkClientThread("SpriteManager.getSprite");
+			return null;
+		}
+		if ("getSpriteAsync".equals(method.getName()) && invocation.getArgument(2) instanceof Consumer)
+		{
+			if (!SwingUtilities.isEventDispatchThread() && !isClientThread())
+			{
+				recordError("thread check", new AssertionError("SpriteManager.getSpriteAsync called off the EDT and"
+					+ " the client thread, on " + Thread.currentThread().getName()));
+			}
+			spriteImageRequests.incrementAndGet();
+			final int archive = invocation.getArgument(0);
+			final Consumer<BufferedImage> user = invocation.getArgument(2);
+			final BufferedImage image = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+			itemImages.put(image, "sprite " + archive);
+			clientThread.invoke(() -> user.accept(image));
+			return null;
+		}
+		return RETURNS_DEFAULTS.answer(invocation);
+	}
+
 	private Object answerItemManager(InvocationOnMock invocation) throws Throwable
 	{
 		final Method method = invocation.getMethod();
@@ -2305,11 +2556,12 @@ final class PluginHarness implements TestRule
 		if ("getImage".equals(name) && method.getParameterCount() == 3)
 		{
 			// RuneLite allows getImage on any thread (it queues the sprite to the client thread); the panel calls it on
-			// the EDT, as Loot Tracker does. It reads nothing from the client, so it is not counted as a client read.
-			if (!SwingUtilities.isEventDispatchThread())
+			// the EDT, as Loot Tracker does, and the overlay on the client thread, where it draws. It reads nothing
+			// from the client, so it is not counted as a client read.
+			if (!SwingUtilities.isEventDispatchThread() && !isClientThread())
 			{
-				recordError("thread check", new AssertionError("ItemManager.getImage called off the EDT, on "
-					+ Thread.currentThread().getName()));
+				recordError("thread check", new AssertionError("ItemManager.getImage called off the EDT and the client"
+					+ " thread, on " + Thread.currentThread().getName()));
 			}
 			itemImageRequests.incrementAndGet();
 			final AsyncBufferedImage image = new AsyncBufferedImage(clientThread, Constants.ITEM_SPRITE_WIDTH,
@@ -2335,9 +2587,19 @@ final class PluginHarness implements TestRule
 				itemCompositionLookups.merge(invocation.<Integer>getArgument(0), 1, Integer::sum);
 				return composition(invocation.getArgument(0));
 			case "getItemStats":
-				// Only stackable weapons have stats (loaded); other items' stats are never loaded.
-				return stackableWeapons.contains(invocation.<Integer>getArgument(0)) ? new ItemStats(true, 0, 0,
-					ItemEquipmentStats.builder().slot(EquipmentInventorySlot.WEAPON.getSlotIdx()).build()) : null;
+			{
+				// Only stackable weapons, ammo and defined equipment have stats (loaded); other items' stats are never
+				// loaded.
+				final int id = invocation.getArgument(0);
+				if (equipmentStats.containsKey(id))
+				{
+					return new ItemStats(true, 0, 0, equipmentStats.get(id));
+				}
+				final EquipmentInventorySlot slot = stackableWeapons.contains(id) ? EquipmentInventorySlot.WEAPON
+					: ammoItems.contains(id) ? EquipmentInventorySlot.AMMO : null;
+				return slot == null ? null
+					: new ItemStats(true, 0, 0, ItemEquipmentStats.builder().slot(slot.getSlotIdx()).build());
+			}
 			default:
 				break;
 		}
@@ -2375,7 +2637,7 @@ final class PluginHarness implements TestRule
 					case "isTradeable":
 						return def.tradeable;
 					case "isStackable":
-						return stackableWeapons.contains(k);
+						return stackableWeapons.contains(k) || ammoItems.contains(k);
 					case "getHaPrice":
 						return def.haPrice;
 					default:

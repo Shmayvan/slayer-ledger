@@ -68,7 +68,7 @@ public class HarnessTaskNoteTest
 	public void noteSetWhileRunningIsSavedOnTheRecord()
 	{
 		assertNull("hidden without a session", noteBox());
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		assertEquals("", noteBox());
 		typeNote("  Barrage   and  burst ");
 		assertEquals("Barrage and burst", harness.tracker().getNote());
@@ -77,31 +77,32 @@ public class HarnessTaskNoteTest
 		harness.pause();
 		typeNote("Prayer gear");
 		assertEquals("Prayer gear", noteBox());
-		harness.stop();
+		harness.endTask();
 		assertNull("hidden once the session ended", noteBox());
 
 		assertEquals("Prayer gear", harness.onlyRecord(ACCOUNT).getNote());
 		assertEquals("offered first next time", "Prayer gear", recentNotes().get(0));
 
-		assertTrue(harness.play());
+		harness.trackAgain();
+		assertTrue(harness.startNow());
 		assertEquals("a new session starts without a note", "", noteBox());
 	}
 
 	@Test
 	public void clearingTheNoteSavesNone()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		typeNote("Cannon");
 		typeNote("   ");
 		assertNull(harness.tracker().getNote());
-		harness.stop();
+		harness.endTask();
 		assertNull(harness.onlyRecord(ACCOUNT).getNote());
 	}
 
 	@Test
 	public void noteSurvivesLogoutAndARestart()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		typeNote("Range pray");
 		harness.logout();
 		SessionSnapshot snapshot = harness.activeSession(ACCOUNT);
@@ -111,29 +112,29 @@ public class HarnessTaskNoteTest
 
 		harness.startUp();
 		harness.loginAndSettle(ACCOUNT);
-		assertEquals("restored as paused", SessionTracker.State.PAUSED, harness.sessionState());
+		assertEquals("restored as logged out", SessionTracker.State.LOGGED_OUT, harness.sessionState());
 		assertEquals("Range pray", harness.tracker().getNote());
 		assertEquals("Range pray", noteBox());
-		assertTrue(harness.play());
-		harness.stop();
+		assertTrue(harness.startNow());
+		harness.endTask();
 		assertEquals("Range pray", harness.onlyRecord(ACCOUNT).getNote());
 	}
 
 	@Test
 	public void noteKeptInMemoryAcrossARelogin()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		typeNote("Strength gear");
 		harness.logout();
 		harness.loginAndSettle(ACCOUNT);
-		assertEquals(SessionTracker.State.PAUSED, harness.sessionState());
+		assertEquals(SessionTracker.State.LOGGED_OUT, harness.sessionState());
 		assertEquals("Strength gear", noteBox());
 	}
 
 	@Test
 	public void noteSetDuringTheCompletionGraceWindowIsSaved()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		final String sessionId = harness.tracker().getSessionId();
 		harness.completeTask();
 		harness.tick();
@@ -151,7 +152,7 @@ public class HarnessTaskNoteTest
 	@Test
 	public void noteSentAfterTheSessionWasSavedGoesToItsRecord()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		final String sessionId = harness.tracker().getSessionId();
 		harness.completeTask();
 		harness.ticks(1 + SessionTracker.COMPLETION_LOOT_GRACE_TICKS);
@@ -163,14 +164,14 @@ public class HarnessTaskNoteTest
 	}
 
 	@Test
-	public void noteSentJustAsStopIsPressedReachesTheRecord()
+	public void noteSentJustAsEndTaskIsPressedReachesTheRecord()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		final String sessionId = harness.tracker().getSessionId();
-		// Stop queues the record's save on the client thread; a note sent before that runs must still land on it.
+		// End task queues the record's save on the client thread; a note sent before that runs must still land on it.
 		harness.onEdt(() ->
 		{
-			harness.plugin.stop();
+			harness.plugin.endTask();
 			harness.plugin.setSessionNote(ACCOUNT, sessionId, "Barrage");
 		});
 		harness.drain();
@@ -180,9 +181,9 @@ public class HarnessTaskNoteTest
 	@Test
 	public void editingASavedRecordsNoteRewritesItAndClearingRemovesIt()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		typeNote("Cannon");
-		harness.stop();
+		harness.endTask();
 		final LedgerRecord saved = harness.onlyRecord(ACCOUNT);
 		assertEquals("Cannon", saved.getNote());
 
@@ -203,11 +204,12 @@ public class HarnessTaskNoteTest
 	@Test
 	public void editingANoteNeverTouchesTheActiveSession()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		typeNote("Cannon");
-		harness.stop();
+		harness.endTask();
 		final String savedId = harness.onlyRecord(ACCOUNT).getId();
-		assertTrue(harness.play());
+		harness.trackAgain();
+		assertTrue(harness.startNow());
 		typeNote("Barrage");
 
 		harness.onEdt(() -> harness.plugin.editRecordNote(ACCOUNT, savedId, "Burst"));

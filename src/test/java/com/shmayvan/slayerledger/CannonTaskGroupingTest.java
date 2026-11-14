@@ -19,8 +19,8 @@ import org.junit.Test;
 /**
  * Cannon tasks: detection from the supplies used ({@link CannonTasks}), in the session and the saved record
  * (also records saved before supplies were tracked), the grouping name with and without a Catacombs variant, the
- * History estimate's selection, the Trends list and chart split and pooled, and the task advisor's cannon advice alone
- * and with the variant advice. {@link HarnessCannonTaskTest} covers the wiring.
+ * per-task statistics' selection, the monster ranking split and pooled, and the task advisor's badge pooling cannon
+ * tasks. {@link HarnessCannonTaskTest} covers the wiring.
  */
 public class CannonTaskGroupingTest
 {
@@ -132,14 +132,14 @@ public class CannonTaskGroupingTest
 
 		assertEquals(Arrays.asList(LedgerHistory.ALL, DEVIANT + " (cannon)", DEVILS, DEVILS + " (cannon)"),
 			LedgerHistory.filterOptions(records));
-		assertEquals(Collections.singletonList(cannon), new HistoryFilter(DEVILS + " (cannon)", null, null).apply(records, r -> null));
-		assertEquals(Collections.singletonList(plain), new HistoryFilter(DEVILS, null, null).apply(records, r -> null));
+		assertEquals(Collections.singletonList(cannon), new HistoryFilter(DEVILS + " (cannon)", null, null).apply(records, SlayerSpots.NONE, r -> null));
+		assertEquals(Collections.singletonList(plain), new HistoryFilter(DEVILS, null, null).apply(records, SlayerSpots.NONE, r -> null));
 		assertEquals(DEVILS + " (cannon)", LedgerHistory.monster(cannon));
 
 		String chat = TaskCompleteMessage.format(cannon, LootPriceMode.GE);
-		assertTrue(chat, chat.startsWith("Slayer task complete: 10 Dust devils (cannon) · "));
+		assertTrue(chat, chat.startsWith("Dust devils (cannon) done: 10 kills in "));
 		assertTrue(TaskCompleteMessage.format(plain, LootPriceMode.GE)
-			.startsWith("Slayer task complete: 10 Dust devils · "));
+			.startsWith("Dust devils done: 10 kills in "));
 	}
 
 	@Test
@@ -151,14 +151,11 @@ public class CannonTaskGroupingTest
 			record(DUST_DEVILS, DEVILS, null, true, 10, 5 * MINUTE));
 		TaskStatistics pooled = devilStats(records, TaskSelection.ANY);
 		assertEquals(3, pooled.getSampleCount());
-		assertEquals(1, pooled.getCannonSampleCount());
 		TaskStatistics cannon = devilStats(records, TaskSelection.ANY.withCannon(true));
 		assertEquals(1, cannon.getSampleCount());
 		assertEquals(Long.valueOf(30_000L), cannon.getMillisPerKill());
 		assertEquals(2, devilStats(records, TaskSelection.ANY.withCannon(false)).getSampleCount());
-		// The pooled overloads are unchanged.
-		assertEquals(3, TaskStatistics.forTask(records, DUST_DEVILS, DEVILS, LootPriceMode.GE, Collections.emptyMap())
-			.getSampleCount());
+		assertEquals("no selection pools them", 3, devilStats(records, null).getSampleCount());
 	}
 
 	@Test
@@ -219,7 +216,7 @@ public class CannonTaskGroupingTest
 	}
 
 	@Test
-	public void trendsSplitCannonTasksAndTheAdvisorRankingPoolsThem()
+	public void theAdvisorRankingPoolsCannonTasks()
 	{
 		List<LedgerRecord> records = new ArrayList<>();
 		records.add(profit(DUST_DEVILS, DEVILS, null, false, 100_000L));
@@ -227,126 +224,13 @@ public class CannonTaskGroupingTest
 		records.add(profit(DUST_DEVILS, DEVILS, null, true, 300_000L));
 		records.add(profit(SPECTRES, SPECTRE_TASK, DEVIANT, true, 200_000L));
 
-		List<TaskRanking.Entry> split = TaskRanking.rank(records, TaskRanking.Metric.PROFIT, LootPriceMode.GE, null);
-		assertEquals(Arrays.asList(DEVILS + " (cannon)", DEVIANT + " (cannon)", DEVILS), names(split));
-		assertEquals(2, split.get(0).getSampleCount());
-
 		List<TaskRanking.Entry> pooled = TaskRanking.rank(records, TaskRanking.Metric.PROFIT, LootPriceMode.GE, null,
-			HiddenLoot.NONE, TaskRanking.Split.NONE);
+			HiddenLoot.NONE);
 		assertEquals(Arrays.asList(DEVILS, SPECTRE_TASK), names(pooled));
 		assertEquals(3, pooled.get(0).getSampleCount());
-
-		List<TaskRanking.Entry> byCannon = TaskRanking.rank(records, TaskRanking.Metric.PROFIT, LootPriceMode.GE,
-			null, HiddenLoot.NONE, TaskRanking.Split.CANNON);
-		assertEquals(Arrays.asList(DEVILS + " (cannon)", SPECTRE_TASK + " (cannon)", DEVILS), names(byCannon));
-
-		List<TaskChart.Monster> monsters = TaskChart.monsters(records, TaskRanking.Metric.PROFIT, LootPriceMode.GE,
-			null);
-		List<String> labels = new ArrayList<>();
-		for (TaskChart.Monster monster : monsters)
-		{
-			labels.add(monster.getLabel());
-		}
-		assertTrue(labels.toString(), labels.contains(DEVILS + " (cannon)"));
-		assertTrue(labels.toString(), labels.contains(DEVILS));
-		assertTrue(labels.toString(), labels.contains(DEVIANT + " (cannon)"));
-		TaskChart.Monster cannonDevils = monsters.get(labels.indexOf(DEVILS + " (cannon)"));
-		assertEquals(2, TaskChart.points(records, cannonDevils, TaskRanking.Metric.PROFIT, LootPriceMode.GE, null)
-			.size());
 	}
 
 	// ---- Task advisor ----
-
-	@Test
-	public void theAdvisorSaysWhetherTheCannonWasWorthItWithEnoughHistoryOfBoth()
-	{
-		List<LedgerRecord> records = new ArrayList<>();
-		for (int i = 0; i < TaskAdvisor.MIN_TASKS; i++)
-		{
-			records.add(profit(DUST_DEVILS, DEVILS, null, false, 300_000L));
-			records.add(profit(DUST_DEVILS, DEVILS, null, true, 450_000L));
-		}
-		TaskAdvisor.VersionAdvice advice = adviseCannon(records);
-		assertNotNull(advice);
-		assertEquals(TaskAdvisor.WITH_CANNON, advice.getLabel());
-		assertEquals("Better: with cannon", TaskAdvisor.betterText(null, advice));
-		assertEquals("Profit (GE)/h: Dust devils (cannon) 450K (n=3), Dust devils 300K (n=3)",
-			advice.reason(LootPriceMode.GE));
-
-		// The other way round.
-		for (LedgerRecord record : records)
-		{
-			record.setLootGeValue(record.cannonTask() ? 100_000L : 500_000L);
-		}
-		assertEquals(TaskAdvisor.WITHOUT_CANNON, adviseCannon(records).getLabel());
-
-		// Equal rates: no cannon advice.
-		for (LedgerRecord record : records)
-		{
-			record.setLootGeValue(300_000L);
-		}
-		assertNull(adviseCannon(records));
-	}
-
-	@Test
-	public void theAdvisorGivesNoCannonAdviceWithoutEnoughHistoryOfEither()
-	{
-		List<LedgerRecord> records = new ArrayList<>();
-		for (int i = 0; i < TaskAdvisor.MIN_TASKS; i++)
-		{
-			records.add(profit(DUST_DEVILS, DEVILS, null, false, 300_000L));
-		}
-		records.add(profit(DUST_DEVILS, DEVILS, null, true, 450_000L));
-		records.add(profit(DUST_DEVILS, DEVILS, null, true, 450_000L));
-		assertNull("2 cannon tasks", adviseCannon(records));
-
-		// Three cannon tasks, but under 30 minutes of them.
-		List<LedgerRecord> quick = new ArrayList<>(records.subList(0, TaskAdvisor.MIN_TASKS));
-		for (int i = 0; i < TaskAdvisor.MIN_TASKS; i++)
-		{
-			LedgerRecord record = profit(DUST_DEVILS, DEVILS, null, true, 450_000L);
-			record.setActiveMillis(5 * MINUTE);
-			quick.add(record);
-		}
-		assertNull("15 minutes of cannon tasks", adviseCannon(quick));
-
-		// No cannon history at all, or none for this task.
-		assertNull(adviseCannon(records.subList(0, TaskAdvisor.MIN_TASKS)));
-		assertNull(TaskAdvisor.adviseCannon(records, 42, "Abyssal demons", TaskRanking.Metric.PROFIT,
-			LootPriceMode.GE, null, HiddenLoot.NONE));
-		assertNull(TaskAdvisor.betterText(null, null));
-	}
-
-	@Test
-	public void cannonAndVariantAdviceAreComparedApartAndShownInOneLine()
-	{
-		// Deviant spectres beat Aberrant spectres either way; the cannon loses for both versions.
-		List<LedgerRecord> records = new ArrayList<>();
-		for (int i = 0; i < TaskAdvisor.MIN_TASKS; i++)
-		{
-			records.add(profit(SPECTRES, SPECTRE_TASK, null, false, 300_000L));
-			records.add(profit(SPECTRES, SPECTRE_TASK, null, true, 200_000L));
-			records.add(profit(SPECTRES, SPECTRE_TASK, DEVIANT, false, 500_000L));
-			records.add(profit(SPECTRES, SPECTRE_TASK, DEVIANT, true, 400_000L));
-		}
-		TaskAdvisor.Outcome outcome = TaskAdvisor.adviseAll(records, SPECTRES, SPECTRE_TASK,
-			TaskRanking.Metric.PROFIT, LootPriceMode.GE, null, HiddenLoot.NONE);
-		assertNull("one monster only: no main advice", outcome.getAdvice());
-
-		TaskAdvisor.VersionAdvice variant = outcome.getVariant();
-		assertNotNull(variant);
-		// The variant advice pools cannon use: 3 + 3 tasks of each version.
-		assertEquals("Profit (GE)/h: Deviant spectres 450K (n=6), Aberrant spectres 250K (n=6)",
-			variant.reason(LootPriceMode.GE));
-		TaskAdvisor.VersionAdvice cannon = outcome.getCannon();
-		assertNotNull(cannon);
-		// The cannon advice pools the versions, and says so.
-		assertEquals("Profit (GE)/h: Aberrant spectres, any version, without cannon 400K (n=6), Aberrant spectres,"
-			+ " any version, with cannon 300K (n=6)", cannon.reason(LootPriceMode.GE));
-		assertEquals("Better: Deviant spectres, without cannon", TaskAdvisor.betterText(variant, cannon));
-		assertEquals("Better: Deviant spectres", TaskAdvisor.betterText(variant, null));
-		assertEquals("Better: without cannon", TaskAdvisor.betterText(null, cannon));
-	}
 
 	@Test
 	public void theMainAdvicePoolsCannonTasks()
@@ -363,19 +247,17 @@ public class CannonTaskGroupingTest
 		records.add(profit(DUST_DEVILS, DEVILS, null, false, 50_000L));
 		records.add(profit(DUST_DEVILS, DEVILS, null, false, 50_000L));
 		records.add(profit(DUST_DEVILS, DEVILS, null, true, 50_000L));
-		TaskAdvisor.Outcome outcome = TaskAdvisor.adviseAll(records, DUST_DEVILS, DEVILS, TaskRanking.Metric.PROFIT,
+		TaskAdvisor.Result advice = TaskAdvisor.advise(records, DUST_DEVILS, DEVILS, TaskRanking.Metric.PROFIT,
 			LootPriceMode.GE, null, HiddenLoot.NONE);
-		assertNotNull("pooled, the dust devils have 3 tasks and qualify", outcome.getAdvice());
-		assertEquals(3, outcome.getAdvice().getTasks());
-		assertEquals(TaskAdvisor.Advice.CONSIDER_SKIP, outcome.getAdvice().getAdvice());
-		assertNull("too few of each", outcome.getCannon());
-		assertNull("no Catacombs variant", outcome.getVariant());
+		assertNotNull("pooled, the dust devils have 3 tasks and qualify", advice);
+		assertEquals(3, advice.getTasks());
+		assertEquals(TaskAdvisor.Advice.CONSIDER_SKIP, advice.getAdvice());
 	}
 
-	// ---- History estimate and overlay text ----
+	// ---- Per-task statistics and overlay text ----
 
 	@Test
-	public void afterACannonballTheEstimateUsesCannonTasksOnlyWhenThereAreSome()
+	public void afterACannonballTheStatisticsUseCannonTasksOnlyWhenThereAreSome()
 	{
 		TaskSelection cannon = TaskSelection.ANY.withCannon(true);
 		List<LedgerRecord> plain = Arrays.asList(record(DUST_DEVILS, DEVILS, null, false, 10, HOUR),
@@ -415,46 +297,16 @@ public class CannonTaskGroupingTest
 	}
 
 	@Test
-	public void theEstimateSaysWhichCannonUseItCounts()
-	{
-		List<LedgerRecord> records = Arrays.asList(record(DUST_DEVILS, DEVILS, null, false, 10, HOUR),
-			record(DUST_DEVILS, DEVILS, null, true, 10, HOUR));
-		TaskSelection cannon = TaskSelection.ANY.withCannon(true);
-		TaskStatistics pooled = devilStats(records, TaskSelection.ANY);
-		assertEquals("Counts cannon tasks too, until you fire a cannonball.",
-			HistoryEstimateSection.selectionNote(DEVILS, TaskSelection.ANY, TaskSelection.ANY, pooled));
-		assertEquals("Only your cannon tasks count.", HistoryEstimateSection.selectionNote(DEVILS, cannon, cannon,
-			devilStats(records, cannon)));
-		assertNull("no cannon history: nothing to say", HistoryEstimateSection.selectionNote(DEVILS,
-			TaskSelection.ANY, TaskSelection.ANY, devilStats(records.subList(0, 1), TaskSelection.ANY)));
-		assertEquals("a cannonball fired, but no cannon tasks yet", HistoryEstimateSection.NO_CANNON_TASKS_NOTE,
-			HistoryEstimateSection.selectionNote(DEVILS, cannon, TaskSelection.ANY,
-				devilStats(records.subList(0, 1), TaskSelection.ANY)));
-		assertEquals("No cannon tasks yet, so tasks without a cannon count too.",
-			HistoryEstimateSection.NO_CANNON_TASKS_NOTE);
-		TaskSelection deviantCannon = TaskSelection.of(DEVIANT).withCannon(true);
-		assertEquals("Only your Deviant spectres tasks count. Only your cannon tasks count.",
-			HistoryEstimateSection.selectionNote(SPECTRE_TASK, deviantCannon, deviantCannon, null));
-		assertEquals("Only your Deviant spectres tasks count. " + HistoryEstimateSection.NO_CANNON_TASKS_NOTE,
-			HistoryEstimateSection.selectionNote(SPECTRE_TASK, deviantCannon, TaskSelection.of(DEVIANT), null));
-		assertEquals("Counts Deviant spectres tasks too, until your kills show which you are doing. Only your cannon"
-				+ " tasks count.",
-			HistoryEstimateSection.selectionNote(SPECTRE_TASK, cannon, cannon, null));
-	}
-
-	@Test
 	public void theOverlayNamesTheTaskAsTheTaskBoxDoes()
 	{
-		SessionTracker.LiveTask task = new SessionTracker.LiveTask(SessionTracker.State.RUNNING, "session", DEVILS,
+		SessionTracker.LiveTask task = new SessionTracker.LiveTask(SessionTracker.Status.RUNNING, "session", DEVILS,
 			DUST_DEVILS, 3, 60_000L, 20);
 		assertEquals(DEVILS, new OverlayRows.Data(task, null, null, null).getTaskName());
-		assertEquals(DEVILS, new OverlayRows.Data(task, null, null, TaskSelection.ANY).getTaskName());
+		assertEquals(DEVILS, OverlayRows.taskName(DEVILS, DUST_DEVILS, TaskSelection.ANY, null));
 		assertEquals(DEVILS + " (cannon)",
-			new OverlayRows.Data(task, null, null, TaskSelection.ANY.withCannon(true)).getTaskName());
-		SessionTracker.LiveTask spectres = new SessionTracker.LiveTask(SessionTracker.State.RUNNING, "session",
-			SPECTRE_TASK, SPECTRES, 3, 60_000L, 20);
-		assertEquals(DEVIANT + " (cannon)", new OverlayRows.Data(spectres, null, null,
-			TaskSelection.of(DEVIANT).withCannon(true)).getTaskName());
+			OverlayRows.taskName(DEVILS, DUST_DEVILS, TaskSelection.ANY.withCannon(true), null));
+		assertEquals(DEVIANT + " (cannon)", OverlayRows.taskName(SPECTRE_TASK, SPECTRES,
+			TaskSelection.of(DEVIANT).withCannon(true), null));
 	}
 
 	// ---- Helpers ----
@@ -464,7 +316,7 @@ public class CannonTaskGroupingTest
 	{
 		SessionTracker tracker = new SessionTracker(() -> now);
 		tracker.observe(monster, creatureId, 50, 50, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		return tracker;
 	}
 
@@ -492,22 +344,14 @@ public class CannonTaskGroupingTest
 		return names;
 	}
 
-	private static TaskAdvisor.VersionAdvice adviseCannon(List<LedgerRecord> records)
-	{
-		return TaskAdvisor.adviseCannon(records, DUST_DEVILS, DEVILS, TaskRanking.Metric.PROFIT, LootPriceMode.GE,
-			null, HiddenLoot.NONE);
-	}
-
 	private static TaskStatistics devilStats(List<LedgerRecord> records, TaskSelection selection)
 	{
-		return TaskStatistics.forTask(records, DUST_DEVILS, DEVILS, selection, null, null, LootPriceMode.GE,
-			Collections.emptyMap(), HiddenLoot.NONE);
+		return TaskStatistics.forTask(records, DUST_DEVILS, DEVILS, selection, null, null);
 	}
 
 	private static TaskStatistics spectreStats(List<LedgerRecord> records, TaskSelection selection)
 	{
-		return TaskStatistics.forTask(records, SPECTRES, SPECTRE_TASK, selection, null, null, LootPriceMode.GE,
-			Collections.emptyMap(), HiddenLoot.NONE);
+		return TaskStatistics.forTask(records, SPECTRES, SPECTRE_TASK, selection, null, null);
 	}
 
 	/** An hour-long completed task making {@code profit} (loot at GE, supplies valued at 0). */

@@ -37,7 +37,7 @@ public class SessionTrackerCountersTest
 		assertFalse("idle", tracker.addSuperiorSpawn());
 		assertFalse("idle", tracker.addBankTrip());
 		assertFalse("idle", tracker.addDeath());
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		assertTrue(tracker.addSuperiorSpawn());
 		assertTrue(tracker.addBankTrip());
 		assertTrue(tracker.addBankTrip());
@@ -58,7 +58,7 @@ public class SessionTrackerCountersTest
 	@Test
 	public void resetWhenTheSessionEnds()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		tracker.addSuperiorSpawn();
 		tracker.addBankTrip();
 		tracker.addDeath();
@@ -70,7 +70,7 @@ public class SessionTrackerCountersTest
 		assertEquals(0, tracker.getBankTrips());
 		assertEquals(0, tracker.getDeaths());
 
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		SessionTracker.Summary next = tracker.activeSummary();
 		assertEquals("a new session starts at 0, not unknown", Integer.valueOf(0), next.getSuperiorsSpawned());
 		assertEquals(Integer.valueOf(0), next.getBankTrips());
@@ -80,7 +80,7 @@ public class SessionTrackerCountersTest
 	@Test
 	public void notAddedToACompletedSessionHeldForLateLoot()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		tracker.addSuperiorSpawn();
 		tracker.addBankTrip();
 		tracker.observe("Abyssal demons", DEMON_ID, 0, 150, true);
@@ -98,7 +98,7 @@ public class SessionTrackerCountersTest
 	@Test
 	public void lateLootKeepsTheCounts()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		tracker.addSuperiorSpawn();
 		tracker.observe("Abyssal demons", DEMON_ID, 0, 150, true);
 		tracker.holdCompletion();
@@ -111,7 +111,7 @@ public class SessionTrackerCountersTest
 	@Test
 	public void recordCarriesTheCounts()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		tracker.addSuperiorSpawn();
 		tracker.addSuperiorSpawn();
 		tracker.addBankTrip();
@@ -125,13 +125,13 @@ public class SessionTrackerCountersTest
 		LedgerRecord read = gson.fromJson(gson.toJson(record), LedgerRecord.class);
 		assertEquals(record, read);
 		assertEquals(LedgerRecord.CURRENT_SCHEMA_VERSION, read.getSchemaVersion());
-		assertEquals(2, LedgerRecord.CURRENT_SCHEMA_VERSION);
+		assertEquals(3, LedgerRecord.CURRENT_SCHEMA_VERSION);
 	}
 
 	@Test
 	public void zeroCountsAreSavedAsZeroNotUnknown()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		LedgerRecord record = LedgerRecord.fromSummary(tracker.stopAndReset(), true);
 		String json = gson.toJson(record);
 		assertTrue(json, json.contains("\"superiorsSpawned\":0"));
@@ -156,12 +156,12 @@ public class SessionTrackerCountersTest
 	@Test
 	public void snapshotRoundTripAndRestoreCarryTheCounts()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		tracker.addSuperiorSpawn();
 		tracker.addBankTrip();
 		tracker.addBankTrip();
 		tracker.addDeath();
-		tracker.autoPause();
+		tracker.loggedOut();
 		SessionSnapshot snapshot = SessionSnapshot.fromSummary(tracker.activeSummary(), COUNTERS, now);
 		assertEquals(Integer.valueOf(1), snapshot.getSuperiorsSpawned());
 		assertEquals(Integer.valueOf(2), snapshot.getBankTrips());
@@ -175,7 +175,7 @@ public class SessionTrackerCountersTest
 		assertEquals(1, restored.getSuperiorsSpawned());
 		assertEquals(2, restored.getBankTrips());
 		assertEquals(1, restored.getDeaths());
-		assertTrue(restored.play(ACCOUNT));
+		assertTrue(restored.startNow(ACCOUNT));
 		restored.addSuperiorSpawn();
 		restored.addDeath();
 		LedgerRecord record = LedgerRecord.fromSummary(restored.stopAndReset(), true);
@@ -187,8 +187,8 @@ public class SessionTrackerCountersTest
 	@Test
 	public void olderSnapshotRestoresFromZeroAndMismatchKeepsUnknown()
 	{
-		tracker.play(ACCOUNT);
-		tracker.autoPause();
+		tracker.startNow(ACCOUNT);
+		tracker.loggedOut();
 		SessionSnapshot snapshot = SessionSnapshot.fromSummary(tracker.activeSummary(), COUNTERS, now);
 		snapshot.setSuperiorsSpawned(null);
 		snapshot.setBankTrips(null);
@@ -215,7 +215,7 @@ public class SessionTrackerCountersTest
 	@Test
 	public void snapshotToSummaryKeepsTheCounts()
 	{
-		tracker.play(ACCOUNT);
+		tracker.startNow(ACCOUNT);
 		tracker.addSuperiorSpawn();
 		tracker.addBankTrip();
 		tracker.addDeath();

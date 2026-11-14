@@ -1,0 +1,4138 @@
+{
+  "version": 1,
+  "source": "Old School RuneScape Wiki",
+  "license": "CC BY-NC-SA 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-nc-sa/3.0/",
+  "contributors": "Old School RuneScape Wiki contributors",
+  "retrieved": "2026-11-09",
+  "attribution": "Slayer spot names, task lists and monster spawn coordinates adapted from the listed Old School RuneScape Wiki articles (revisions given per spot) by Old School RuneScape Wiki contributors. This dataset is a modified, partial snapshot (map region ids computed from those coordinates, short names added) and is shared under the same CC BY-NC-SA 3.0 license.",
+  "verifiedWith": "Region ids were checked against, and relocated wiki map pins translated with, the NPC spawn and transport data in github.com/mejrs/data_osrs (commit 7777c539839bc9c55f7f47fa4c1022a25af4e904, 2025-11-07; no licence stated). Only region ids derived from it are included.",
+  "matching": "A kill point (x, y, plane) has region ((x >> 6) << 8) | (y >> 6), using the instance template for instances. A region listed by one spot belongs to that spot on every plane. In a region listed by several spots, a spot matches only if its plane is null or equals the point's plane, and its bounds are null or one [x1, y1, x2, y2] box (inclusive) contains the point. Plane and bounds are only used in such shared regions.",
+  "spots": [
+    {
+      "id": "abandoned-mine",
+      "name": "Abandoned Mine",
+      "short": "Abandoned Mine",
+      "regions": [11078, 13718],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bats"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Bat?oldid=15283978",
+        "https://oldschool.runescape.wiki/w/Giant_bat?oldid=15258141",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "abyssal-area",
+      "name": "Abyssal Area",
+      "short": "Abyss",
+      "regions": [12108],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Abyssal demons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Abyssal_demon?oldid=15391821",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Abyssal_demons?oldid=15389437"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "abyssal-nexus",
+      "name": "Abyssal Nexus",
+      "short": "Abyssal Nexus",
+      "regions": [11850, 11851, 12362, 12363],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Abyssal demons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Abyssal_Sire?oldid=15392068",
+        "https://oldschool.runescape.wiki/w/Abyssal_Nexus?oldid=15380686",
+        "https://github.com/mejrs/data_osrs/blob/7777c539839bc9c55f7f47fa4c1022a25af4e904/NPCList_OSRS.json"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "al-kharid-mine",
+      "name": "Al Kharid Mine",
+      "short": "Al Kharid Mine",
+      "regions": [13107],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Scorpions"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Scorpion?oldid=15375279",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Scorpions?oldid=15316864"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "alchemical-hydra-lair",
+      "name": "Alchemical Hydra's lair",
+      "short": "Hydra lair",
+      "regions": [5536],
+      "plane": 0,
+      "bounds": null,
+      "tasks": ["Hydras"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Alchemical_Hydra?oldid=15375803",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hydras?oldid=15317930",
+        "https://github.com/mejrs/data_osrs/blob/7777c539839bc9c55f7f47fa4c1022a25af4e904/NPCList_OSRS.json",
+        "https://github.com/mejrs/data_osrs/blob/7777c539839bc9c55f7f47fa4c1022a25af4e904/transports_osrs.json"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "alices-farm",
+      "name": "Alice's Farm",
+      "short": "Alice's Farm",
+      "regions": [14391],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Cows"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Cows?oldid=15364603",
+        "https://oldschool.runescape.wiki/w/Undead_cow?oldid=15364594"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "ancient-cavern",
+      "name": "Ancient Cavern",
+      "short": "Ancient Cavern",
+      "regions": [6995],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Metal dragons", "Waterfiends"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Mithril_dragon?oldid=15351490",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Waterfiends?oldid=15364708",
+        "https://oldschool.runescape.wiki/w/Waterfiend?oldid=15385712"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "ape-atoll-dungeon",
+      "name": "Ape Atoll Dungeon",
+      "short": "Ape Atoll Dgn",
+      "regions": [10894, 11150],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Monkeys", "Skeletons", "Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Monkey_Zombie?oldid=15322124",
+        "https://oldschool.runescape.wiki/w/Skeleton_(Ape_Atoll)?oldid=15322119",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Monkeys?oldid=15250976"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "apsul-hunting-ground",
+      "name": "Apsul Hunting Ground",
+      "short": "Apsul Hunting",
+      "regions": [10361],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Venators"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Venators?oldid=15327318",
+        "https://oldschool.runescape.wiki/w/Venator?oldid=15387621"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "arandar",
+      "name": "Arandar",
+      "short": "Arandar",
+      "regions": [9267],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Wolves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Dire_Wolf?oldid=15208070"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "araxxor-lair",
+      "name": "Araxxor's lair",
+      "short": "Araxxor lair",
+      "regions": [14489],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Araxytes"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Araxxor?oldid=15396994"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "arceuus",
+      "name": "Arceuus",
+      "short": "Arceuus",
+      "regions": [6203],
+      "plane": null,
+      "bounds": [[1561, 3776, 1599, 3839]],
+      "tasks": ["Spiders"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Spiders?oldid=15250979",
+        "https://oldschool.runescape.wiki/w/Spider?oldid=15375280"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "ardougne",
+      "name": "Ardougne",
+      "short": "Ardougne",
+      "regions": [10804],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bears"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Grizzly_bear?oldid=15199247",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "ardougne-sewers",
+      "name": "Ardougne Sewers",
+      "short": "Ardougne Sewers",
+      "regions": [10391, 10647],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Rats", "Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Dungeon_rat?oldid=15389209",
+        "https://oldschool.runescape.wiki/w/Giant_rat?oldid=15260179",
+        "https://oldschool.runescape.wiki/w/Rat?oldid=15388906",
+        "https://oldschool.runescape.wiki/w/Zombie?oldid=15373734"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "ardougne-zoo",
+      "name": "Ardougne Zoo",
+      "short": "Ardougne Zoo",
+      "regions": [10291, 10547],
+      "plane": null,
+      "bounds": [[2624, 3264, 2687, 3297]],
+      "tasks": ["Bears", "Hill giants", "Monkeys", "Scorpions", "Wolves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Grizzly_bear?oldid=15199247",
+        "https://oldschool.runescape.wiki/w/Monkey_(monster)?oldid=15360419",
+        "https://oldschool.runescape.wiki/w/Pit_Scorpion?oldid=15199892",
+        "https://oldschool.runescape.wiki/w/Scorpion?oldid=15375279",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hill_giants?oldid=15272947",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Monkeys?oldid=15250976",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Scorpions?oldid=15316864"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "asgarnian-ice-dungeon",
+      "name": "Asgarnian Ice Dungeon",
+      "short": "Asgarnian Ice",
+      "regions": [12181, 12437],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Hobgoblins", "Ice giants", "Ice warriors", "Skeletal wyverns"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Hobgoblin?oldid=15391772",
+        "https://oldschool.runescape.wiki/w/Ice_giant?oldid=15391881",
+        "https://oldschool.runescape.wiki/w/Ice_warrior?oldid=15382514",
+        "https://oldschool.runescape.wiki/w/Skeletal_Wyvern?oldid=15359558",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hobgoblins?oldid=15251007"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "avium-savannah",
+      "name": "Avium Savannah",
+      "short": "Avium Savannah",
+      "regions": [6189, 6445, 6446],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Crabs", "Hill giants"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Hill_Giant?oldid=15362162",
+        "https://oldschool.runescape.wiki/w/Sand_Crab?oldid=15323412",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hill_giants?oldid=15272947"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "bandit-camp-wilderness",
+      "name": "Bandit Camp (Wilderness)",
+      "short": "Bandit Camp",
+      "regions": [12089],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bandits", "Dwarves", "Hobgoblins"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Bandit?oldid=15355980",
+        "https://oldschool.runescape.wiki/w/Black_Heather?oldid=15270604",
+        "https://oldschool.runescape.wiki/w/Guard_Bandit?oldid=15199825",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bandits?oldid=15372765"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "barrows",
+      "name": "Barrows",
+      "short": "Barrows",
+      "regions": [14231],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Rats", "Skeletons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Crypt_rat?oldid=15199839",
+        "https://oldschool.runescape.wiki/w/Giant_crypt_rat?oldid=15199840",
+        "https://oldschool.runescape.wiki/w/Skeleton_(Barrows)?oldid=15216649"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "battlefront",
+      "name": "Battlefront",
+      "short": "Battlefront",
+      "regions": [5177, 5433, 5434],
+      "plane": null,
+      "bounds": [[1280, 3690, 1343, 3702]],
+      "tasks": ["Lizardmen"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Lizardman?oldid=15362647",
+        "https://oldschool.runescape.wiki/w/Lizardman_brute?oldid=15339921"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "black-knights-fortress",
+      "name": "Black Knights' Fortress",
+      "short": "B.K. Fortress",
+      "regions": [12086],
+      "plane": null,
+      "bounds": [[3008, 3484, 3071, 3519]],
+      "tasks": ["Black Knights"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Black_Knight?oldid=15391784"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "bone-yard",
+      "name": "Bone Yard",
+      "short": "Bone Yard",
+      "regions": [13114],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Black Knights", "Hill giants"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Black_Knight?oldid=15391784"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "braindeath-island",
+      "name": "Braindeath Island",
+      "short": "Braindeath Isl.",
+      "regions": [8527],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Fever spiders", "Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Fever_spider?oldid=15275482",
+        "https://oldschool.runescape.wiki/w/Zombie_pirate_(Braindeath_Island)?oldid=15200516",
+        "https://oldschool.runescape.wiki/w/Zombie_swab?oldid=15199673"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "brimhaven",
+      "name": "Brimhaven",
+      "short": "Brimhaven",
+      "regions": [10801, 11057],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Monkeys"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Monkey_(monster)?oldid=15360419",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Monkeys?oldid=15250976"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "brimhaven-dungeon",
+      "name": "Brimhaven Dungeon",
+      "short": "Brimhaven Dgn",
+      "regions": [10643, 10644, 10645, 10899, 10900, 10901],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Black demons", "Dogs", "Fire giants", "Greater demons", "Metal dragons", "Moss giants", "Red dragons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Baby_red_dragon?oldid=15199796",
+        "https://oldschool.runescape.wiki/w/Black_demon?oldid=15391823",
+        "https://oldschool.runescape.wiki/w/Bronze_dragon?oldid=15351936",
+        "https://oldschool.runescape.wiki/w/Fire_giant?oldid=15389278",
+        "https://oldschool.runescape.wiki/w/Greater_demon?oldid=15392910",
+        "https://oldschool.runescape.wiki/w/Iron_dragon?oldid=15273774",
+        "https://oldschool.runescape.wiki/w/Moss_giant?oldid=15392080",
+        "https://oldschool.runescape.wiki/w/Red_dragon?oldid=15240522",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Black_demons?oldid=15296848",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dogs?oldid=15341658",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Fire_giants?oldid=15327832",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Greater_demons?oldid=15270275",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Metal_dragons?oldid=15332692",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Moss_giants?oldid=15250972",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Red_dragons?oldid=15250964",
+        "https://oldschool.runescape.wiki/w/Steel_dragon?oldid=15365305",
+        "https://oldschool.runescape.wiki/w/Wild_dog?oldid=15360769"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "brine-rat-cavern",
+      "name": "Brine Rat Cavern",
+      "short": "Brine Rat Cave",
+      "regions": [10910],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bats", "Brine rats", "Crabs", "Rats"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Brine_rat?oldid=15372645",
+        "https://oldschool.runescape.wiki/w/Rock_Crab?oldid=15351395",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Brine_rats?oldid=15395725"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "buccaneers-laboratory",
+      "name": "Buccaneers' Laboratory",
+      "short": "Buccaneers' Lab",
+      "regions": [8349],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bloodveld", "Hellhounds"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Hellhound?oldid=15351778",
+        "https://oldschool.runescape.wiki/w/Mutated_Bloodveld?oldid=15338397",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bloodveld?oldid=15344399",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hellhounds?oldid=15357324"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "burgh-de-rott",
+      "name": "Burgh de Rott",
+      "short": "Burgh de Rott",
+      "regions": [13874, 14130],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Vampyres"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Feral_Vampyre?oldid=15356500",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Vampyres?oldid=15373747",
+        "https://oldschool.runescape.wiki/w/Vampyre_Juvenile?oldid=15305880",
+        "https://oldschool.runescape.wiki/w/Vampyre_Juvinate?oldid=15392016"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "catacombs-of-kourend",
+      "name": "Catacombs of Kourend",
+      "short": "Catacombs",
+      "regions": [6556, 6557, 6812, 6813],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Aberrant spectres", "Abyssal demons", "Ankou", "Banshees", "Black demons", "Black dragons", "Bloodveld", "Blue dragons", "Crabs", "Dagannoth", "Dust devils", "Fire giants", "Ghosts", "Greater demons", "Hellhounds", "Hill giants", "Jellies", "Lesser demons", "Magic axes", "Metal dragons", "Moss giants", "Nechryael", "Red dragons", "Shades", "Skeletons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Abyssal_demon?oldid=15391821",
+        "https://oldschool.runescape.wiki/w/Ankou?oldid=15361256",
+        "https://oldschool.runescape.wiki/w/Black_demon?oldid=15391823",
+        "https://oldschool.runescape.wiki/w/Bronze_dragon?oldid=15351936",
+        "https://oldschool.runescape.wiki/w/Brutal_black_dragon?oldid=15377774",
+        "https://oldschool.runescape.wiki/w/Brutal_blue_dragon?oldid=15355323",
+        "https://oldschool.runescape.wiki/w/Brutal_red_dragon?oldid=15355325",
+        "https://oldschool.runescape.wiki/w/Dagannoth?oldid=15276900",
+        "https://oldschool.runescape.wiki/w/Deviant_spectre?oldid=15360075",
+        "https://oldschool.runescape.wiki/w/Dust_devil?oldid=15386431",
+        "https://oldschool.runescape.wiki/w/Fire_giant?oldid=15389278",
+        "https://oldschool.runescape.wiki/w/Ghost?oldid=15212981",
+        "https://oldschool.runescape.wiki/w/Greater_Nechryael?oldid=15341801",
+        "https://oldschool.runescape.wiki/w/Greater_demon?oldid=15392910",
+        "https://oldschool.runescape.wiki/w/Hellhound?oldid=15351778",
+        "https://oldschool.runescape.wiki/w/Hill_Giant?oldid=15362162",
+        "https://oldschool.runescape.wiki/w/Iron_dragon?oldid=15273774",
+        "https://oldschool.runescape.wiki/w/Lesser_demon?oldid=15366848",
+        "https://oldschool.runescape.wiki/w/Magic_axe?oldid=15371732",
+        "https://oldschool.runescape.wiki/w/Moss_giant?oldid=15392080",
+        "https://oldschool.runescape.wiki/w/Mutated_Bloodveld?oldid=15338397",
+        "https://oldschool.runescape.wiki/w/Shade?oldid=15357045",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Aberrant_spectres?oldid=15379449",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Abyssal_demons?oldid=15389437",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ankou?oldid=15372802",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Banshees?oldid=15330527",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Black_demons?oldid=15296848",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Black_dragons?oldid=15379976",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bloodveld?oldid=15344399",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Blue_dragons?oldid=15319394",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dagannoth?oldid=15352280",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dust_devils?oldid=15382347",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Fire_giants?oldid=15327832",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts?oldid=15386373",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Greater_demons?oldid=15270275",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hellhounds?oldid=15357324",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hill_giants?oldid=15272947",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Jellies?oldid=15347496",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_demon?oldid=15344163",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Metal_dragons?oldid=15332692",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Moss_giants?oldid=15250972",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Nechryael?oldid=15359113",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Red_dragons?oldid=15250964",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Shades?oldid=15355228",
+        "https://oldschool.runescape.wiki/w/Steel_dragon?oldid=15365305",
+        "https://oldschool.runescape.wiki/w/Twisted_Banshee?oldid=15339672",
+        "https://oldschool.runescape.wiki/w/Warped_Jelly?oldid=15339567"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "cerberus-lair",
+      "name": "Cerberus' Lair",
+      "short": "Cerberus' Lair",
+      "regions": [4883, 5140, 5395],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Hellhounds"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Cerberus?oldid=15397004",
+        "https://oldschool.runescape.wiki/w/Cerberus'_Lair?oldid=15347785",
+        "https://github.com/mejrs/data_osrs/blob/7777c539839bc9c55f7f47fa4c1022a25af4e904/NPCList_OSRS.json"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "chaos-druid-tower",
+      "name": "Chaos Druid Tower",
+      "short": "Chaos Druid Twr",
+      "regions": [10292],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Chaos druids"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Chaos_druid?oldid=15259337"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "chaos-druid-tower-dungeon",
+      "name": "Chaos Druid Tower Dungeon",
+      "short": "Druid Tower Dgn",
+      "regions": [10392],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bats", "Ogres"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Ogre?oldid=15367212",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ogres?oldid=15320380"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "chaos-temple-wilderness",
+      "name": "Chaos Temple (Wilderness)",
+      "short": "Chaos Temple",
+      "regions": [12856, 12857, 13112, 13113],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ents", "Ghosts", "Pirates", "Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Elder_Chaos_druid?oldid=15337739",
+        "https://oldschool.runescape.wiki/w/Ent?oldid=15388968",
+        "https://oldschool.runescape.wiki/w/Ghost?oldid=15212981",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts?oldid=15386373",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Pirate?oldid=14972749",
+        "https://oldschool.runescape.wiki/w/Zombie_pirate?oldid=15392086"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "charred-dungeon",
+      "name": "Charred Dungeon",
+      "short": "Charred Dungeon",
+      "regions": [10634, 10890],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Black demons", "Black dragons", "Fire giants", "Hellhounds", "Lesser demons", "Nechryael", "Red dragons", "Wyrms"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Baby_black_dragon?oldid=15376099",
+        "https://oldschool.runescape.wiki/w/Black_demon?oldid=15391823",
+        "https://oldschool.runescape.wiki/w/Black_dragon?oldid=15286221",
+        "https://oldschool.runescape.wiki/w/Fire_giant?oldid=15389278",
+        "https://oldschool.runescape.wiki/w/Hellhound?oldid=15351778",
+        "https://oldschool.runescape.wiki/w/Lava_Strykewyrm?oldid=15352211",
+        "https://oldschool.runescape.wiki/w/Lesser_demon?oldid=15366848",
+        "https://oldschool.runescape.wiki/w/Nechryael?oldid=15385695",
+        "https://oldschool.runescape.wiki/w/Red_dragon?oldid=15240522",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Black_demons?oldid=15296848",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Black_dragons?oldid=15379976",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Fire_giants?oldid=15327832",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hellhounds?oldid=15357324",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_demon?oldid=15344163",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Nechryael?oldid=15359113",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Red_dragons?oldid=15250964",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Wyrms?oldid=15394485"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "chasm-of-fire",
+      "name": "Chasm of Fire",
+      "short": "Chasm of Fire",
+      "regions": [5789],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Black demons", "Greater demons", "Lesser demons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Black_demon?oldid=15391823",
+        "https://oldschool.runescape.wiki/w/Greater_demon?oldid=15392910",
+        "https://oldschool.runescape.wiki/w/Lesser_demon?oldid=15366848",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Black_demons?oldid=15296848",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Greater_demons?oldid=15270275",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_demon?oldid=15344163"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "clock-tower-dungeon",
+      "name": "Clock Tower Dungeon",
+      "short": "Clock Tower Dgn",
+      "regions": [10390],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Goblins", "Ogres", "Rats"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Dungeon_rat?oldid=15389209",
+        "https://oldschool.runescape.wiki/w/Goblin?oldid=15396659",
+        "https://oldschool.runescape.wiki/w/Ogre?oldid=15367212",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ogres?oldid=15320380"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "coal-trucks",
+      "name": "Coal Trucks",
+      "short": "Coal Trucks",
+      "regions": [10038, 10294],
+      "plane": null,
+      "bounds": [[2568, 3456, 2623, 3519]],
+      "tasks": ["Bats", "Dwarves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Giant_bat?oldid=15258141",
+        "https://oldschool.runescape.wiki/w/Guard_(dwarf)?oldid=15388204",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dwarves?oldid=15373748"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "colossal-wyrm-remains",
+      "name": "Colossal Wyrm Remains",
+      "short": "Colossal Wyrm",
+      "regions": [6701],
+      "plane": null,
+      "bounds": [[1664, 2880, 1727, 2918]],
+      "tasks": ["Harpie bug swarms"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Harpie_Bug_Swarm?oldid=15338388"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "combat-training-camp",
+      "name": "Combat Training Camp",
+      "short": "Combat Camp",
+      "regions": [10036],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ogres"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Ogre?oldid=15367212",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ogres?oldid=15320380"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "corsair-cove",
+      "name": "Corsair Cove",
+      "short": "Corsair Cove",
+      "regions": [10028, 10284],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Birds"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Seagull?oldid=15381219",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Birds?oldid=15341657"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "corsair-cove-dungeon",
+      "name": "Corsair Cove Dungeon",
+      "short": "Corsair Dgn",
+      "regions": [7564, 7820, 7821, 8076],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Black dragons", "Blue dragons", "Ogres", "Red dragons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Baby_black_dragon?oldid=15376099",
+        "https://oldschool.runescape.wiki/w/Baby_blue_dragon?oldid=15369927",
+        "https://oldschool.runescape.wiki/w/Baby_red_dragon?oldid=15199796",
+        "https://oldschool.runescape.wiki/w/Black_dragon?oldid=15286221",
+        "https://oldschool.runescape.wiki/w/Blue_dragon?oldid=15369928",
+        "https://oldschool.runescape.wiki/w/Ogress_Shaman?oldid=15339928",
+        "https://oldschool.runescape.wiki/w/Ogress_Warrior?oldid=15369036",
+        "https://oldschool.runescape.wiki/w/Red_dragon?oldid=15240522",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Black_dragons?oldid=15379976",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Blue_dragons?oldid=15319394",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ogres?oldid=15320380",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Red_dragons?oldid=15250964"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "crabclaw-caves",
+      "name": "Crabclaw Caves",
+      "short": "Crabclaw Caves",
+      "regions": [6809],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Crabs"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/King_Sand_Crab?oldid=15199881",
+        "https://oldschool.runescape.wiki/w/Sand_Crab?oldid=15323412"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "crabclaw-isle",
+      "name": "Crabclaw Isle",
+      "short": "Crabclaw Isle",
+      "regions": [6965],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Crabs"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Sand_Crab?oldid=15323412"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "crafting-guild",
+      "name": "Crafting Guild",
+      "short": "Crafting Guild",
+      "regions": [11571],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Cows", "Hobgoblins"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Cow?oldid=15364588",
+        "https://oldschool.runescape.wiki/w/Cow_calf?oldid=15364592",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Cows?oldid=15364603",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hobgoblins?oldid=15251007"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "crandor",
+      "name": "Crandor",
+      "short": "Crandor",
+      "regions": [11314, 11315],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Lesser demons", "Moss giants"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Lesser_demon?oldid=15366848",
+        "https://oldschool.runescape.wiki/w/Moss_giant?oldid=15392080",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_demon?oldid=15344163",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Moss_giants?oldid=15250972"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "crandor-and-karamja-dungeon",
+      "name": "Crandor and Karamja Dungeon",
+      "short": "Karamja Dgn",
+      "regions": [11413, 11414],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bats", "Lesser demons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Giant_bat?oldid=15258141",
+        "https://oldschool.runescape.wiki/w/Lesser_demon?oldid=15366848",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_demon?oldid=15344163"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "crash-site-cavern",
+      "name": "Crash Site Cavern",
+      "short": "Crash Site",
+      "regions": [8280, 8536],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Black demons", "Monkeys"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Demonic_gorilla?oldid=15373646",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Black_demons?oldid=15296848",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Monkeys?oldid=15250976",
+        "https://oldschool.runescape.wiki/w/Tortured_gorilla?oldid=15373438"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "crumbling-tower",
+      "name": "Crumbling Tower",
+      "short": "Crumbling Tower",
+      "regions": [8494],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ghosts"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Forgotten_Soul?oldid=15295341",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts?oldid=15386373"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "dark-altar",
+      "name": "Dark Altar",
+      "short": "Dark Altar",
+      "regions": [6460, 6716, 6972],
+      "plane": null,
+      "bounds": [[1728, 3840, 1762, 3903]],
+      "tasks": ["Bats"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Giant_bat?oldid=15258141",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "dark-warriors-fortress",
+      "name": "Dark Warriors' Fortress",
+      "short": "Dark Warriors",
+      "regions": [11832, 11833, 12088, 12344],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bears", "Dark warriors", "Green dragons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Dark_warrior?oldid=15373624",
+        "https://oldschool.runescape.wiki/w/Green_dragon?oldid=15391879",
+        "https://oldschool.runescape.wiki/w/Grizzly_bear?oldid=15199247",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "darkmeyer",
+      "name": "Darkmeyer",
+      "short": "Darkmeyer",
+      "regions": [14387, 14388, 14389, 14644],
+      "plane": null,
+      "bounds": [[3584, 3324, 3647, 3327], [3584, 3392, 3647, 3406]],
+      "tasks": ["Vampyres"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Vampyres?oldid=15373747",
+        "https://oldschool.runescape.wiki/w/Vampyre_Juvenile?oldid=15305880",
+        "https://oldschool.runescape.wiki/w/Vampyre_Juvinate?oldid=15392016",
+        "https://oldschool.runescape.wiki/w/Vyrewatch?oldid=15380818",
+        "https://oldschool.runescape.wiki/w/Vyrewatch_Sentinel?oldid=15367082"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "death-altar",
+      "name": "Death Altar",
+      "short": "Death Altar",
+      "regions": [8779],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ghosts"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Ghost?oldid=15212981",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts?oldid=15386373"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "death-plateau",
+      "name": "Death Plateau",
+      "short": "Death Plateau",
+      "regions": [11320],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Trolls"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Kraka?oldid=15199547",
+        "https://oldschool.runescape.wiki/w/Mountain_troll?oldid=15360669",
+        "https://oldschool.runescape.wiki/w/Pee_Hat?oldid=15199655",
+        "https://oldschool.runescape.wiki/w/Rock_(Troll)?oldid=15199654",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Trolls?oldid=15392313",
+        "https://oldschool.runescape.wiki/w/Stick?oldid=15215947",
+        "https://oldschool.runescape.wiki/w/Thrower_Troll?oldid=15276240"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "deep-wilderness-dungeon",
+      "name": "Deep Wilderness Dungeon",
+      "short": "Deep Wildy Dgn",
+      "regions": [12193],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Dwarves", "Fire giants", "Hill giants"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Chaos_dwarf?oldid=15375281",
+        "https://oldschool.runescape.wiki/w/Fire_giant?oldid=15389278",
+        "https://oldschool.runescape.wiki/w/Hill_Giant?oldid=15362162",
+        "https://oldschool.runescape.wiki/w/Shadow_spider?oldid=15199632",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dwarves?oldid=15373748",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Fire_giants?oldid=15327832",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hill_giants?oldid=15272947"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "deepfin-mine",
+      "name": "Deepfin Mine",
+      "short": "Deepfin Mine",
+      "regions": [8335],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Aberrant spectres"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Aberrant_spectre?oldid=15371564"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "demonic-ruins",
+      "name": "Demonic Ruins",
+      "short": "Demonic Ruins",
+      "regions": [13116],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bears", "Greater demons", "Lesser demons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Greater_demons?oldid=15270275",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_demon?oldid=15344163"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "dense-essence-mine",
+      "name": "Dense Essence Mine",
+      "short": "Dense Ess. Mine",
+      "regions": [6972, 7228],
+      "plane": null,
+      "bounds": [[1763, 3840, 1791, 3903]],
+      "tasks": ["Ghosts"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Ghost?oldid=15212981",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts?oldid=15386373"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "digsite-dungeon",
+      "name": "Digsite Dungeon",
+      "short": "Digsite Dungeon",
+      "regions": [13464, 13465],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Skeletons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Skeleton?oldid=15391775"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "dorgesh-kaan-south-dungeon",
+      "name": "Dorgesh-Kaan South Dungeon",
+      "short": "Dorgesh-Kaan S.",
+      "regions": [10833],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Cave bugs", "Cave crawlers", "Cave slimes", "Molanisks", "Rockslugs"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Cave_bug?oldid=15199199",
+        "https://oldschool.runescape.wiki/w/Cave_crawler?oldid=15373244",
+        "https://oldschool.runescape.wiki/w/Cave_slime?oldid=15395806",
+        "https://oldschool.runescape.wiki/w/Molanisk?oldid=15386559",
+        "https://oldschool.runescape.wiki/w/Rockslug?oldid=15339655",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Cave_crawlers?oldid=15397213"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "dorgeshuun-mines",
+      "name": "Dorgeshuun Mines",
+      "short": "Dorgeshuun Mine",
+      "regions": [13206],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Goblins"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Cave_goblin_guard?oldid=15237744",
+        "https://oldschool.runescape.wiki/w/Cave_goblin_miner?oldid=15199391"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "dragon-nest",
+      "name": "Dragon Nest",
+      "short": "Dragon Nest",
+      "regions": [5012],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Blue dragons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Baby_blue_dragon?oldid=15369927",
+        "https://oldschool.runescape.wiki/w/Blue_dragon?oldid=15369928",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Blue_dragons?oldid=15319394"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "draynor-manor",
+      "name": "Draynor Manor",
+      "short": "Draynor Manor",
+      "regions": [12340],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ghosts", "Skeletons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Ghost?oldid=15212981",
+        "https://oldschool.runescape.wiki/w/Skeleton_(Draynor_Manor)?oldid=15376053",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts?oldid=15386373"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "draynor-sewers",
+      "name": "Draynor Sewers",
+      "short": "Draynor Sewers",
+      "regions": [12438, 12439],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Skeletons", "Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Skeleton?oldid=15391775",
+        "https://oldschool.runescape.wiki/w/Zombie?oldid=15373734"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "draynor-village",
+      "name": "Draynor Village",
+      "short": "Draynor Village",
+      "regions": [12338],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Black Knights"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Black_Knight?oldid=15391784"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "dwarven-mine",
+      "name": "Dwarven Mine",
+      "short": "Dwarven Mine",
+      "regions": [11929, 12086, 12184, 12185],
+      "plane": null,
+      "bounds": [[2961, 9792, 3007, 9855], [3008, 3456, 3071, 3457]],
+      "tasks": ["Dwarves", "Scorpions"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Dwarf?oldid=15324634",
+        "https://oldschool.runescape.wiki/w/Dwarf_gang_member?oldid=15199785",
+        "https://oldschool.runescape.wiki/w/Guard_(dwarf)?oldid=15388204",
+        "https://oldschool.runescape.wiki/w/King_Scorpion?oldid=15199348",
+        "https://oldschool.runescape.wiki/w/Scorpion?oldid=15375279",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dwarves?oldid=15373748",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Scorpions?oldid=15316864"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "ectofuntus",
+      "name": "Ectofuntus",
+      "short": "Ectofuntus",
+      "regions": [14647],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ghosts", "Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts?oldid=15386373",
+        "https://oldschool.runescape.wiki/w/Tortured_soul?oldid=15283390"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "edgeville-dungeon",
+      "name": "Edgeville Dungeon",
+      "short": "Edgeville Dgn",
+      "regions": [12441, 12442, 12443, 12444, 12698],
+      "plane": null,
+      "bounds": [[3136, 9856, 3153, 9919]],
+      "tasks": ["Black demons", "Chaos druids", "Earth warriors", "Hill giants", "Hobgoblins", "Skeletons", "Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Black_demon?oldid=15391823",
+        "https://oldschool.runescape.wiki/w/Chaos_druid?oldid=15259337",
+        "https://oldschool.runescape.wiki/w/Earth_warrior?oldid=15365668",
+        "https://oldschool.runescape.wiki/w/Hill_Giant?oldid=15362162",
+        "https://oldschool.runescape.wiki/w/Hobgoblin?oldid=15391772",
+        "https://oldschool.runescape.wiki/w/Skeleton?oldid=15391775",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Black_demons?oldid=15296848",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Earth_warriors?oldid=15251008",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hill_giants?oldid=15272947",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hobgoblins?oldid=15251007",
+        "https://oldschool.runescape.wiki/w/Zombie?oldid=15373734"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "enchanted-valley",
+      "name": "Enchanted Valley",
+      "short": "Enchanted Val.",
+      "regions": [12102],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Trolls"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Trolls?oldid=15392313"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "entrana",
+      "name": "Entrana",
+      "short": "Entrana",
+      "regions": [11060],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bears"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Black_bear?oldid=15199246",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "entrana-dungeon",
+      "name": "Entrana Dungeon",
+      "short": "Entrana Dgn",
+      "regions": [11416],
+      "plane": null,
+      "bounds": [[2816, 9728, 2879, 9757]],
+      "tasks": ["Greater demons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Greater_demon?oldid=15392910",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Greater_demons?oldid=15270275"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "evil-chickens-lair",
+      "name": "Evil Chicken's Lair",
+      "short": "Evil Chicken",
+      "regions": [9796],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Black dragons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Baby_black_dragon?oldid=15376099",
+        "https://oldschool.runescape.wiki/w/Black_dragon?oldid=15286221",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Black_dragons?oldid=15379976"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "falador",
+      "name": "Falador",
+      "short": "Falador",
+      "regions": [12084],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Dwarves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Dwarf?oldid=15324634",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dwarves?oldid=15373748"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "feldip-hills",
+      "name": "Feldip Hills",
+      "short": "Feldip Hills",
+      "regions": [9773, 10030, 10286],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ogres", "Wolves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Big_Wolf?oldid=15199285",
+        "https://oldschool.runescape.wiki/w/Ogre?oldid=15367212",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ogres?oldid=15320380"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "ferox-enclave",
+      "name": "Ferox Enclave",
+      "short": "Ferox Enclave",
+      "regions": [12345, 12600],
+      "plane": null,
+      "bounds": [[3072, 3684, 3135, 3711]],
+      "tasks": ["Ghosts", "Mammoths"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Ghost?oldid=15212981",
+        "https://oldschool.runescape.wiki/w/Mammoth?oldid=15365428",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts?oldid=15386373"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "fishing-guild",
+      "name": "Fishing Guild",
+      "short": "Fishing Guild",
+      "regions": [10037, 10293, 10294],
+      "plane": null,
+      "bounds": [[2560, 3456, 2567, 3519]],
+      "tasks": ["Goblins", "Moss giants"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Goblin?oldid=15396659",
+        "https://oldschool.runescape.wiki/w/Moss_giant?oldid=15392080",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Moss_giants?oldid=15250972"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "forthos-dungeon",
+      "name": "Forthos Dungeon",
+      "short": "Forthos Dungeon",
+      "regions": [7323],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Red dragons", "Spiders", "Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Baby_red_dragon?oldid=15199796",
+        "https://oldschool.runescape.wiki/w/Red_dragon?oldid=15240522",
+        "https://oldschool.runescape.wiki/w/Sarachnis?oldid=15397042",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Red_dragons?oldid=15250964",
+        "https://oldschool.runescape.wiki/w/Temple_Spider?oldid=15215948",
+        "https://oldschool.runescape.wiki/w/Undead_Druid?oldid=15396837"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "freds-farm",
+      "name": "Fred's Farm",
+      "short": "Fred's Farm",
+      "regions": [12595],
+      "plane": null,
+      "bounds": [[3193, 3264, 3199, 3327]],
+      "tasks": ["Birds", "Cows"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Cow?oldid=15364588",
+        "https://oldschool.runescape.wiki/w/Cow_calf?oldid=15364592",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Cows?oldid=15364603"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "fremennik-isles",
+      "name": "Fremennik Isles",
+      "short": "Fremennik Isles",
+      "regions": [9275, 9276, 9531, 9532],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Trolls"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Ice_troll_female?oldid=15380012",
+        "https://oldschool.runescape.wiki/w/Ice_troll_grunt?oldid=15199265",
+        "https://oldschool.runescape.wiki/w/Ice_troll_male?oldid=15199661",
+        "https://oldschool.runescape.wiki/w/Ice_troll_runt?oldid=15199610"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "fremennik-province",
+      "name": "Fremennik Province",
+      "short": "Fremennik Prov.",
+      "regions": [10808],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bears", "Wolves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "fremennik-slayer-dungeon",
+      "name": "Fremennik Slayer Dungeon",
+      "short": "Fremennik Dgn",
+      "regions": [10907, 10908, 11164],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Basilisks", "Cave crawlers", "Cockatrice", "Jellies", "Kurask", "Pyrefiends", "Rockslugs", "Turoth"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Basilisk?oldid=15338302",
+        "https://oldschool.runescape.wiki/w/Cave_crawler?oldid=15373244",
+        "https://oldschool.runescape.wiki/w/Cockatrice?oldid=15391768",
+        "https://oldschool.runescape.wiki/w/Jelly?oldid=15378281",
+        "https://oldschool.runescape.wiki/w/Kurask?oldid=15386817",
+        "https://oldschool.runescape.wiki/w/Pyrefiend?oldid=15355194",
+        "https://oldschool.runescape.wiki/w/Rockslug?oldid=15339655",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Basilisks?oldid=15341651",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Cave_crawlers?oldid=15397213",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Jellies?oldid=15347496",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Kurask?oldid=15373542",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Pyrefiends?oldid=15366444",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Turoth?oldid=15341656",
+        "https://oldschool.runescape.wiki/w/Turoth?oldid=15384704"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "frozen-waste-plateau",
+      "name": "Frozen Waste Plateau",
+      "short": "Frozen Waste",
+      "regions": [11836, 11837],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ice giants", "Ice warriors"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Ice_giant?oldid=15391881",
+        "https://oldschool.runescape.wiki/w/Ice_spider?oldid=15231530",
+        "https://oldschool.runescape.wiki/w/Ice_warrior?oldid=15382514"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "giant-pit",
+      "name": "Giant Pit",
+      "short": "Giant Pit",
+      "regions": [5688],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Hill giants"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Hill_Giant?oldid=15362162",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hill_giants?oldid=15272947"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "giants-den",
+      "name": "Giants' Den",
+      "short": "Giants' Den",
+      "regions": [5786],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Fire giants", "Hill giants", "Moss giants"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Fire_giant?oldid=15389278",
+        "https://oldschool.runescape.wiki/w/Hill_Giant?oldid=15362162",
+        "https://oldschool.runescape.wiki/w/Moss_giant?oldid=15392080",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Fire_giants?oldid=15327832",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hill_giants?oldid=15272947",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Moss_giants?oldid=15250972"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "giants-plateau",
+      "name": "Giants' Plateau",
+      "short": "Giants' Plateau",
+      "regions": [13361],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Hill giants"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Hill_Giant?oldid=15362162",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hill_giants?oldid=15272947"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "glarials-tomb",
+      "name": "Glarial's Tomb",
+      "short": "Glarial's Tomb",
+      "regions": [10137],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Zombie?oldid=15373734"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "gnome-maze",
+      "name": "Gnome Maze",
+      "short": "Gnome Maze",
+      "regions": [10033],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bears", "Hill giants", "Ogres", "Spiders"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Black_bear?oldid=15199246",
+        "https://oldschool.runescape.wiki/w/Hill_Giant?oldid=15362162",
+        "https://oldschool.runescape.wiki/w/Ogre?oldid=15367212",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hill_giants?oldid=15272947",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ogres?oldid=15320380",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Spiders?oldid=15250979",
+        "https://oldschool.runescape.wiki/w/Spider?oldid=15375280"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "goblin-cave",
+      "name": "Goblin Cave",
+      "short": "Goblin Cave",
+      "regions": [10393],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bats", "Goblins", "Rats"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Dungeon_rat?oldid=15389209",
+        "https://oldschool.runescape.wiki/w/Giant_bat?oldid=15258141",
+        "https://oldschool.runescape.wiki/w/Goblin?oldid=15396659",
+        "https://oldschool.runescape.wiki/w/Rat?oldid=15388906",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "god-wars-dungeon",
+      "name": "God Wars Dungeon",
+      "short": "God Wars",
+      "regions": [11345, 11346, 11347, 11601, 11602, 11603],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Aviansies", "Bloodveld", "Goblins", "Hellhounds", "Hill giants", "Hobgoblins", "Icefiends", "Ogres", "Pyrefiends", "Spiritual creatures", "Vampyres", "Werewolves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Aviansie?oldid=15389107",
+        "https://oldschool.runescape.wiki/w/Bloodveld?oldid=15378518",
+        "https://oldschool.runescape.wiki/w/Cyclops_(God_Wars_Dungeon)?oldid=15391844",
+        "https://oldschool.runescape.wiki/w/Feral_Vampyre?oldid=15356500",
+        "https://oldschool.runescape.wiki/w/Flight_Kilisa?oldid=15298482",
+        "https://oldschool.runescape.wiki/w/Flockleader_Geerin?oldid=15329496",
+        "https://oldschool.runescape.wiki/w/Hellhound?oldid=15351778",
+        "https://oldschool.runescape.wiki/w/Hobgoblin?oldid=15391772",
+        "https://oldschool.runescape.wiki/w/Icefiend?oldid=15329347",
+        "https://oldschool.runescape.wiki/w/Kree'arra?oldid=15337073",
+        "https://oldschool.runescape.wiki/w/Ogre?oldid=15367212",
+        "https://oldschool.runescape.wiki/w/Pyrefiend?oldid=15355194",
+        "https://oldschool.runescape.wiki/w/Sergeant_Grimspike?oldid=15298415",
+        "https://oldschool.runescape.wiki/w/Sergeant_Steelwill?oldid=15298417",
+        "https://oldschool.runescape.wiki/w/Sergeant_Strongstack?oldid=15298419",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Aviansie?oldid=15299787",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bloodveld?oldid=15344399",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hellhounds?oldid=15357324",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hill_giants?oldid=15272947",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hobgoblins?oldid=15251007",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Icefiends?oldid=15336183",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ogres?oldid=15320380",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Pyrefiends?oldid=15366444",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Spiritual_creatures?oldid=15287407",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Vampyres?oldid=15373747",
+        "https://oldschool.runescape.wiki/w/Spiritual_mage?oldid=15392596",
+        "https://oldschool.runescape.wiki/w/Spiritual_ranger?oldid=15341103",
+        "https://oldschool.runescape.wiki/w/Spiritual_warrior?oldid=15391776",
+        "https://oldschool.runescape.wiki/w/Werewolf?oldid=15319526",
+        "https://oldschool.runescape.wiki/w/Wingman_Skree?oldid=15298484"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "grave-of-scorpius",
+      "name": "Grave of Scorpius",
+      "short": "Scorpius Grave",
+      "regions": [9778],
+      "plane": null,
+      "bounds": [[2432, 3220, 2495, 3263]],
+      "tasks": ["Ghosts"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts?oldid=15386373"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "graveyard-of-heroes",
+      "name": "Graveyard of Heroes",
+      "short": "Graveyard Hero.",
+      "regions": [5943],
+      "plane": null,
+      "bounds": [[1472, 3546, 1535, 3583]],
+      "tasks": ["Bats", "Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "graveyard-of-shadows",
+      "name": "Graveyard of Shadows",
+      "short": "Graveyard Shad.",
+      "regions": [12345, 12601],
+      "plane": null,
+      "bounds": [[3072, 3648, 3135, 3683]],
+      "tasks": ["Bears", "Green dragons", "Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Green_dragon?oldid=15391879",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "great-kourend",
+      "name": "Great Kourend",
+      "short": "Great Kourend",
+      "regions": [4921, 5177, 5178, 5941],
+      "plane": null,
+      "bounds": [[1280, 3703, 1343, 3711]],
+      "tasks": ["Bears"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "grimstone-dungeon",
+      "name": "Grimstone Dungeon",
+      "short": "Grimstone Dgn",
+      "regions": [11427, 11683],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Frost dragons", "Jellies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Chilled_jelly?oldid=15352393",
+        "https://oldschool.runescape.wiki/w/Frost_dragon?oldid=15384445",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Jellies?oldid=15347496"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "grotesque-guardians-roof",
+      "name": "Grotesque Guardians' roof",
+      "short": "GG roof",
+      "regions": [6727],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Gargoyles"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Gargoyles?oldid=15386821",
+        "https://oldschool.runescape.wiki/w/Grotesque_Guardians?oldid=15387555",
+        "https://github.com/mejrs/data_osrs/blob/7777c539839bc9c55f7f47fa4c1022a25af4e904/transports_osrs.json"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "gryphon-cave-task-only",
+      "name": "Gryphon Cave (task-only)",
+      "short": "Gryphon Cave E",
+      "regions": [12938],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Gryphons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Gryphon?oldid=15394697",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Gryphons?oldid=15394547"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "gryphon-cave-west",
+      "name": "Gryphon Cave (west)",
+      "short": "Gryphon Cave W",
+      "regions": [12426],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Gryphons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Gryphon?oldid=15394697",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Gryphons?oldid=15394547"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "gutanoth",
+      "name": "Gu'Tanoth",
+      "short": "Gu'Tanoth",
+      "regions": [10031, 10287],
+      "plane": null,
+      "bounds": [[2560, 3008, 2623, 3051]],
+      "tasks": ["Bears", "Ogres"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Black_bear?oldid=15199246",
+        "https://oldschool.runescape.wiki/w/Ogre?oldid=15367212",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ogres?oldid=15320380"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "handelmort-mansion",
+      "name": "Handelmort Mansion",
+      "short": "Handelmort",
+      "regions": [10547],
+      "plane": null,
+      "bounds": [[2624, 3298, 2687, 3327]],
+      "tasks": ["Dogs"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Guard_dog?oldid=15354591",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dogs?oldid=15341658"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "harmony-island",
+      "name": "Harmony Island",
+      "short": "Harmony Island",
+      "regions": [15148],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Sorebones?oldid=15230661",
+        "https://oldschool.runescape.wiki/w/Zombie_pirate_(Harmony_Island)?oldid=15360770"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "haunted-woods",
+      "name": "Haunted Woods",
+      "short": "Haunted Woods",
+      "regions": [14134, 14389, 14390, 14645],
+      "plane": null,
+      "bounds": [[3584, 3407, 3647, 3455]],
+      "tasks": ["Bats", "Crabs", "Vampyres"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Bat?oldid=15283978",
+        "https://oldschool.runescape.wiki/w/Feral_Vampyre?oldid=15356500",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Vampyres?oldid=15373747",
+        "https://oldschool.runescape.wiki/w/Swamp_Crab?oldid=15200068"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "heroes-guild",
+      "name": "Heroes' Guild",
+      "short": "Heroes' Guild",
+      "regions": [11674],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bats", "Blue dragons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Blue_dragon?oldid=15369928",
+        "https://oldschool.runescape.wiki/w/Giant_bat?oldid=15258141",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Blue_dragons?oldid=15319394"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "hosidius",
+      "name": "Hosidius",
+      "short": "Hosidius",
+      "regions": [6710, 6712, 6966, 6967, 6968, 7222, 7224, 7479],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bats", "Crabs", "Dogs", "Hobgoblins", "Spiders", "Wolves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Guard_dog?oldid=15354591",
+        "https://oldschool.runescape.wiki/w/Sand_Crab?oldid=15323412",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dogs?oldid=15341658",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hobgoblins?oldid=15251007",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Spiders?oldid=15250979",
+        "https://oldschool.runescape.wiki/w/Spider?oldid=15375280"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "ice-mountain",
+      "name": "Ice Mountain",
+      "short": "Ice Mountain",
+      "regions": [11829, 11830, 12085, 12086],
+      "plane": null,
+      "bounds": [[2988, 3456, 3007, 3519], [3008, 3458, 3071, 3483]],
+      "tasks": ["Dwarves", "Icefiends"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Black_Guard?oldid=15390157",
+        "https://oldschool.runescape.wiki/w/Dwarf?oldid=15324634",
+        "https://oldschool.runescape.wiki/w/Icefiend?oldid=15329347",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dwarves?oldid=15373748",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Icefiends?oldid=15336183"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "ice-queens-lair",
+      "name": "Ice Queen's Lair",
+      "short": "Ice Queen Lair",
+      "regions": [11418, 11419, 11675],
+      "plane": null,
+      "bounds": [[2816, 9891, 2879, 9919], [2880, 9920, 2898, 9983]],
+      "tasks": ["Ice giants", "Ice warriors"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Ice_giant?oldid=15391881",
+        "https://oldschool.runescape.wiki/w/Ice_spider?oldid=15231530",
+        "https://oldschool.runescape.wiki/w/Ice_warrior?oldid=15382514"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "iorwerth-camp",
+      "name": "Iorwerth Camp",
+      "short": "Iorwerth Camp",
+      "regions": [8754],
+      "plane": null,
+      "bounds": [[2176, 3232, 2239, 3263]],
+      "tasks": ["Elves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Iorwerth_Archer?oldid=15330601",
+        "https://oldschool.runescape.wiki/w/Iorwerth_Warrior?oldid=15357164",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Elves?oldid=15357159"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "iorwerth-dungeon",
+      "name": "Iorwerth Dungeon",
+      "short": "Iorwerth Dgn",
+      "regions": [12737, 12738, 12993, 12994],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bloodveld", "Dark beasts", "Elves", "Kurask", "Moss giants", "Nechryael", "Waterfiends"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Dark_beast?oldid=15350345",
+        "https://oldschool.runescape.wiki/w/Greater_Nechryael?oldid=15341801",
+        "https://oldschool.runescape.wiki/w/Iorwerth_Warrior?oldid=15357164",
+        "https://oldschool.runescape.wiki/w/Kurask?oldid=15386817",
+        "https://oldschool.runescape.wiki/w/Moss_Giant_(Iorwerth_Dungeon)?oldid=15392100",
+        "https://oldschool.runescape.wiki/w/Mutated_Bloodveld?oldid=15338397",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bloodveld?oldid=15344399",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dark_beast?oldid=15357079",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Elves?oldid=15357159",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Kurask?oldid=15373542",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Moss_giants?oldid=15250972",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Nechryael?oldid=15359113",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Waterfiends?oldid=15364708",
+        "https://oldschool.runescape.wiki/w/Waterfiend?oldid=15385712"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "isafdar",
+      "name": "Isafdar",
+      "short": "Isafdar",
+      "regions": [8753, 8754],
+      "plane": null,
+      "bounds": [[2176, 3200, 2239, 3231]],
+      "tasks": ["Bears"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Grizzly_bear?oldid=15199247",
+        "https://oldschool.runescape.wiki/w/Grizzly_bear_cub?oldid=15199984",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "isle-of-souls",
+      "name": "Isle of Souls",
+      "short": "Isle of Souls",
+      "regions": [8747, 8748, 9003, 9006],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Crabs", "Moss giants", "Pyrefiends"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Moss_giant?oldid=15392080",
+        "https://oldschool.runescape.wiki/w/Pyrefiend?oldid=15355194",
+        "https://oldschool.runescape.wiki/w/Pyrelord?oldid=15338384",
+        "https://oldschool.runescape.wiki/w/Sand_Crab?oldid=15323412",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Moss_giants?oldid=15250972",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Pyrefiends?oldid=15366444"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "isle-of-souls-dungeon",
+      "name": "Isle of Souls Dungeon",
+      "short": "Souls Dungeon",
+      "regions": [8593],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Blue dragons", "Fire giants", "Greater demons", "Lesser demons", "Metal dragons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Baby_blue_dragon?oldid=15369927",
+        "https://oldschool.runescape.wiki/w/Blue_dragon?oldid=15369928",
+        "https://oldschool.runescape.wiki/w/Fire_giant?oldid=15389278",
+        "https://oldschool.runescape.wiki/w/Greater_demon?oldid=15392910",
+        "https://oldschool.runescape.wiki/w/Iron_dragon?oldid=15273774",
+        "https://oldschool.runescape.wiki/w/Lesser_demon?oldid=15366848",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Blue_dragons?oldid=15319394",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Fire_giants?oldid=15327832",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Greater_demons?oldid=15270275",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_demon?oldid=15344163",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Metal_dragons?oldid=15332692"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "jiggig",
+      "name": "Jiggig",
+      "short": "Jiggig",
+      "regions": [9775],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ogres", "Skeletons", "Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Skogre?oldid=15395713",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ogres?oldid=15320380",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Skeletons?oldid=15392832",
+        "https://oldschool.runescape.wiki/w/Zogre?oldid=15395710"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "jiggig-dungeon",
+      "name": "Jiggig Dungeon",
+      "short": "Jiggig Dungeon",
+      "regions": [9874, 9875],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ogres", "Skeletons", "Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Skogre?oldid=15395713",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ogres?oldid=15320380",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Skeletons?oldid=15392832",
+        "https://oldschool.runescape.wiki/w/Zogre?oldid=15395710"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "jolly-boar-inn",
+      "name": "Jolly Boar Inn",
+      "short": "Jolly Boar Inn",
+      "regions": [13110],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Black Knights"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Black_Knight?oldid=15391784"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "jormungands-prison",
+      "name": "Jormungand's Prison",
+      "short": "Jormungand",
+      "regions": [9634, 9635, 9890, 9891],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Basilisks", "Dagannoth"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Basilisk?oldid=15338302",
+        "https://oldschool.runescape.wiki/w/Basilisk_Knight?oldid=15340714",
+        "https://oldschool.runescape.wiki/w/Dagannoth?oldid=15276900",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Basilisks?oldid=15341651",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dagannoth?oldid=15352280"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "kalphite-cave",
+      "name": "Kalphite Cave",
+      "short": "Kalphite Cave",
+      "regions": [13204, 13205, 13460],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Kalphites"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Kalphite_Guardian?oldid=15392090",
+        "https://oldschool.runescape.wiki/w/Kalphite_Soldier?oldid=15240656",
+        "https://oldschool.runescape.wiki/w/Kalphite_Worker?oldid=15391770",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Kalphites?oldid=15344284"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "kalphite-lair",
+      "name": "Kalphite Lair",
+      "short": "Kalphite Lair",
+      "regions": [13972],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Kalphites"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Kalphite_Soldier?oldid=15240656",
+        "https://oldschool.runescape.wiki/w/Kalphite_Worker?oldid=15391770",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Kalphites?oldid=15344284"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "karamja",
+      "name": "Karamja",
+      "short": "Karamja",
+      "regions": [10055, 11313, 11821, 11822],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Monkeys"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Monkey_(monster)?oldid=15360419",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Monkeys?oldid=15250976"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "karuulm-slayer-dungeon",
+      "name": "Karuulm Slayer Dungeon",
+      "short": "Karuulm Dgn",
+      "regions": [5022, 5023, 5278, 5279, 5280, 5535, 5536],
+      "plane": 1,
+      "bounds": null,
+      "tasks": ["Drakes", "Fire giants", "Greater demons", "Hellhounds", "Hydras", "Lizards", "Wyrms"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Drake?oldid=15371749",
+        "https://oldschool.runescape.wiki/w/Fire_giant?oldid=15389278",
+        "https://oldschool.runescape.wiki/w/Greater_demon?oldid=15392910",
+        "https://oldschool.runescape.wiki/w/Hellhound?oldid=15351778",
+        "https://oldschool.runescape.wiki/w/Hydra?oldid=15356026",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Fire_giants?oldid=15327832",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Greater_demons?oldid=15270275",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hellhounds?oldid=15357324",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hydras?oldid=15317930",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lizards?oldid=15116877",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Wyrms?oldid=15394485",
+        "https://oldschool.runescape.wiki/w/Sulphur_Lizard?oldid=15339650",
+        "https://oldschool.runescape.wiki/w/Wyrm?oldid=15391861"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "kebos-lowlands",
+      "name": "Kebos Lowlands",
+      "short": "Kebos Lowlands",
+      "regions": [4918, 5174],
+      "plane": null,
+      "bounds": [[1216, 3456, 1279, 3484]],
+      "tasks": ["Bears"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Bear_Cub?oldid=15210521",
+        "https://oldschool.runescape.wiki/w/Grizzly_bear?oldid=15199247",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "kebos-swamp",
+      "name": "Kebos Swamp",
+      "short": "Kebos Swamp",
+      "regions": [5176],
+      "plane": null,
+      "bounds": [[1280, 3610, 1343, 3647]],
+      "tasks": ["Lizardmen"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Lizardman?oldid=15362647",
+        "https://oldschool.runescape.wiki/w/Lizardman_brute?oldid=15339921",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lizardmen?oldid=15250962"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "keep-le-faye",
+      "name": "Keep Le Faye",
+      "short": "Keep Le Faye",
+      "regions": [11061],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bats"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Giant_bat?oldid=15258141",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "keldagrim",
+      "name": "Keldagrim",
+      "short": "Keldagrim",
+      "regions": [11166, 11422, 11423, 11679],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Dwarves", "Trolls"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Black_Guard?oldid=15390157",
+        "https://oldschool.runescape.wiki/w/Black_Guard_Berserker?oldid=15199580",
+        "https://oldschool.runescape.wiki/w/Dwarf?oldid=15324634",
+        "https://oldschool.runescape.wiki/w/Mountain_troll?oldid=15360669",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dwarves?oldid=15373748",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Trolls?oldid=15392313"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "kharidian-desert",
+      "name": "Kharidian Desert",
+      "short": "Kharidian",
+      "regions": [13359, 13615],
+      "plane": null,
+      "bounds": [[3392, 3016, 3455, 3071]],
+      "tasks": ["Lizards"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Lizard?oldid=15374564",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lizards?oldid=15116877"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "killerwatt-plane",
+      "name": "Killerwatt Plane",
+      "short": "Killerwatt Pl.",
+      "regions": [10577],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Killerwatts"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Killerwatt?oldid=15394573"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "king-black-dragon-lair",
+      "name": "King Black Dragon Lair",
+      "short": "KBD Lair",
+      "regions": [12092],
+      "plane": null,
+      "bounds": [[3008, 3840, 3020, 3903]],
+      "tasks": ["Lesser demons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_demon?oldid=15344163"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "kingstown",
+      "name": "Kingstown",
+      "short": "Kingstown",
+      "regions": [6713],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Lesser demons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Lesser_demon?oldid=15366848"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "kourend-castle",
+      "name": "Kourend Castle",
+      "short": "Kourend Castle",
+      "regions": [6457],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Lesser demons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Lesser_demon?oldid=15366848",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_demon?oldid=15344163"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "kourend-woodland",
+      "name": "Kourend Woodland",
+      "short": "Kourend Woods",
+      "regions": [5942],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Moss giants"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Moss_giant?oldid=15392080",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Moss_giants?oldid=15250972"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "kraken-cove",
+      "name": "Kraken Cove",
+      "short": "Kraken Cove",
+      "regions": [9116],
+      "plane": null,
+      "bounds": [[2240, 9984, 2303, 10019], [2240, 10020, 2267, 10047]],
+      "tasks": ["Cave kraken", "Waterfiends"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Waterfiends?oldid=15364708",
+        "https://oldschool.runescape.wiki/w/Waterfiend?oldid=15385712"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "kraken-boss-room",
+      "name": "Kraken Cove boss room",
+      "short": "Kraken room",
+      "regions": [9116],
+      "plane": null,
+      "bounds": [[2268, 10020, 2303, 10047]],
+      "tasks": ["Cave kraken"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Kraken?oldid=15383981",
+        "https://oldschool.runescape.wiki/w/Kraken_Cove?oldid=15395547",
+        "https://github.com/mejrs/data_osrs/blob/7777c539839bc9c55f7f47fa4c1022a25af4e904/transports_osrs.json",
+        "https://github.com/mejrs/data_osrs/blob/7777c539839bc9c55f7f47fa4c1022a25af4e904/NPCList_OSRS.json"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "kurask-lair",
+      "name": "Kurask Lair",
+      "short": "Kurask Lair",
+      "regions": [4751],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Kurask"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Kurask?oldid=15386817",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Kurask?oldid=15373542"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "laguna-aurorae",
+      "name": "Laguna Aurorae",
+      "short": "Laguna Aurorae",
+      "regions": [4651, 4907],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Moss giants"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Moss_giant?oldid=15392080",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Moss_giants?oldid=15250972"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "lava-dragon-isle",
+      "name": "Lava Dragon Isle",
+      "short": "Lava Dragon Isl",
+      "regions": [12603, 12859, 12860],
+      "plane": null,
+      "bounds": [[3168, 3776, 3199, 3839]],
+      "tasks": ["Dwarves", "Lava Dragons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Chaos_dwarf?oldid=15375281",
+        "https://oldschool.runescape.wiki/w/Lava_dragon?oldid=15343124",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dwarves?oldid=15373748"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "lava-maze",
+      "name": "Lava Maze",
+      "short": "Lava Maze",
+      "regions": [12092, 12347, 12348],
+      "plane": null,
+      "bounds": [[3021, 3840, 3071, 3903]],
+      "tasks": ["Black Knights", "Green dragons", "Hill giants", "Lesser demons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Black_Knight?oldid=15391784",
+        "https://oldschool.runescape.wiki/w/Green_dragon?oldid=15391879",
+        "https://oldschool.runescape.wiki/w/Hill_Giant?oldid=15362162",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hill_giants?oldid=15272947",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_demon?oldid=15344163"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "lava-maze-dungeon",
+      "name": "Lava Maze Dungeon",
+      "short": "Lava Maze Dgn",
+      "regions": [12192],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Black dragons", "Greater demons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Black_dragon?oldid=15286221",
+        "https://oldschool.runescape.wiki/w/Greater_demon?oldid=15392910",
+        "https://oldschool.runescape.wiki/w/Poison_spider?oldid=15199591",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Black_dragons?oldid=15379976",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Greater_demons?oldid=15270275"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "legends-guild",
+      "name": "Legends' Guild",
+      "short": "Legends' Guild",
+      "regions": [10904],
+      "plane": null,
+      "bounds": [[2720, 9728, 2751, 9791]],
+      "tasks": ["Bats"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Giant_bat?oldid=15258141",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "legends-guild-dungeon",
+      "name": "Legends' Guild Dungeon",
+      "short": "Legends' Dgn",
+      "regions": [10904],
+      "plane": null,
+      "bounds": [[2688, 9728, 2719, 9791]],
+      "tasks": ["Shadow warriors"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Shadow_warrior?oldid=15390091"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "lighthouse-dungeon",
+      "name": "Lighthouse Dungeon",
+      "short": "Lighthouse Dgn",
+      "regions": [10140],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Dagannoth"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Dagannoth?oldid=15276900",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dagannoth?oldid=15352280"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "lithkren-vault",
+      "name": "Lithkren Vault",
+      "short": "Lithkren Vault",
+      "regions": [6223],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Metal dragons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Adamant_dragon?oldid=15373867",
+        "https://oldschool.runescape.wiki/w/Rune_dragon?oldid=15364710"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "lizardman-canyon",
+      "name": "Lizardman Canyon",
+      "short": "Lizard Canyon",
+      "regions": [5689, 5690, 5945, 5946],
+      "plane": null,
+      "bounds": [[1408, 3712, 1471, 3731], [1472, 3712, 1535, 3737]],
+      "tasks": ["Lizardmen"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Lizardman?oldid=15362647",
+        "https://oldschool.runescape.wiki/w/Lizardman_brute?oldid=15339921",
+        "https://oldschool.runescape.wiki/w/Lizardman_shaman?oldid=15371945",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lizardmen?oldid=15250962"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "lizardman-caves",
+      "name": "Lizardman Caves",
+      "short": "Lizardman Caves",
+      "regions": [5275],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Lizardmen"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Lizardman_shaman?oldid=15371945",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lizardmen?oldid=15250962"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "lizardman-settlement",
+      "name": "Lizardman Settlement",
+      "short": "Lizardman Sett.",
+      "regions": [5175],
+      "plane": null,
+      "bounds": [[1280, 3520, 1343, 3572]],
+      "tasks": ["Lizardmen"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Lizardman?oldid=15362647",
+        "https://oldschool.runescape.wiki/w/Lizardman_brute?oldid=15339921",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lizardmen?oldid=15250962"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "lizardman-temple",
+      "name": "Lizardman Temple",
+      "short": "Lizard Temple",
+      "regions": [5277],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Lizardmen"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Lizardman_shaman?oldid=15371945",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lizardmen?oldid=15250962"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "lletya",
+      "name": "Lletya",
+      "short": "Lletya",
+      "regions": [9009, 9265],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bears", "Elves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Elf_Archer?oldid=15352841",
+        "https://oldschool.runescape.wiki/w/Elf_Warrior?oldid=15352842",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Elves?oldid=15357159"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "lovakengj",
+      "name": "Lovakengj",
+      "short": "Lovakengj",
+      "regions": [5690, 5691, 5692, 5946, 5947, 5948, 6202, 6203, 6458],
+      "plane": null,
+      "bounds": [[1408, 3732, 1471, 3775], [1472, 3738, 1535, 3775], [1536, 3776, 1560, 3839]],
+      "tasks": ["Dark warriors", "Dwarves", "Spiders"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Dark_warrior?oldid=15373624",
+        "https://oldschool.runescape.wiki/w/Dwarf?oldid=15324634",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dwarves?oldid=15373748",
+        "https://oldschool.runescape.wiki/w/Spider?oldid=15375280"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "lumbridge",
+      "name": "Lumbridge",
+      "short": "Lumbridge",
+      "regions": [12594, 12595, 12850, 12852],
+      "plane": null,
+      "bounds": [[3136, 3226, 3199, 3263], [3136, 3264, 3192, 3327]],
+      "tasks": ["Cows", "Goblins", "Rats"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Goblin?oldid=15396659",
+        "https://oldschool.runescape.wiki/w/Rat?oldid=15388906"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "lumbridge-swamp",
+      "name": "Lumbridge Swamp",
+      "short": "Lumbridge Swamp",
+      "regions": [12593, 12594, 12849],
+      "plane": null,
+      "bounds": [[3136, 3200, 3199, 3225]],
+      "tasks": ["Rats"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Giant_rat?oldid=15260179"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "lumbridge-swamp-caves",
+      "name": "Lumbridge Swamp Caves",
+      "short": "Swamp Caves",
+      "regions": [12693, 12949],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Cave bugs", "Cave crawlers", "Cave slimes", "Goblins", "Rockslugs", "Wall beasts"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Cave_bug?oldid=15199199",
+        "https://oldschool.runescape.wiki/w/Cave_crawler?oldid=15373244",
+        "https://oldschool.runescape.wiki/w/Cave_goblin_(monster)?oldid=15229939",
+        "https://oldschool.runescape.wiki/w/Cave_slime?oldid=15395806",
+        "https://oldschool.runescape.wiki/w/Rockslug?oldid=15339655",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Cave_crawlers?oldid=15397213"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "lunar-isle",
+      "name": "Lunar Isle",
+      "short": "Lunar Isle",
+      "regions": [8252, 8253, 8508, 8509],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Suqahs"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Suqah?oldid=15392319",
+        "https://oldschool.runescape.wiki/w/Suqah?oldid=15359423"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "mage-arena",
+      "name": "Mage Arena",
+      "short": "Mage Arena",
+      "regions": [12349],
+      "plane": null,
+      "bounds": [[3072, 3904, 3135, 3932]],
+      "tasks": ["Rogues"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Rogue?oldid=15374723"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "magic-axe-hut",
+      "name": "Magic Axe Hut",
+      "short": "Magic Axe Hut",
+      "regions": [12605],
+      "plane": null,
+      "bounds": [[3136, 3958, 3199, 3967]],
+      "tasks": ["Magic axes"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Magic_axe?oldid=15371732"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "marim",
+      "name": "Marim",
+      "short": "Marim",
+      "regions": [10795, 11051],
+      "plane": null,
+      "bounds": [[2752, 2752, 2792, 2815]],
+      "tasks": ["Monkeys"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Monkey_Archer?oldid=15199637",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Monkeys?oldid=15250976"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "meiyerditch",
+      "name": "Meiyerditch",
+      "short": "Meiyerditch",
+      "regions": [14385, 14386, 14387],
+      "plane": null,
+      "bounds": [[3584, 3264, 3647, 3323]],
+      "tasks": ["Vampyres"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Vampyres?oldid=15373747",
+        "https://oldschool.runescape.wiki/w/Vampyre_Juvenile?oldid=15305880",
+        "https://oldschool.runescape.wiki/w/Vyrewatch?oldid=15380818"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "meiyerditch-laboratories",
+      "name": "Meiyerditch Laboratories",
+      "short": "Meiyerditch Lab",
+      "regions": [14232, 14488],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bloodveld", "Crawling hands"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Bloodveld?oldid=15378518",
+        "https://oldschool.runescape.wiki/w/Crawling_Hand?oldid=15387322",
+        "https://oldschool.runescape.wiki/w/Mutated_Bloodveld?oldid=15338397",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bloodveld?oldid=15344399",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Crawling_Hands?oldid=15395805"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "melzars-maze",
+      "name": "Melzar's Maze",
+      "short": "Melzar's Maze",
+      "regions": [11570, 11670],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ghosts", "Rats", "Skeletons", "Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Rat?oldid=15388906",
+        "https://oldschool.runescape.wiki/w/Skeleton_(Melzar's_Maze)?oldid=15200114",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts?oldid=15386373",
+        "https://oldschool.runescape.wiki/w/Zombie_rat?oldid=15199680"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "mind-altar",
+      "name": "Mind Altar",
+      "short": "Mind Altar",
+      "regions": [11830],
+      "plane": null,
+      "bounds": [[2944, 3456, 2987, 3519]],
+      "tasks": ["Bears"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Black_bear?oldid=15199246",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "mogre-camp",
+      "name": "Mogre Camp",
+      "short": "Mogre Camp",
+      "regions": [11924],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Crabs"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Crab?oldid=15339926"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "molch",
+      "name": "Molch",
+      "short": "Molch",
+      "regions": [5177],
+      "plane": null,
+      "bounds": [[1280, 3648, 1343, 3689]],
+      "tasks": ["Lizardmen"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Lizardman?oldid=15362647",
+        "https://oldschool.runescape.wiki/w/Lizardman_brute?oldid=15339921",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lizardmen?oldid=15250962"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "mons-gratia",
+      "name": "Mons Gratia",
+      "short": "Mons Gratia",
+      "regions": [5682, 5683],
+      "plane": null,
+      "bounds": [[1408, 3236, 1471, 3263]],
+      "tasks": ["Icefiends"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Icefiend?oldid=15329347",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Icefiends?oldid=15336183"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "mor-ul-rek",
+      "name": "Mor Ul Rek",
+      "short": "Mor Ul Rek",
+      "regions": [9807, 9808, 10063, 10064],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Tzhaar"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/TzHaar-Hur?oldid=15394911",
+        "https://oldschool.runescape.wiki/w/TzHaar-Ket?oldid=15394913",
+        "https://oldschool.runescape.wiki/w/TzHaar-Mej?oldid=15394916",
+        "https://oldschool.runescape.wiki/w/TzHaar-Xil?oldid=15394872"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "mort-myre-swamp",
+      "name": "Mort Myre Swamp",
+      "short": "Mort Myre Swamp",
+      "regions": [13622],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ghouls"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Ghoul?oldid=15384879"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "mortton",
+      "name": "Mort'ton",
+      "short": "Mort'ton",
+      "regions": [13875],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Shades"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Loar_Shade?oldid=15199268",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Shades?oldid=15355228"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "morytania-spider-cave",
+      "name": "Morytania Spider Cave",
+      "short": "Spider Cave",
+      "regions": [14745, 14746],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Araxytes", "Spiders"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Araxyte?oldid=15360283",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Araxytes?oldid=15381519",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Spiders?oldid=15250979"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "mos-leharmless",
+      "name": "Mos Le'Harmless",
+      "short": "Mos Le'Harmless",
+      "regions": [14639, 14894, 14895, 15151],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Jungle horrors", "Monkeys"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Jungle_horror?oldid=15369331",
+        "https://oldschool.runescape.wiki/w/Monkey_(monster)?oldid=15360419",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Monkeys?oldid=15250976"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "mos-leharmless-cave",
+      "name": "Mos Le'Harmless Cave",
+      "short": "Mos Le'H. Cave",
+      "regions": [14994, 14995, 15251],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bats", "Cave horrors"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Albino_bat?oldid=15199384",
+        "https://oldschool.runescape.wiki/w/Cave_horror?oldid=15388981",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Cave_horrors?oldid=15341650"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "moss-giant-island",
+      "name": "Moss Giant Island",
+      "short": "Moss Giant Isl.",
+      "regions": [10802],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Moss giants"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Moss_giant?oldid=15392080",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Moss_giants?oldid=15250972"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "mount-karuulm",
+      "name": "Mount Karuulm",
+      "short": "Mount Karuulm",
+      "regions": [5179, 5180, 5435],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bats"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Giant_bat?oldid=15258141",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "mount-quidamortem",
+      "name": "Mount Quidamortem",
+      "short": "Quidamortem",
+      "regions": [4663, 4664, 4918, 4919],
+      "plane": null,
+      "bounds": [[1216, 3485, 1279, 3519]],
+      "tasks": ["Crabs", "Trolls"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Mountain_troll?oldid=15360669",
+        "https://oldschool.runescape.wiki/w/Rock_Crab?oldid=15351395",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Trolls?oldid=15392313"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "mourner-headquarters",
+      "name": "Mourner Headquarters",
+      "short": "Mourner HQ",
+      "regions": [8008],
+      "plane": null,
+      "bounds": [[2036, 4608, 2047, 4671]],
+      "tasks": ["Elves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Elves?oldid=15357159"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "mourner-tunnels",
+      "name": "Mourner Tunnels",
+      "short": "Mourner Tunnels",
+      "regions": [8008],
+      "plane": null,
+      "bounds": [[1984, 4608, 2035, 4671]],
+      "tasks": ["Dark beasts"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Dark_beast?oldid=15350345",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dark_beast?oldid=15357079"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "mudskipper-point",
+      "name": "Mudskipper Point",
+      "short": "Mudskipper Pt.",
+      "regions": [11824],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Mogres", "Ogres"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Mogre?oldid=15346116",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ogres?oldid=15320380"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "mushroom-forest",
+      "name": "Mushroom Forest",
+      "short": "Mushroom Forest",
+      "regions": [14651, 14652],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Mutated zygomites"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Zygomites?oldid=15161085"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "mynydd",
+      "name": "Mynydd",
+      "short": "Mynydd",
+      "regions": [8501],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Black dragons", "Ghosts"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Black_dragon?oldid=15286221",
+        "https://oldschool.runescape.wiki/w/Dire_Wolf?oldid=15208070",
+        "https://oldschool.runescape.wiki/w/Ghost?oldid=15212981",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Black_dragons?oldid=15379976",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts?oldid=15386373"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "nardah",
+      "name": "Nardah",
+      "short": "Nardah",
+      "regions": [13357, 13614, 13615],
+      "plane": null,
+      "bounds": [[3371, 2880, 3391, 2943], [3392, 3008, 3455, 3015]],
+      "tasks": ["Dogs"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Jackal?oldid=15375945",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dogs?oldid=15341658"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "neypotzli",
+      "name": "Neypotzli",
+      "short": "Neypotzli",
+      "regions": [5525, 5527, 6039],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Lesser Nagua", "Lizards", "Wyrms"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_Nagua?oldid=15389671",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lizards?oldid=15116877",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Wyrms?oldid=15394485"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "observatory",
+      "name": "Observatory",
+      "short": "Observatory",
+      "regions": [9778],
+      "plane": null,
+      "bounds": [[2432, 3200, 2495, 3219]],
+      "tasks": ["Bears", "Hill giants"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Black_bear?oldid=15199246",
+        "https://oldschool.runescape.wiki/w/Hill_Giant?oldid=15362162",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hill_giants?oldid=15272947"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "observatory-dungeon",
+      "name": "Observatory Dungeon",
+      "short": "Observatory Dgn",
+      "regions": [9362],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Goblins"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Goblin?oldid=15396659"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "ogre-enclave",
+      "name": "Ogre Enclave",
+      "short": "Ogre Enclave",
+      "regions": [10387],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Blue dragons", "Greater demons", "Spiders"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Blue_dragon?oldid=15369928",
+        "https://oldschool.runescape.wiki/w/Greater_demon?oldid=15392910",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Blue_dragons?oldid=15319394",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Greater_demons?oldid=15270275",
+        "https://oldschool.runescape.wiki/w/Spider?oldid=15375280"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "ortus-farm",
+      "name": "Ortus Farm",
+      "short": "Ortus Farm",
+      "regions": [6192, 6448],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Cows"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Buffalo?oldid=15364593",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Cows?oldid=15364603"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "outer-fortis",
+      "name": "Outer Fortis",
+      "short": "Outer Fortis",
+      "regions": [6959, 7215],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Crabs"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Sand_Crab?oldid=15323412"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "outpost",
+      "name": "Outpost",
+      "short": "Outpost",
+      "regions": [9780],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Hobgoblins", "Wolves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Hobgoblin?oldid=15391772",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hobgoblins?oldid=15251007"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "pirates-cove",
+      "name": "Pirates' Cove",
+      "short": "Pirates' Cove",
+      "regions": [8763],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Moss giants"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Moss_giant?oldid=15392080",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Moss_giants?oldid=15250972"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "pirates-hideout",
+      "name": "Pirates' Hideout",
+      "short": "Pirate Hideout",
+      "regions": [12093],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Pirates"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Pirate?oldid=15389511",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Pirate?oldid=14972749"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "poison-waste-dungeon",
+      "name": "Poison Waste Dungeon",
+      "short": "Poison Waste",
+      "regions": [5954, 5955],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Warped Creatures"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Warped_creatures?oldid=15395726",
+        "https://oldschool.runescape.wiki/w/Warped_Terrorbird?oldid=15394724",
+        "https://oldschool.runescape.wiki/w/Warped_Tortoise?oldid=15394728"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "port-phasmatys",
+      "name": "Port Phasmatys",
+      "short": "Port Phasmatys",
+      "regions": [14646],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ghosts"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts?oldid=15386373",
+        "https://oldschool.runescape.wiki/w/Tortured_soul?oldid=15283390"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "port-piscarilius",
+      "name": "Port Piscarilius",
+      "short": "Piscarilius",
+      "regions": [6969, 7225, 7226],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Birds", "Spiders"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Seagull?oldid=15381219",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Birds?oldid=15341657",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Spiders?oldid=15250979",
+        "https://oldschool.runescape.wiki/w/Spider?oldid=15375280"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "port-sarim",
+      "name": "Port Sarim",
+      "short": "Port Sarim",
+      "regions": [11826, 12082],
+      "plane": null,
+      "bounds": [[2978, 3200, 3007, 3263]],
+      "tasks": ["Birds", "Goblins"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Goblin?oldid=15396659",
+        "https://oldschool.runescape.wiki/w/Seagull?oldid=15381219",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Birds?oldid=15341657"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "prifddinas",
+      "name": "Prifddinas",
+      "short": "Prifddinas",
+      "regions": [12893, 12894, 12895, 13150, 13151],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bears", "Elves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Guard_(Prifddinas)?oldid=15369172",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Elves?oldid=15357159"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "ralos-rise",
+      "name": "Ralos' Rise",
+      "short": "Ralos' Rise",
+      "regions": [5682],
+      "plane": null,
+      "bounds": [[1408, 3200, 1471, 3235]],
+      "tasks": ["Icefiends"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Icefiend?oldid=15329347",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Icefiends?oldid=15336183"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "rellekka",
+      "name": "Rellekka",
+      "short": "Rellekka",
+      "regions": [10554, 10810],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Crabs", "Wolves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Rock_Crab?oldid=15351395"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "revenant-caves",
+      "name": "Revenant Caves",
+      "short": "Revenant Caves",
+      "regions": [12701, 12702, 12703, 12957, 12958, 12959],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ghosts"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts?oldid=15386373"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "rimmington",
+      "name": "Rimmington",
+      "short": "Rimmington",
+      "regions": [11826],
+      "plane": null,
+      "bounds": [[2944, 3200, 2977, 3263]],
+      "tasks": ["Rats"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Rat?oldid=15388906"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "river-elid",
+      "name": "River Elid",
+      "short": "River Elid",
+      "regions": [12844, 13100, 13101, 13357],
+      "plane": null,
+      "bounds": [[3328, 2880, 3370, 2943]],
+      "tasks": ["Crocodiles"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Crocodile?oldid=15374665"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "river-lum",
+      "name": "River Lum",
+      "short": "River Lum",
+      "regions": [12596, 12851],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Birds"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Duck?oldid=15395111",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Birds?oldid=15341657"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "rogues-castle",
+      "name": "Rogues' Castle",
+      "short": "Rogues' Castle",
+      "regions": [13117],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Rogues"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Chaos_Elemental?oldid=15346650",
+        "https://oldschool.runescape.wiki/w/Rogue?oldid=15374723"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "ruins-of-tapoyauik",
+      "name": "Ruins of Tapoyauik",
+      "short": "Tapoyauik",
+      "regions": [6294, 6550, 6806],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Blue dragons", "Cave crawlers", "Crabs", "Icefiends", "Ice giants", "Ice warriors", "Jellies", "Lesser Nagua"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Baby_blue_dragon?oldid=15369927",
+        "https://oldschool.runescape.wiki/w/Blue_dragon?oldid=15369928",
+        "https://oldschool.runescape.wiki/w/Brutal_blue_dragon?oldid=15355323",
+        "https://oldschool.runescape.wiki/w/Cave_crawler?oldid=15373244",
+        "https://oldschool.runescape.wiki/w/Chilled_jelly?oldid=15352393",
+        "https://oldschool.runescape.wiki/w/Frost_Crab?oldid=15200547",
+        "https://oldschool.runescape.wiki/w/Frost_Nagua?oldid=15341239",
+        "https://oldschool.runescape.wiki/w/Ice_giant?oldid=15391881",
+        "https://oldschool.runescape.wiki/w/Ice_spider?oldid=15231530",
+        "https://oldschool.runescape.wiki/w/Ice_warrior?oldid=15382514",
+        "https://oldschool.runescape.wiki/w/Icefiend?oldid=15329347",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Blue_dragons?oldid=15319394",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Cave_crawlers?oldid=15397213",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Icefiends?oldid=15336183",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Jellies?oldid=15347496",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_Nagua?oldid=15389671"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "ruins-of-ullek",
+      "name": "Ruins of Ullek",
+      "short": "Ruins of Ullek",
+      "regions": [13611],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Crocodiles"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Crocodile?oldid=15374665"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "ruins-of-unkah",
+      "name": "Ruins of Unkah",
+      "short": "Ruins of Unkah",
+      "regions": [12588],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Crocodiles"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Crocodile?oldid=15374665"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "scorpion-pit",
+      "name": "Scorpion Pit",
+      "short": "Scorpion Pit",
+      "regions": [12861],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Scorpions"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Scorpion?oldid=15375279",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Scorpions?oldid=15316864"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "scorpion-pit-cave",
+      "name": "Scorpion Pit (Cave)",
+      "short": "Scorpion Cave",
+      "regions": [12961],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Scorpions"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Scorpia?oldid=15362166"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "settlement-ruins",
+      "name": "Settlement Ruins",
+      "short": "Settle. Ruins",
+      "regions": [6204],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ice giants"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Ice_giant?oldid=15391881",
+        "https://oldschool.runescape.wiki/w/Ice_spider?oldid=15231530"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "shade-catacombs",
+      "name": "Shade Catacombs",
+      "short": "Shade Catacombs",
+      "regions": [13975],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Shades"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Asyn_Shade?oldid=15199705",
+        "https://oldschool.runescape.wiki/w/Fiyr_Shade?oldid=15229541",
+        "https://oldschool.runescape.wiki/w/Phrin_Shade?oldid=15199728",
+        "https://oldschool.runescape.wiki/w/Riyl_Shade?oldid=15199707",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Shades?oldid=15355228",
+        "https://oldschool.runescape.wiki/w/Urium_Shade?oldid=15200239"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "shaman-caves",
+      "name": "Shaman Caves",
+      "short": "Shaman Caves",
+      "regions": [11153],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bats", "Ghosts"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Death_wing?oldid=15199521",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts?oldid=15386373"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "shayzien",
+      "name": "Shayzien",
+      "short": "Shayzien",
+      "regions": [5943],
+      "plane": null,
+      "bounds": [[1472, 3520, 1535, 3545]],
+      "tasks": ["Dark warriors"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Dark_warrior?oldid=15373624"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "shayzien-crypts",
+      "name": "Shayzien Crypts",
+      "short": "Shayzien Crypts",
+      "regions": [6043],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Skeletons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Skeleton_(Shayzien_Crypts)?oldid=15392093"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "shayziens-wall",
+      "name": "Shayziens' Wall",
+      "short": "Shayziens' Wall",
+      "regions": [5430, 5431],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Lizardmen"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Lizardman?oldid=15362647",
+        "https://oldschool.runescape.wiki/w/Lizardman_brute?oldid=15339921",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lizardmen?oldid=15250962"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "shilo-village",
+      "name": "Shilo Village",
+      "short": "Shilo Village",
+      "regions": [11054, 11310, 11311, 11567],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Monkeys", "Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Monkey_(monster)?oldid=15360419",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Monkeys?oldid=15250976",
+        "https://oldschool.runescape.wiki/w/Undead_one?oldid=15396506"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "silvarea",
+      "name": "Silvarea",
+      "short": "Silvarea",
+      "regions": [13366],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bats"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Bat?oldid=15283978",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "sisterhood-sanctuary",
+      "name": "Sisterhood Sanctuary",
+      "short": "Sisterhood",
+      "regions": [15000, 15256, 15512],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Lesser demons", "Pyrefiends", "Spiders"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Lesser_demon?oldid=15366848",
+        "https://oldschool.runescape.wiki/w/Pyrefiend?oldid=15355194",
+        "https://oldschool.runescape.wiki/w/Pyrelord?oldid=15338384",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_demon?oldid=15344163",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Pyrefiends?oldid=15366444",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Spiders?oldid=15250979",
+        "https://oldschool.runescape.wiki/w/Spider?oldid=15375280"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "slayer-tower",
+      "name": "Slayer Tower",
+      "short": "Slayer Tower",
+      "regions": [13623, 13723],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Aberrant spectres", "Abyssal demons", "Banshees", "Bats", "Bloodveld", "Crawling hands", "Gargoyles", "Infernal mages", "Nechryael"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Aberrant_spectre?oldid=15371564",
+        "https://oldschool.runescape.wiki/w/Abyssal_demon?oldid=15391821",
+        "https://oldschool.runescape.wiki/w/Banshee?oldid=15373192",
+        "https://oldschool.runescape.wiki/w/Bat?oldid=15283978",
+        "https://oldschool.runescape.wiki/w/Bloodveld?oldid=15378518",
+        "https://oldschool.runescape.wiki/w/Crawling_Hand?oldid=15387322",
+        "https://oldschool.runescape.wiki/w/Gargoyle?oldid=15385687",
+        "https://oldschool.runescape.wiki/w/Infernal_Mage?oldid=15389843",
+        "https://oldschool.runescape.wiki/w/Nechryael?oldid=15385695",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Aberrant_spectres?oldid=15379449",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Abyssal_demons?oldid=15389437",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Banshees?oldid=15330527",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bloodveld?oldid=15344399",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Crawling_Hands?oldid=15395805",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Gargoyles?oldid=15386821",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Nechryael?oldid=15359113"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "slepe",
+      "name": "Slepe",
+      "short": "Slepe",
+      "regions": [14899, 14900, 14901],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bats", "Chaos druids", "Crabs", "Vampyres"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Chaos_druid?oldid=15259337",
+        "https://oldschool.runescape.wiki/w/Damien_Leucurte?oldid=15374322",
+        "https://oldschool.runescape.wiki/w/Giant_bat?oldid=15258141",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Vampyres?oldid=15373747",
+        "https://oldschool.runescape.wiki/w/Swamp_Crab?oldid=15200068",
+        "https://oldschool.runescape.wiki/w/Vyrewatch?oldid=15380818"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "smoke-devil-dungeon",
+      "name": "Smoke Devil Dungeon",
+      "short": "Smoke Devil Dgn",
+      "regions": [9619],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Smoke devils"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Smoke_devils?oldid=15354583",
+        "https://oldschool.runescape.wiki/w/Smoke_devil?oldid=15357607"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "smoke-devil-boss-lair",
+      "name": "Smoke Devil Dungeon boss lair",
+      "short": "Thermy lair",
+      "regions": [9363],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Smoke devils"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Thermonuclear_smoke_devil?oldid=15369525",
+        "https://oldschool.runescape.wiki/w/Smoke_devil?oldid=15357607",
+        "https://github.com/mejrs/data_osrs/blob/7777c539839bc9c55f7f47fa4c1022a25af4e904/NPCList_OSRS.json",
+        "https://github.com/mejrs/data_osrs/blob/7777c539839bc9c55f7f47fa4c1022a25af4e904/transports_osrs.json"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "smoke-dungeon",
+      "name": "Smoke Dungeon",
+      "short": "Smoke Dungeon",
+      "regions": [12690, 12946, 13202],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Dust devils", "Fire giants", "Pyrefiends"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Dust_devil?oldid=15386431",
+        "https://oldschool.runescape.wiki/w/Fire_giant?oldid=15389278",
+        "https://oldschool.runescape.wiki/w/Pyrefiend?oldid=15355194",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dust_devils?oldid=15382347",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Fire_giants?oldid=15327832",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Pyrefiends?oldid=15366444"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "sophanem-dungeon",
+      "name": "Sophanem Dungeon",
+      "short": "Sophanem Dgn",
+      "regions": [13200],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Scabarites"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Locust_rider?oldid=15281959",
+        "https://oldschool.runescape.wiki/w/Scarab_Mage?oldid=15281960",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Scabarites?oldid=15250975"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "sourhog-cave",
+      "name": "Sourhog Cave",
+      "short": "Sourhog Cave",
+      "regions": [12695],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Sourhogs"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Sourhog?oldid=15275486"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "south-falador-farm",
+      "name": "South Falador Farm",
+      "short": "S. Falador Farm",
+      "regions": [12083],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Cows"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Cow?oldid=15364588",
+        "https://oldschool.runescape.wiki/w/Cow_calf?oldid=15364592",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Cows?oldid=15364603"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "stalker-den",
+      "name": "Stalker Den",
+      "short": "Stalker Den",
+      "regions": [5016, 5272, 5273],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Custodian Stalkers", "Mutated zygomites"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Ancient_Zygomite?oldid=15375038",
+        "https://oldschool.runescape.wiki/w/Elder_custodian_stalker?oldid=15353320",
+        "https://oldschool.runescape.wiki/w/Juvenile_custodian_stalker?oldid=15340737",
+        "https://oldschool.runescape.wiki/w/Mature_custodian_stalker?oldid=15341242",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Zygomites?oldid=15161085"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "stonecutter-outpost",
+      "name": "Stonecutter Outpost",
+      "short": "Stonecutter",
+      "regions": [6701, 6702],
+      "plane": null,
+      "bounds": [[1664, 2919, 1727, 2943]],
+      "tasks": ["Scorpions"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Scorpion?oldid=15375279"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "stronghold-of-security",
+      "name": "Stronghold of Security",
+      "short": "Stronghold Sec.",
+      "regions": [7505, 8017, 8530, 9297],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ankou", "Ghosts", "Shades", "Catablepon", "Spiders", "Fleshcrawlers", "Goblins", "Rats", "Skeletons", "Zombies", "Minotaurs", "Wolves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Giant_rat?oldid=15260179",
+        "https://oldschool.runescape.wiki/w/Rat?oldid=15388906",
+        "https://oldschool.runescape.wiki/w/Shade?oldid=15357045",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Shades?oldid=15355228",
+        "https://github.com/mejrs/data_osrs/blob/7777c539839bc9c55f7f47fa4c1022a25af4e904/NPCList_OSRS.json"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "stronghold-slayer-cave",
+      "name": "Stronghold Slayer Cave",
+      "short": "Stronghold Cave",
+      "regions": [9624, 9625, 9880, 9881],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Aberrant spectres", "Ankou", "Bloodveld", "Fire giants", "Hellhounds"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Aberrant_spectre?oldid=15371564",
+        "https://oldschool.runescape.wiki/w/Ankou?oldid=15361256",
+        "https://oldschool.runescape.wiki/w/Bloodveld?oldid=15378518",
+        "https://oldschool.runescape.wiki/w/Fire_giant?oldid=15389278",
+        "https://oldschool.runescape.wiki/w/Hellhound?oldid=15351778",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Aberrant_spectres?oldid=15379449",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ankou?oldid=15372802",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bloodveld?oldid=15344399",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Fire_giants?oldid=15327832",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hellhounds?oldid=15357324"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "tai-bwo-wannai",
+      "name": "Tai Bwo Wannai",
+      "short": "Tai Bwo Wannai",
+      "regions": [11312, 11568],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Harpie bug swarms", "Monkeys"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Harpie_Bug_Swarm?oldid=15338388",
+        "https://oldschool.runescape.wiki/w/Monkey_(monster)?oldid=15360419",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Monkeys?oldid=15250976"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "tarns-lair",
+      "name": "Tarn's Lair",
+      "short": "Tarn's Lair",
+      "regions": [12615, 12616],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Skeletons", "Terror dogs"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Skeleton_(Tarn's_Lair)?oldid=15303439",
+        "https://oldschool.runescape.wiki/w/Terror_dog?oldid=15373638"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "taverley-dungeon",
+      "name": "Taverley Dungeon",
+      "short": "Taverley Dgn",
+      "regions": [11161, 11416, 11417, 11671, 11672, 11673, 11928, 11929],
+      "plane": null,
+      "bounds": [[2816, 9758, 2879, 9791], [2944, 9792, 2960, 9855]],
+      "tasks": ["Bats", "Black demons", "Black dragons", "Black Knights", "Blue dragons", "Chaos druids", "Dwarves", "Ghosts", "Hellhounds", "Hill giants", "Lesser demons", "Magic axes", "Skeletons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Baby_black_dragon?oldid=15376099",
+        "https://oldschool.runescape.wiki/w/Baby_blue_dragon?oldid=15369927",
+        "https://oldschool.runescape.wiki/w/Black_Knight?oldid=15391784",
+        "https://oldschool.runescape.wiki/w/Black_demon?oldid=15391823",
+        "https://oldschool.runescape.wiki/w/Black_dragon?oldid=15286221",
+        "https://oldschool.runescape.wiki/w/Blue_dragon?oldid=15369928",
+        "https://oldschool.runescape.wiki/w/Chaos_druid?oldid=15259337",
+        "https://oldschool.runescape.wiki/w/Chaos_dwarf?oldid=15375281",
+        "https://oldschool.runescape.wiki/w/Ghost?oldid=15212981",
+        "https://oldschool.runescape.wiki/w/Giant_bat?oldid=15258141",
+        "https://oldschool.runescape.wiki/w/Hellhound?oldid=15351778",
+        "https://oldschool.runescape.wiki/w/Hill_Giant?oldid=15362162",
+        "https://oldschool.runescape.wiki/w/Lesser_demon?oldid=15366848",
+        "https://oldschool.runescape.wiki/w/Magic_axe?oldid=15371732",
+        "https://oldschool.runescape.wiki/w/Poison_spider?oldid=15199591",
+        "https://oldschool.runescape.wiki/w/Skeleton?oldid=15391775",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Black_demons?oldid=15296848",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Black_dragons?oldid=15379976",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Blue_dragons?oldid=15319394",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dwarves?oldid=15373748",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts?oldid=15386373",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hellhounds?oldid=15357324",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hill_giants?oldid=15272947",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_demon?oldid=15344163"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "temple-of-ikov",
+      "name": "Temple of Ikov",
+      "short": "Temple of Ikov",
+      "regions": [10649, 10650],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bats", "Lesser demons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Giant_bat?oldid=15258141",
+        "https://oldschool.runescape.wiki/w/Lesser_demon?oldid=15366848",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_demon?oldid=15344163"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "temple-of-marimbo",
+      "name": "Temple of Marimbo",
+      "short": "Marimbo Temple",
+      "regions": [11051],
+      "plane": null,
+      "bounds": [[2793, 2752, 2815, 2815]],
+      "tasks": ["Monkeys"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Monkey_Guard?oldid=15199592",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Monkeys?oldid=15250976"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "temple-of-marimbo-dungeon",
+      "name": "Temple of Marimbo Dungeon",
+      "short": "Marimbo Dgn",
+      "regions": [11151],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Monkeys", "Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Monkey_Zombie?oldid=15322124",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Monkeys?oldid=15250976"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "the-forgotten-cemetery",
+      "name": "The Forgotten Cemetery",
+      "short": "Forgotten Cem.",
+      "regions": [11834],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ankou", "Ghosts"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Ankou?oldid=15361256",
+        "https://oldschool.runescape.wiki/w/Ghost?oldid=15212981",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ankou?oldid=15372802",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts?oldid=15386373"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "tonali-cavern",
+      "name": "Tonali Cavern",
+      "short": "Tonali Cavern",
+      "regions": [5266, 5267],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Crabs", "Rockslugs", "Lesser Nagua"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Earthen_Nagua?oldid=15355034",
+        "https://oldschool.runescape.wiki/w/Giant_Rock_Crab?oldid=15387860",
+        "https://oldschool.runescape.wiki/w/Rockslug?oldid=15339655"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "tree-gnome-stronghold",
+      "name": "Tree Gnome Stronghold",
+      "short": "Gnome Strongh.",
+      "regions": [9524, 9525],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bears", "Hill giants"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Grizzly_bear?oldid=15199247",
+        "https://oldschool.runescape.wiki/w/Hill_Giant?oldid=15362162",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hill_giants?oldid=15272947"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "tree-gnome-village",
+      "name": "Tree Gnome Village",
+      "short": "Gnome Village",
+      "regions": [9777],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bears", "Goblins", "Wolves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Goblin?oldid=15396659",
+        "https://oldschool.runescape.wiki/w/Grizzly_bear?oldid=15199247",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "tree-gnome-village-dungeon",
+      "name": "Tree Gnome Village Dungeon",
+      "short": "Gnome Vil. Dgn",
+      "regions": [10133, 10309],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Hobgoblin?oldid=15391772",
+        "https://oldschool.runescape.wiki/w/Zombie?oldid=15373734"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "troll-stronghold",
+      "name": "Troll Stronghold",
+      "short": "Troll Strongh.",
+      "regions": [11321, 11421],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Trolls"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Arrg?oldid=15215810",
+        "https://oldschool.runescape.wiki/w/Berry?oldid=15326895",
+        "https://oldschool.runescape.wiki/w/Mountain_troll?oldid=15360669",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Trolls?oldid=15392313",
+        "https://oldschool.runescape.wiki/w/Troll_general?oldid=15267877",
+        "https://oldschool.runescape.wiki/w/Twig?oldid=15326896"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "tyras-camp",
+      "name": "Tyras Camp",
+      "short": "Tyras Camp",
+      "regions": [9287],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bears"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "underground-pass",
+      "name": "Underground Pass",
+      "short": "Undergrnd Pass",
+      "regions": [9370, 9622, 9623, 9824, 9879],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bats", "Ogres", "Spiders"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Blessed_spider?oldid=15199730",
+        "https://oldschool.runescape.wiki/w/Giant_bat?oldid=15258141",
+        "https://oldschool.runescape.wiki/w/Ogre?oldid=15367212",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ogres?oldid=15320380",
+        "https://oldschool.runescape.wiki/w/Spider?oldid=15375280"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "ungael",
+      "name": "Ungael",
+      "short": "Ungael",
+      "regions": [9023],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Blue dragons", "Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Blue_dragons?oldid=15319394",
+        "https://oldschool.runescape.wiki/w/Vorkath?oldid=15392908"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "uzer-mastaba",
+      "name": "Uzer Mastaba",
+      "short": "Uzer Mastaba",
+      "regions": [15433],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Scabarites"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Scabarites?oldid=15250975",
+        "https://oldschool.runescape.wiki/w/Small_scarab?oldid=15337352"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "varrock",
+      "name": "Varrock",
+      "short": "Varrock",
+      "regions": [12854, 13108],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bears", "Black Knights"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Black_Knight?oldid=15391784",
+        "https://oldschool.runescape.wiki/w/Black_bear?oldid=15199246",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bears?oldid=15250961"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "varrock-sewers",
+      "name": "Varrock Sewers",
+      "short": "Varrock Sewers",
+      "regions": [12698, 12954, 12955, 13210],
+      "plane": null,
+      "bounds": [[3154, 9856, 3199, 9919]],
+      "tasks": ["Ghosts", "Moss giants", "Rats", "Skeletons", "Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Bryophyta?oldid=15392719",
+        "https://oldschool.runescape.wiki/w/Ghost?oldid=15212981",
+        "https://oldschool.runescape.wiki/w/Giant_rat?oldid=15260179",
+        "https://oldschool.runescape.wiki/w/Moss_giant?oldid=15392080",
+        "https://oldschool.runescape.wiki/w/Rat?oldid=15388906",
+        "https://oldschool.runescape.wiki/w/Scurrius?oldid=15383993",
+        "https://oldschool.runescape.wiki/w/Skeleton?oldid=15391775",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts?oldid=15386373",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Moss_giants?oldid=15250972",
+        "https://oldschool.runescape.wiki/w/Zombie?oldid=15373734"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "virer-hunting-ground",
+      "name": "Virer Hunting Ground",
+      "short": "Virer Hunting",
+      "regions": [10104, 10105],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Venators"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Venators?oldid=15327318",
+        "https://oldschool.runescape.wiki/w/Venator?oldid=15387621"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "viyeldi-caves",
+      "name": "Viyeldi Caves",
+      "short": "Viyeldi Caves",
+      "regions": [9545],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Lesser demons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Lesser_demon?oldid=15366848",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_demon?oldid=15344163"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "warriors-guild",
+      "name": "Warriors' Guild",
+      "short": "Warriors' Guild",
+      "regions": [11319, 11675],
+      "plane": null,
+      "bounds": [[2899, 9920, 2943, 9983]],
+      "tasks": ["Hill giants"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Cyclops?oldid=15391820",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hill_giants?oldid=15272947"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "waterbirth-island",
+      "name": "Waterbirth Island",
+      "short": "Waterbirth Isl.",
+      "regions": [10042],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Crabs"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Rock_Crab?oldid=15351395"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "waterbirth-island-dungeon",
+      "name": "Waterbirth Island Dungeon",
+      "short": "Waterbirth Dgn",
+      "regions": [7236, 7492, 9886, 10142, 11588, 11589],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Crabs", "Dagannoth"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Dagannoth_(Waterbirth_Island)?oldid=15240654",
+        "https://github.com/mejrs/data_osrs/blob/7777c539839bc9c55f7f47fa4c1022a25af4e904/NPCList_OSRS.json"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "waterfall-dungeon",
+      "name": "Waterfall Dungeon",
+      "short": "Waterfall Dgn",
+      "regions": [10394],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Fire giants", "Skeletons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Fire_giant?oldid=15389278",
+        "https://oldschool.runescape.wiki/w/Shadow_spider?oldid=15199632",
+        "https://oldschool.runescape.wiki/w/Skeleton?oldid=15391775",
+        "https://oldschool.runescape.wiki/w/Skeleton_Mage?oldid=15363021",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Fire_giants?oldid=15327832"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "west-ardougne",
+      "name": "West Ardougne",
+      "short": "West Ardougne",
+      "regions": [10035],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ghosts", "Wolves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Ghost?oldid=15212981",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ghosts?oldid=15386373"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "white-wolf-mountain",
+      "name": "White Wolf Mountain",
+      "short": "White Wolf Mtn",
+      "regions": [11062, 11318, 11418],
+      "plane": null,
+      "bounds": [[2816, 9856, 2879, 9890]],
+      "tasks": ["Dwarves", "Ice giants", "Ice warriors", "Wolves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Big_Wolf?oldid=15199285",
+        "https://oldschool.runescape.wiki/w/Dwarf?oldid=15324634",
+        "https://oldschool.runescape.wiki/w/Ice_giant?oldid=15391881",
+        "https://oldschool.runescape.wiki/w/Ice_warrior?oldid=15382514",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dwarves?oldid=15373748"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "wilderness",
+      "name": "Wilderness",
+      "short": "Wilderness",
+      "regions": [12343, 12349, 12603, 13369],
+      "plane": null,
+      "bounds": [[3072, 3933, 3135, 3967], [3136, 3776, 3167, 3839]],
+      "tasks": ["Bats", "Green dragons", "Hellhounds", "Moss giants", "Skeletons", "Zombies"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Skeleton?oldid=15391775",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Green_dragons?oldid=15341655",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Moss_giants?oldid=15250972"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "wilderness-god-wars-dungeon",
+      "name": "Wilderness God Wars Dungeon",
+      "short": "Wildy God Wars",
+      "regions": [12190],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Aviansies", "Bloodveld", "Icefiends", "Ogres", "Pyrefiends", "Spiritual creatures", "Vampyres", "Werewolves"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Aviansie?oldid=15389107",
+        "https://oldschool.runescape.wiki/w/Bloodveld?oldid=15378518",
+        "https://oldschool.runescape.wiki/w/Feral_Vampyre?oldid=15356500",
+        "https://oldschool.runescape.wiki/w/Icefiend?oldid=15329347",
+        "https://oldschool.runescape.wiki/w/Pyrefiend?oldid=15355194",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Aviansie?oldid=15299787",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bloodveld?oldid=15344399",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Icefiends?oldid=15336183",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Pyrefiends?oldid=15366444",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Spiritual_creatures?oldid=15287407",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Vampyres?oldid=15373747",
+        "https://oldschool.runescape.wiki/w/Spiritual_mage?oldid=15392596",
+        "https://oldschool.runescape.wiki/w/Spiritual_ranger?oldid=15341103",
+        "https://oldschool.runescape.wiki/w/Spiritual_warrior?oldid=15391776",
+        "https://oldschool.runescape.wiki/w/Werewolf?oldid=15319526"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "wilderness-resource-area",
+      "name": "Wilderness Resource Area",
+      "short": "Resource Area",
+      "regions": [12605],
+      "plane": null,
+      "bounds": [[3136, 3904, 3199, 3957]],
+      "tasks": ["Hellhounds"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Hellhound?oldid=15351778"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "wilderness-slayer-cave",
+      "name": "Wilderness Slayer Cave",
+      "short": "Wildy Cave",
+      "regions": [13469, 13470, 13725, 13726],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Abyssal demons", "Ankou", "Bandits", "Black demons", "Black dragons", "Dust devils", "Greater demons", "Green dragons", "Hellhounds", "Ice giants", "Jellies", "Lesser demons", "Nechryael"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Ankou?oldid=15361256",
+        "https://oldschool.runescape.wiki/w/Bandit?oldid=15355980",
+        "https://oldschool.runescape.wiki/w/Black_demon?oldid=15391823",
+        "https://oldschool.runescape.wiki/w/Black_dragon?oldid=15286221",
+        "https://oldschool.runescape.wiki/w/Greater_demon?oldid=15392910",
+        "https://oldschool.runescape.wiki/w/Green_dragon?oldid=15391879",
+        "https://oldschool.runescape.wiki/w/Hellhound?oldid=15351778",
+        "https://oldschool.runescape.wiki/w/Ice_giant?oldid=15391881",
+        "https://oldschool.runescape.wiki/w/Lesser_demon?oldid=15366848",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ankou?oldid=15372802",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bandits?oldid=15372765",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Black_demons?oldid=15296848",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Black_dragons?oldid=15379976",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dust_devils?oldid=15382347",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Greater_demons?oldid=15270275",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Green_dragons?oldid=15341655",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hellhounds?oldid=15357324",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_demon?oldid=15344163"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "witchaven-dungeon",
+      "name": "Witchaven Dungeon",
+      "short": "Witchaven Dgn",
+      "regions": [10903],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Hellhounds", "Ogres"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Hellhound?oldid=15351778",
+        "https://oldschool.runescape.wiki/w/Ogre?oldid=15367212",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Hellhounds?oldid=15357324",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ogres?oldid=15320380"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "wizards-tower",
+      "name": "Wizards' Tower",
+      "short": "Wizards' Tower",
+      "regions": [12337],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Lesser demons", "Skeletons"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Lesser_demon?oldid=15366848",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lesser_demon?oldid=15344163"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "woodcutting-guild",
+      "name": "Woodcutting Guild",
+      "short": "Woodcut. Guild",
+      "regions": [6298],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Ents"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Ent?oldid=15388968"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "wyrmscraig",
+      "name": "Wyrmscraig",
+      "short": "Wyrmscraig",
+      "regions": [10274],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Wyrms"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Slayer_task/Wyrms?oldid=15394485",
+        "https://oldschool.runescape.wiki/w/Wyrmling?oldid=15321695"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "wyrmscraig-cavern",
+      "name": "Wyrmscraig Cavern",
+      "short": "Wyrmscraig Cave",
+      "regions": [10374],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Trolls", "Wyrms"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Lava_Strykewyrm?oldid=15352211",
+        "https://oldschool.runescape.wiki/w/Mountain_troll?oldid=15360669",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Trolls?oldid=15392313",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Wyrms?oldid=15394485",
+        "https://oldschool.runescape.wiki/w/Wyrm?oldid=15391861"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "wyvern-cave",
+      "name": "Wyvern Cave",
+      "short": "Wyvern Cave",
+      "regions": [14495, 14496],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Fossil island wyverns"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Ancient_Wyvern?oldid=15394980",
+        "https://oldschool.runescape.wiki/w/Long-tailed_Wyvern?oldid=15366070",
+        "https://oldschool.runescape.wiki/w/Spitting_Wyvern?oldid=15366068",
+        "https://oldschool.runescape.wiki/w/Taloned_Wyvern?oldid=15366069"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "xerics-shrine",
+      "name": "Xeric's Shrine",
+      "short": "Xeric's Shrine",
+      "regions": [5175, 5176],
+      "plane": null,
+      "bounds": [[1280, 3573, 1343, 3583], [1280, 3584, 1343, 3609]],
+      "tasks": ["Lizardmen"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Lizardman_brute?oldid=15339921",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Lizardmen?oldid=15250962"
+      ],
+      "confidence": "low"
+    },
+    {
+      "id": "yanille",
+      "name": "Yanille",
+      "short": "Yanille",
+      "regions": [10032, 10287],
+      "plane": null,
+      "bounds": [[2560, 3052, 2623, 3071]],
+      "tasks": ["Dwarves", "Ogres"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Dwarf?oldid=15324634",
+        "https://oldschool.runescape.wiki/w/Ogre?oldid=15367212",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Dwarves?oldid=15373748",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Ogres?oldid=15320380"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "yanille-agility-dungeon",
+      "name": "Yanille Agility Dungeon",
+      "short": "Yanille Dgn",
+      "regions": [10388],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Bats", "Chaos druids"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Chaos_druid?oldid=15259337",
+        "https://oldschool.runescape.wiki/w/Giant_bat?oldid=15258141",
+        "https://oldschool.runescape.wiki/w/Slayer_task/Bats?oldid=15386374"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "ynysdail-cavern",
+      "name": "Ynysdail Cavern",
+      "short": "Ynysdail Cavern",
+      "regions": [9113, 9114],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Aquanites", "Rockslugs"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Aquanite?oldid=15392242",
+        "https://oldschool.runescape.wiki/w/Rockslug?oldid=15339655"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "zanaris",
+      "name": "Zanaris",
+      "short": "Zanaris",
+      "regions": [9541],
+      "plane": null,
+      "bounds": null,
+      "tasks": ["Mutated zygomites", "Otherworldly beings"],
+      "sources": [
+        "https://oldschool.runescape.wiki/w/Otherworldly_being?oldid=15199250",
+        "https://oldschool.runescape.wiki/w/Zygomite?oldid=15366230"
+      ],
+      "confidence": "high"
+    }
+  ]
+}

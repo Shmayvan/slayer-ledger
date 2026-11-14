@@ -90,6 +90,35 @@ final class SkillXp
 		}
 	}
 
+	/**
+	 * Takes {@code gains} (may be {@code null}) back out of {@code from}: each skill goes down by its gain, never below
+	 * zero, and a skill left at zero is removed. Undoes {@link #add} of the same gains.
+	 */
+	static void subtract(Map<String, Long> from, Map<String, Long> gains)
+	{
+		if (gains == null)
+		{
+			return;
+		}
+		for (Map.Entry<String, Long> e : gains.entrySet())
+		{
+			final Long had = e.getKey() == null ? null : from.get(e.getKey());
+			if (had == null || e.getValue() == null || e.getValue() <= 0)
+			{
+				continue;
+			}
+			final long left = had - e.getValue();
+			if (left > 0)
+			{
+				from.put(e.getKey(), left);
+			}
+			else
+			{
+				from.remove(e.getKey());
+			}
+		}
+	}
+
 	/** A sorted copy of {@code xp} with only positive entries; empty for {@code null}. */
 	static Map<String, Long> sanitize(Map<String, Long> xp)
 	{

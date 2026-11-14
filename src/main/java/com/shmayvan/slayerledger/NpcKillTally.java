@@ -12,8 +12,9 @@ final class NpcKillTally
 {
 	/**
 	 * Most names tallied per session; kills of further names are not tallied (the task count is unaffected), except a
-	 * Catacombs variant's name ({@link CatacombsVariants#isVariantNpcName}), which is always tallied, so a session
-	 * that met many other NPCs first still decides its variant. At most {@code MAX_NAMES} plus the variants' names.
+	 * name the variant decision reads ({@link TaskVariants#isDecidingNpcName}: a Catacombs variant's, a Slayer boss's
+	 * or a listed superior's), which is always tallied, so a session that met many other NPCs first still decides its
+	 * variant and boss flag. At most {@code MAX_NAMES} plus those names.
 	 */
 	static final int MAX_NAMES = 32;
 
@@ -23,7 +24,7 @@ final class NpcKillTally
 
 	/**
 	 * A copy of {@code tally} with one more kill of {@code name} (saturating). Nothing is added for a blank name, or a
-	 * new name other than a Catacombs variant's once {@link #MAX_NAMES} are tallied.
+	 * new name the variant decision doesn't read once {@link #MAX_NAMES} are tallied.
 	 *
 	 * @param tally the tally so far, or {@code null} for none
 	 */
@@ -36,8 +37,8 @@ final class NpcKillTally
 
 	/**
 	 * A clean copy of a tally (for example one read from a file): entries without a name or kills are dropped, a
-	 * repeated name is merged into its first entry, and at most {@link #MAX_NAMES} names are kept, plus any Catacombs
-	 * variant's names. Never {@code null}.
+	 * repeated name is merged into its first entry, and at most {@link #MAX_NAMES} names are kept, plus any names the
+	 * variant decision reads. Never {@code null}.
 	 */
 	static List<NpcKills> sanitize(List<NpcKills> tally)
 	{
@@ -109,7 +110,7 @@ final class NpcKillTally
 				return;
 			}
 		}
-		if (result.size() < MAX_NAMES || CatacombsVariants.isVariantNpcName(name))
+		if (result.size() < MAX_NAMES || TaskVariants.isDecidingNpcName(name))
 		{
 			result.add(new NpcKills(name.trim(), kills));
 		}

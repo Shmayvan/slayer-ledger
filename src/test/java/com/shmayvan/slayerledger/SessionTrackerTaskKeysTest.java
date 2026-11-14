@@ -32,7 +32,7 @@ public class SessionTrackerTaskKeysTest
 	@Test
 	public void anActiveSessionsTaskIsReportedEveryCall()
 	{
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		assertEquals(Collections.singleton(DEMONS), tracker.takeSessionTaskKeys());
 		assertEquals(Collections.singleton(DEMONS), tracker.takeSessionTaskKeys());
 		tracker.pause();
@@ -42,7 +42,7 @@ public class SessionTrackerTaskKeysTest
 	@Test
 	public void aSessionThatEndedBeforeTheCallIsStillReportedOnce()
 	{
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		tracker.stopAndReset();
 		assertEquals(Collections.singleton(DEMONS), tracker.takeSessionTaskKeys());
 		assertTrue(tracker.takeSessionTaskKeys().isEmpty());
@@ -52,7 +52,7 @@ public class SessionTrackerTaskKeysTest
 	public void aTaskAdoptedLaterIsReported()
 	{
 		tracker.observe(null, SessionTracker.NO_CREATURE, 0, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		assertTrue("no task yet", tracker.takeSessionTaskKeys().isEmpty());
 		tracker.observe("Gargoyles", GARGOYLES, 150, false);
 		assertEquals(Collections.singleton(GARGOYLES), tracker.takeSessionTaskKeys());
@@ -61,7 +61,7 @@ public class SessionTrackerTaskKeysTest
 	@Test
 	public void aHeldCompletionIsReported()
 	{
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		tracker.takeSessionTaskKeys();
 		assertEquals(SessionTracker.ObserveResult.COMPLETED, tracker.observe(null, SessionTracker.NO_CREATURE, 0, true));
 		assertTrue(tracker.holdCompletion());
@@ -84,7 +84,7 @@ public class SessionTrackerTaskKeysTest
 	{
 		SessionTracker other = new SessionTracker(() -> now);
 		other.observe("Abyssal demons", DEMONS, 100, false);
-		other.play(ACCOUNT);
+		other.startNow(ACCOUNT);
 		return other.stopAndReset();
 	}
 }

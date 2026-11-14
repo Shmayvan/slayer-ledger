@@ -36,7 +36,8 @@ public class HarnessSaveFailedTest
 	private static final String TASK_NAME = "Abyssal demons";
 	private static final String NEWER_LEDGER = "{\"schemaVersion\":99,\"records\":[{\"id\":\"future\","
 		+ "\"monster\":\"Hydras\",\"kills\":9,\"completed\":true}]}";
-	private static final String SAME_LEDGER_AT_THIS_VERSION = "{\"schemaVersion\":2,\"records\":[{\"id\":\"future\","
+	private static final String SAME_LEDGER_AT_THIS_VERSION = "{\"schemaVersion\":" + LedgerStore.FILE_SCHEMA_VERSION
+		+ ",\"records\":[{\"id\":\"future\","
 		+ "\"monster\":\"Hydras\",\"kills\":9,\"completed\":true}]}";
 
 	@Rule
@@ -131,7 +132,7 @@ public class HarnessSaveFailedTest
 	{
 		harness.setTask(TASK, TASK_NAME, 10, 10);
 		harness.ticks(PluginHarness.SETTLE_TICKS);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.setRemaining(8);
 		harness.lootOnNextTick(ItemID.BONES, 1);
 		harness.tick();
@@ -192,10 +193,10 @@ public class HarnessSaveFailedTest
 		// The next task's Stop saves it as partial, and the kept task with it.
 		harness.setTask(TASK, TASK_NAME, 20, 20);
 		harness.ticks(PluginHarness.SETTLE_TICKS);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.setRemaining(19);
 		harness.tick();
-		harness.stop();
+		harness.endTask();
 
 		final List<LedgerRecord> records = harness.records(ACCOUNT);
 		assertEquals(2, records.size());
@@ -291,16 +292,16 @@ public class HarnessSaveFailedTest
 		harness.startUp();
 		harness.setTask(TASK, TASK_NAME, 10, 10);
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.setRemaining(8);
 		harness.tick();
 		// Logging out mid-task writes the active file; it stays after the next login.
 		relogin();
-		assertEquals(SessionTracker.State.PAUSED, harness.sessionState());
+		assertEquals(SessionTracker.State.LOGGED_OUT, harness.sessionState());
 		assertNotNull("the logout's active file is still there", harness.activeSession(ACCOUNT));
 
 		blockLedger();
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.setRemaining(5);
 		harness.tick();
 		harness.completeTask();

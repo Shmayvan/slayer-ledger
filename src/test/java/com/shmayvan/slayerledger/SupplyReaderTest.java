@@ -159,6 +159,28 @@ public class SupplyReaderTest
 	}
 
 	@Test
+	public void aMembersItemSeenOnAFreeWorldIsLeftForLater()
+	{
+		// on a free world the game appends " (Members)" to a members item's name, so it wouldn't read as a potion.
+		final String[] drink = {"Drink", null, null, "Empty", "Drop"};
+		final ItemComposition prayer = item(ItemID._4DOSEPRAYERRESTORE, "Prayer potion(4) (Members)", drink, false);
+		item(ItemID.BLOODRUNE, "Blood rune (Members)", NONE, true);
+		item(ItemID.SLAYER_BAG_OF_SALT, "Bag of salt (Members)", NONE, true);
+
+		assertNull(reader.classifyItem(ItemID._4DOSEPRAYERRESTORE));
+		assertNull(reader.classifyItem(ItemID.BLOODRUNE));
+		assertEquals("decided by id alone", SupplyTracker.Category.SLAYER_CONSUMABLE,
+			category(reader.classifyItem(ItemID.SLAYER_BAG_OF_SALT)));
+
+		// After a hop to a members world the real definition shows.
+		when(prayer.getName()).thenReturn("Prayer potion(4)");
+		final SupplyTracker.ItemInfo info = reader.classifyItem(ItemID._4DOSEPRAYERRESTORE);
+		assertEquals(SupplyTracker.Category.POTION, category(info));
+		assertEquals("Prayer potion", info.getFamily());
+		assertEquals(4, info.getDoses());
+	}
+
+	@Test
 	public void cannonballsAndIdTableItemsNeedNoItemStats()
 	{
 		item(SupplyTracker.CANNONBALL, "Cannonball", NONE, true);

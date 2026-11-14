@@ -85,8 +85,29 @@ public class BlowpipeMessageTest
 			final BlowpipeMessage.Darts darts = BlowpipeMessage.parse(message);
 			assertFalse(message, darts.isLoaded());
 			assertEquals(ChargedWeaponUsage.NO_ITEM, darts.getDartId());
-			assertEquals(-1, darts.getScales());
+			assertEquals(message, 0, darts.getDartCount());
+			// Two of them say there are no scales either.
+			final boolean noScales = message.contains("scales");
+			assertEquals(message, noScales ? 0 : -1, darts.getScales());
+			assertFalse(message, BlowpipeMessage.isOutOfScales(message));
 		}
+	}
+
+	@Test
+	public void outOfScalesSaysNothingAboutTheDarts()
+	{
+		assertTrue(BlowpipeMessage.isOutOfScales("Your blowpipe needs to be charged with Zulrah's scales."));
+		assertTrue(BlowpipeMessage.isOutOfScales(
+			"@mes_hl_red@Your blowpipe needs to be charged with Zulrah's scales.</col>"));
+		assertEquals(ItemID.DRAGON_DART,
+			BlowpipeMessage.parse("@mes_hl_red@Darts: Dragon dart x 5. Scales: 0 (0.0%).</col>").getDartId());
+		assertTrue(BlowpipeMessage.isOutOfScales(
+			"<col=ef1020>Your blowpipe needs to be charged with Zulrah's scales.</col>"));
+		assertNull("not a darts message",
+			BlowpipeMessage.parse("Your blowpipe needs to be charged with Zulrah's scales."));
+		assertFalse(BlowpipeMessage.isOutOfScales(null));
+		assertFalse(BlowpipeMessage.isOutOfScales("Your blowpipe has run out of darts."));
+		assertFalse(BlowpipeMessage.isOutOfScales("Player: Your blowpipe needs to be charged with Zulrah's scales."));
 	}
 
 	@Test
@@ -94,7 +115,6 @@ public class BlowpipeMessageTest
 	{
 		assertNull(BlowpipeMessage.parse(null));
 		assertNull(BlowpipeMessage.parse(""));
-		assertNull(BlowpipeMessage.parse("Your blowpipe needs to be charged with Zulrah's scales."));
 		assertNull(BlowpipeMessage.parse("The blowpipe can't hold any more darts."));
 		assertNull(BlowpipeMessage.parse("Scales: 11,000 (100.0%)"));
 		assertNull(BlowpipeMessage.parse("Player: Darts: Rune dart x 5. Scales: 3 (0.1%). lol"));

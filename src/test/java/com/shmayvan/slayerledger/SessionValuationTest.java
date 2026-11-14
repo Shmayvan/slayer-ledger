@@ -222,7 +222,7 @@ public class SessionValuationTest
 		assertEquals("the shark at its high alch value", 180, v.getLootValue());
 		assertEquals("both items have a high alch value", 0, v.getLootValueUnpriced());
 		assertEquals("the shark's GE price is unavailable", 1, v.getLootUnpriced());
-		assertEquals("the ~ follows the shown (high alch) figure", "Loot (HA): 180 gp", LiveSessionSection.liveLootText(v));
+		assertEquals("the ~ follows the shown (high alch) figure", "180", LiveSessionSection.liveLootText(v));
 		String tooltip = LedgerHistory.valuesTooltip(v);
 		// The GE figure misses the shark, so it is marked and counted in the note.
 		assertTrue(tooltip, tooltip.contains("Loot: ~100 gp GE, 180 gp high alch"));
@@ -293,27 +293,27 @@ public class SessionValuationTest
 
 		SessionValuation.Values ha = valuation.update("s1", loot, supplies, null, LootPriceMode.HIGH_ALCH, keys, 1);
 		assertEquals(336_060, ha.getLootValue());
-		assertEquals("no ~", "Loot (HA): 336K gp", LiveSessionSection.liveLootText(ha));
+		assertEquals("no ~", "336K", LiveSessionSection.liveLootText(ha));
 		String tooltip = LedgerHistory.valuesTooltip(ha);
 		assertTrue(tooltip, tooltip.contains("Loot: 336,100 gp GE, 336,060 gp high alch"));
 		assertTrue(tooltip, tooltip.contains("Loot value (High alch): 336,060 gp"));
 	}
 
 	@Test
-	public void liveLootAndProfitLinesAreLabelledWithThePriceMode()
+	public void liveLootAndProfitFollowThePriceModeAndTheTooltipNamesIt()
 	{
 		lookup.ge.put(SHARK, 100L);
 		ItemTally loot = tally(SHARK, 2);
 		SessionValuation.Values ge = valuation.update("s1", loot, null, null, LootPriceMode.GE, lookup, 0);
-		assertEquals("Loot (GE): 200 gp", LiveSessionSection.liveLootText(ge));
-		assertEquals("Profit (GE): 200 gp", LiveSessionSection.liveProfitText(ge));
+		assertEquals("200", LiveSessionSection.liveLootText(ge));
+		assertEquals("+200", LiveSessionSection.liveProfitText(ge));
 		String geTooltip = LedgerHistory.valuesTooltip(ge);
 		assertTrue("both prices stay in the tooltip", geTooltip.contains("Loot: 200 gp GE, 360 gp high alch"));
 		assertTrue(geTooltip, geTooltip.contains("Profit: 200 gp GE"));
 
 		SessionValuation.Values ha = valuation.update("s1", loot, null, null, LootPriceMode.HIGH_ALCH, lookup, 1);
-		assertEquals("Loot (HA): 360 gp", LiveSessionSection.liveLootText(ha));
-		assertEquals("Profit (HA): 360 gp", LiveSessionSection.liveProfitText(ha));
+		assertEquals("360", LiveSessionSection.liveLootText(ha));
+		assertEquals("+360", LiveSessionSection.liveProfitText(ha));
 		String tooltip = LedgerHistory.valuesTooltip(ha);
 		assertTrue(tooltip, tooltip.contains("Loot: 200 gp GE, 360 gp high alch"));
 		assertTrue(tooltip, tooltip.contains("Loot value (High alch): 360 gp"));
@@ -328,6 +328,6 @@ public class SessionValuationTest
 			lookup, 0);
 		assertEquals(1, v.getSuppliesUnpriced());
 		String profit = LiveSessionSection.liveProfitText(v);
-		assertTrue(profit, profit.startsWith("Profit (GE): ~"));
+		assertTrue(profit, profit.startsWith("~"));
 	}
 }

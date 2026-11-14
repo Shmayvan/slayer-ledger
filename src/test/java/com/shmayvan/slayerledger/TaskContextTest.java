@@ -74,7 +74,7 @@ public class TaskContextTest
 	{
 		observe(50, KONAR_AT_COVE, false);
 		assertEquals(KONAR_AT_COVE, tracker.getCurrentContext());
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		assertEquals(KONAR_AT_COVE, tracker.summary().getContext());
 	}
 
@@ -82,7 +82,7 @@ public class TaskContextTest
 	public void laterReadingsOfTheSameTaskFillTheGaps()
 	{
 		observe(50, TaskContext.assignment(SlayerMaster.NONE, 0, null), false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		assertNull(tracker.summary().getContext().getMaster());
 		observe(49, KONAR_AT_COVE, false);
 		assertEquals(KONAR_AT_COVE, tracker.summary().getContext());
@@ -103,7 +103,7 @@ public class TaskContextTest
 	public void rewardsAreSetOnlyOnACompletedSession()
 	{
 		observe(2, KONAR_AT_COVE, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		String id = tracker.getSessionId();
 		assertFalse("not completed yet", tracker.setCompletionRewards(id, 18, 43));
 		assertEquals(SessionTracker.ObserveResult.COMPLETED, observe(0, TaskContext.NONE, true));
@@ -118,7 +118,7 @@ public class TaskContextTest
 	public void heldCompletionTakesCorrectedPoints()
 	{
 		observe(2, KONAR_AT_COVE, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		String id = tracker.getSessionId();
 		observe(0, TaskContext.NONE, true);
 		assertTrue(tracker.setCompletionRewards(id, 0, 43));
@@ -133,7 +133,7 @@ public class TaskContextTest
 	public void recordHasTheContextAndRewardsOnlyWhenCompleted()
 	{
 		observe(2, KONAR_AT_COVE, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		String id = tracker.getSessionId();
 		observe(0, TaskContext.NONE, true);
 		tracker.setCompletionRewards(id, 18, 43);
@@ -152,7 +152,7 @@ public class TaskContextTest
 	public void partialRecordHasNoRewards()
 	{
 		observe(50, KONAR_AT_COVE, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		LedgerRecord record = LedgerRecord.fromSummary(tracker.stopAndReset(), true);
 		assertEquals(Integer.valueOf(SlayerMaster.KONAR), record.getSlayerMaster());
 		assertNull(record.getPointsEarned());
@@ -163,7 +163,7 @@ public class TaskContextTest
 	public void snapshotRestoresTheAssignment()
 	{
 		observe(50, KONAR_AT_COVE, false);
-		assertTrue(tracker.play(ACCOUNT));
+		assertTrue(tracker.startNow(ACCOUNT));
 		SessionSnapshot snapshot = SessionSnapshot.fromSummary(tracker.stopAndReset(), COUNTERS, now);
 		SessionSnapshot copy = gson.fromJson(gson.toJson(snapshot), SessionSnapshot.class);
 		assertEquals(Integer.valueOf(SlayerMaster.KONAR), copy.getSlayerMaster());
@@ -231,8 +231,8 @@ public class TaskContextTest
 		r.setTaskStreak(43);
 		assertEquals("<br>Master: Konar<br>Type: Konar (Kraken &lt;Cove&gt;)<br>Points earned: 18<br>Task streak: 43",
 			LedgerHistory.taskContextTooltip(r));
-		String tooltip = LedgerHistory.rowTooltip(r, HistoryPricing.value(r, LootPriceMode.GE, Collections.emptyMap()),
-			null);
+		String tooltip = LedgerHistory.historyRowTooltip(r, HistoryPricing.value(r, LootPriceMode.GE,
+			Collections.emptyMap()), null, LedgerHistory.NO_VALUE);
 		assertTrue(tooltip, tooltip.endsWith("<br>Deaths: -<br>Master: Konar<br>Type: Konar (Kraken &lt;Cove&gt;)"
 			+ "<br>Points earned: 18<br>Task streak: 43</html>"));
 

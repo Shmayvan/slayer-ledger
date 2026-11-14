@@ -52,17 +52,17 @@ public class HarnessXpTest
 	{
 		harness.gainXp(Skill.SLAYER, 500);
 		harness.tick();
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.gainXp(Skill.SLAYER, 120);
 		harness.gainXp(Skill.MAGIC, 300);
 		harness.tick();
 		harness.pause();
 		harness.gainXp(Skill.SLAYER, 9_999);
 		harness.ticks(2);
-		assertTrue("resume", harness.play());
+		assertTrue("resume", harness.startNow());
 		harness.gainXp(Skill.HITPOINTS, 40);
 		harness.tick();
-		harness.stop();
+		harness.endTask();
 
 		assertEquals(xp("SLAYER", 120, "MAGIC", 300, "HITPOINTS", 40), harness.onlyRecord(ACCOUNT).getXpGained());
 	}
@@ -70,10 +70,10 @@ public class HarnessXpTest
 	@Test
 	public void aReconnectsStatBurstIsNotCounted()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.gainXp(Skill.SLAYER, 100);
 		harness.tick();
-		// A lost connection doesn't pause the session. The stats read 0 until the login re-sends them, then jump.
+		// A lost connection stops the session like a logout. The stats read 0 until the login re-sends them, then jump.
 		harness.setGameState(GameState.CONNECTION_LOST);
 		harness.clearSkillXp();
 		harness.setGameState(GameState.LOGGED_IN);
@@ -82,10 +82,11 @@ public class HarnessXpTest
 		harness.setSkillXp(Skill.HITPOINTS, 2_000_000);
 		harness.setSkillXp(Skill.MAGIC, 3_000_000);
 		harness.ticks(PluginHarness.SETTLE_TICKS);
-		assertEquals(SessionTracker.State.RUNNING, harness.sessionState());
+		assertEquals(SessionTracker.State.LOGGED_OUT, harness.sessionState());
+		assertTrue("restarted after the reconnect", harness.startNow());
 		harness.gainXp(Skill.SLAYER, 7);
 		harness.tick();
-		harness.stop();
+		harness.endTask();
 
 		assertEquals(xp("SLAYER", 107), harness.onlyRecord(ACCOUNT).getXpGained());
 	}
@@ -93,16 +94,16 @@ public class HarnessXpTest
 	@Test
 	public void aHopIsNeverAGain()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.gainXp(Skill.SLAYER, 10);
 		harness.tick();
 		harness.hop();
 		harness.gainXp(Skill.SLAYER, 50_000);
 		harness.ticks(PluginHarness.SETTLE_TICKS);
-		assertTrue("resume after the hop", harness.play());
+		assertEquals("a hop is not a stop", SessionTracker.State.RUNNING, harness.sessionState());
 		harness.gainXp(Skill.SLAYER, 5);
 		harness.tick();
-		harness.stop();
+		harness.endTask();
 
 		assertEquals(xp("SLAYER", 15), harness.onlyRecord(ACCOUNT).getXpGained());
 	}
@@ -110,7 +111,7 @@ public class HarnessXpTest
 	@Test
 	public void anotherAccountsStatsAreNotCounted()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.gainXp(Skill.SLAYER, 10);
 		harness.tick();
 		harness.logout();
@@ -119,10 +120,10 @@ public class HarnessXpTest
 		harness.setSkillXp(Skill.HITPOINTS, 9_000_000);
 		harness.setSkillXp(Skill.MAGIC, 9_000_000);
 		harness.loginAndSettle(ACCOUNT + 1);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.gainXp(Skill.MAGIC, 3);
 		harness.tick();
-		harness.stop();
+		harness.endTask();
 
 		assertEquals(xp("MAGIC", 3), harness.onlyRecord(ACCOUNT + 1).getXpGained());
 		SessionSnapshot first = harness.activeSession(ACCOUNT);
@@ -135,7 +136,7 @@ public class HarnessXpTest
 	{
 		harness.setRemaining(1);
 		harness.tick();
-		assertTrue(harness.play());
+		assertEquals("the drop was a kill: it started the session", SessionTracker.State.RUNNING, harness.sessionState());
 		harness.tick();
 		harness.completeTask();
 		harness.gainXp(Skill.SLAYER, 300);
@@ -152,7 +153,7 @@ public class HarnessXpTest
 	@Test
 	public void xpSurvivesLogoutAndARestart()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.gainXp(Skill.SLAYER, 400);
 		harness.tick();
 		harness.logout();
@@ -161,12 +162,12 @@ public class HarnessXpTest
 
 		harness.startUp();
 		harness.loginAndSettle(ACCOUNT);
-		assertEquals("restored as paused", SessionTracker.State.PAUSED, harness.sessionState());
+		assertEquals("restored as logged out", SessionTracker.State.LOGGED_OUT, harness.sessionState());
 		assertEquals(xp("SLAYER", 400), harness.tracker().getXpGained());
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.gainXp(Skill.SLAYER, 100);
 		harness.tick();
-		harness.stop();
+		harness.endTask();
 
 		assertEquals(xp("SLAYER", 500), harness.onlyRecord(ACCOUNT).getXpGained());
 		assertNull(harness.activeSession(ACCOUNT));
@@ -175,7 +176,7 @@ public class HarnessXpTest
 	@Test
 	public void panelShowsTheLiveXpAndTheSavedTasksXp()
 	{
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.gainXp(Skill.SLAYER, 1_500);
 		harness.gainXp(Skill.HITPOINTS, 500);
 		harness.tick();
@@ -184,22 +185,22 @@ public class HarnessXpTest
 		{
 			harness.panel().refresh();
 			live[0] = harness.ui().getXpText();
-			harness.ui().getLiveXp().toggle();
 			live[1] = String.join(" / ", harness.ui().getLiveXp().getLineTexts());
 			live[2] = String.join(" / ", harness.ui().getLiveXp().getLineIcons());
 		});
-		assertEquals("XP: 2,000", live[0]);
+		assertEquals("the stats' XP", "2,000", live[0]);
 		assertEquals("Slayer | 1,500 / Hitpoints | 500", live[1]);
 		// Each line has its skill's small icon from SkillIconManager, asked for on the EDT.
 		assertEquals("skill SLAYER 18x16 / skill HITPOINTS 18x16", live[2]);
 
-		harness.stop();
+		harness.endTask();
 		final Object[] saved = new Object[2];
 		harness.onEdt(() ->
 		{
 			harness.panel().refresh();
 			saved[0] = harness.ui().getXpText();
-			saved[1] = harness.ui().getHistory().getXpText();
+			// The row has no room for the XP since its tooltip has it.
+			saved[1] = harness.ui().getHistory().getTooltips().get(0);
 			harness.ui().getHistory().clickRow(0);
 		});
 		harness.drain();
@@ -210,9 +211,10 @@ public class HarnessXpTest
 			details[1] = harness.ui().getHistory().getDetailsXpIcons(0);
 		});
 		assertNull("hidden once the session ended", saved[0]);
-		assertEquals(Arrays.asList("XP: 2,000 | "), saved[1]);
+		// Too little active time for a rate, so none.
+		assertTrue(saved[1].toString(), saved[1].toString().contains("<br>XP: 2,000<br>"));
 		String text = details[0].toString();
-		assertTrue(text, text.contains("XP gained (2), Slayer | 1,500, Hitpoints | 500"));
+		assertTrue(text, text.contains("XP gained, Slayer | 1,500, Hitpoints | 500"));
 		assertEquals(Arrays.asList("skill SLAYER 18x16", "skill HITPOINTS 18x16"), details[1]);
 	}
 }

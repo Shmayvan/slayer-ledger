@@ -35,9 +35,9 @@ import java.util.UUID;
  * the plugin wasn't watching and is forgotten without an entry. While the count still reads 0 after a login, the
  * baseline waits up to {@link #SYNC_MAX_TICKS} ticks for the task, like the restore check.</p>
  *
- * <p><b>New assignments</b> ({@link #takeStarted()}, for the new-task chat preview): an assignment counts as new only
- * when it is first seen outside a baseline, i.e. watched from its start. One read by a baseline (plugin start, login,
- * hop, account change) or that comes back after a transient or long zero is never new.</p>
+ * <p><b>New assignments</b> ({@link #takeStarted()}, for the advisor's chat line): an assignment counts as new
+ * only when it is first seen outside a baseline, i.e. watched from its start. One read by a baseline (plugin start,
+ * login, hop, account change) or that comes back after a transient or long zero is never new.</p>
  */
 final class AssignmentWatch
 {

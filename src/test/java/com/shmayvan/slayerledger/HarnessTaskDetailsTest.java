@@ -41,7 +41,7 @@ public class HarnessTaskDetailsTest
 		harness.setInventory();
 		harness.setTask(TASK, "Wyrms", 10, 10);
 		harness.loginAndSettle(ACCOUNT);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 	}
 
 	/** Loot from one kill, arriving through LootManager on the next tick. */
@@ -91,7 +91,7 @@ public class HarnessTaskDetailsTest
 		assertEquals(2, loot().get(ItemID.ABYSSAL_ASHES));
 		assertEquals(300, loot().get(ItemID.COINS));
 
-		harness.stop();
+		harness.endTask();
 		LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		assertEquals(Long.valueOf(1), record.getLoot().get(ItemID.WYRM_BONES));
 		assertEquals(Long.valueOf(2), record.getLoot().get(ItemID.ABYSSAL_ASHES));
@@ -145,10 +145,20 @@ public class HarnessTaskDetailsTest
 		harness.chat(ChatMessageType.GAMEMESSAGE, SUPERIOR);
 		assertEquals("not while paused", 2, harness.tracker().getSuperiorsSpawned());
 
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.chat(ChatMessageType.GAMEMESSAGE, SUPERIOR);
-		harness.stop();
+		harness.endTask();
 		assertEquals(Integer.valueOf(3), harness.onlyRecord(ACCOUNT).getSuperiorsSpawned());
+	}
+
+	@Test
+	public void superiorSpawnWithJagexColourMarkupCounts()
+	{
+		// The exact message from the client log of the 2026-11-09 playtest.
+		harness.chat(ChatMessageType.GAMEMESSAGE, "@mes_hl_red@A superior foe has appeared...</col>");
+		assertEquals(1, harness.tracker().getSuperiorsSpawned());
+		harness.endTask();
+		assertEquals(Integer.valueOf(1), harness.onlyRecord(ACCOUNT).getSuperiorsSpawned());
 	}
 
 	@Test
@@ -196,7 +206,7 @@ public class HarnessTaskDetailsTest
 		assertEquals(3, harness.tracker().getBankTrips());
 		harness.closeInterface(InterfaceID.SHARED_BANK);
 
-		harness.stop();
+		harness.endTask();
 		assertEquals(Integer.valueOf(3), harness.onlyRecord(ACCOUNT).getBankTrips());
 	}
 
@@ -208,15 +218,16 @@ public class HarnessTaskDetailsTest
 		harness.closeInterface(InterfaceID.BANKMAIN);
 		assertEquals(0, harness.tracker().getBankTrips());
 		harness.ticks(BankTripCounter.SAME_TRIP_TICKS + 1);
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.openInterface(InterfaceID.BANKMAIN);
 		harness.closeInterface(InterfaceID.BANKMAIN);
 		assertEquals(1, harness.tracker().getBankTrips());
-		harness.stop();
+		harness.endTask();
 		assertEquals(Integer.valueOf(1), harness.onlyRecord(ACCOUNT).getBankTrips());
 
 		// The next session's first bank visit counts even within the window, and its count starts at 0.
-		assertTrue(harness.play());
+		harness.trackAgain();
+		assertTrue(harness.startNow());
 		assertEquals(0, harness.tracker().getBankTrips());
 		harness.openInterface(InterfaceID.BANKMAIN);
 		assertEquals(1, harness.tracker().getBankTrips());
@@ -239,13 +250,13 @@ public class HarnessTaskDetailsTest
 
 		harness.startUp();
 		harness.loginAndSettle(ACCOUNT);
-		assertEquals("restored as paused", SessionTracker.State.PAUSED, harness.sessionState());
+		assertEquals("restored as logged out", SessionTracker.State.LOGGED_OUT, harness.sessionState());
 		assertEquals(1, harness.tracker().getSuperiorsSpawned());
 		assertEquals(1, harness.tracker().getBankTrips());
-		assertTrue(harness.play());
+		assertTrue(harness.startNow());
 		harness.chat(ChatMessageType.GAMEMESSAGE, SUPERIOR);
 		harness.openInterface(InterfaceID.BANKMAIN);
-		harness.stop();
+		harness.endTask();
 
 		LedgerRecord record = harness.onlyRecord(ACCOUNT);
 		assertEquals(Integer.valueOf(2), record.getSuperiorsSpawned());
@@ -261,7 +272,7 @@ public class HarnessTaskDetailsTest
 		assertEquals("Superiors: 1 | Deaths: 0 | Bank trips: 1", countsText());
 		harness.pause();
 		assertEquals("Superiors: 1 | Deaths: 0 | Bank trips: 1", countsText());
-		harness.stop();
+		harness.endTask();
 		assertNull("hidden once the session ended", countsText());
 	}
 

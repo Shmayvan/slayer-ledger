@@ -8,9 +8,17 @@ import static com.shmayvan.slayerledger.SwingLookup.items;
 import static com.shmayvan.slayerledger.SwingLookup.lineText;
 import static com.shmayvan.slayerledger.SwingLookup.text;
 import static com.shmayvan.slayerledger.SwingLookup.tooltip;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Font;
+import java.awt.Graphics2D;
+import java.awt.Insets;
+import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
+import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -18,17 +26,23 @@ import java.util.function.Function;
 import javax.swing.AbstractButton;
 import javax.swing.JComboBox;
 import javax.swing.Icon;
+import javax.swing.ImageIcon;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JTextField;
+import javax.swing.KeyStroke;
+import javax.swing.SwingUtilities;
 import javax.swing.border.Border;
+import javax.swing.border.CompoundBorder;
 import javax.swing.border.LineBorder;
+import javax.swing.border.MatteBorder;
 import javax.swing.event.PopupMenuListener;
-import javax.swing.text.JTextComponent;
 import net.runelite.client.ui.PluginPanel;
+import net.runelite.client.ui.components.ProgressBar;
 
 /**
  * Reads and drives {@link SlayerLedgerPanel} as the player sees and uses it, through the names its components carry
@@ -55,27 +69,236 @@ final class PanelProbe
 		return SwingLookup.isVisible(panel, "dartHint");
 	}
 
-	/** Whether the live values section is shown. */
+	/** Whether the live values are shown: the supplies and loot grids under their sub-headers, with their values. */
 	boolean isValuesShown()
 	{
-		return SwingLookup.isVisible(panel, "values");
+		return SwingLookup.isVisible(panel, "liveSupplies");
 	}
 
-	/** Text of the live loot, supplies and profit lines, or {@code null} while they are hidden. */
+	/**
+	 * The live values, {@code "Loot: 344K | Supplies: 132K | Profit: +212K"}: the loot's and the supplies' values from
+	 * their grids' sub-headers and the stats' profit; {@code null} while the grids are hidden.
+	 */
 	String getValuesText()
 	{
 		if (!isValuesShown())
 		{
 			return null;
 		}
-		return text(panel, "values.loot") + " | " + text(panel, "values.supplies") + " | "
-			+ text(panel, "values.profit");
+		return "Loot: " + headerValue("liveLoot") + " | Supplies: " + headerValue("liveSupplies") + " | Profit: "
+			+ statValue("profit");
 	}
 
-	/** The live values section's tooltip, or {@code null} while it is hidden. */
+	/** The live values' tooltip (on the profit and the grids' values), or {@code null} while the grids are hidden. */
 	String getValuesTooltip()
 	{
-		return isValuesShown() ? tooltip(panel, "values") : null;
+		return isValuesShown() ? tooltip(panel, "stats.profit") : null;
+	}
+
+	/** The value on the right of the live grid or list named {@code name}'s sub-header. */
+	private String headerValue(String name)
+	{
+		return text(find(panel, name, Container.class), "itemList.value");
+	}
+
+	// ---- Live task card ----
+
+	/** Whether the live card's stats grid is shown (while a session is active). */
+	boolean isStatsShown()
+	{
+		return SwingLookup.isVisible(panel, "stats");
+	}
+
+	/**
+	 * The stats grid's cells, in order (left to right, then down), each {@code "<label> | <value>"} with the value in
+	 * full ({@link FitLabel#getFullText()}); empty while the grid is hidden.
+	 */
+	List<String> getStatsRows()
+	{
+		return statsRows(false);
+	}
+
+	/**
+	 * The stats grid's cells as the player sees them, after {@link #layOutLiveCard}: as {@link #getStatsRows}, with
+	 * each value as displayed, whole or cut short with {@link FitLabel#ELLIPSIS}.
+	 */
+	List<String> getStatsRowsShown()
+	{
+		return statsRows(true);
+	}
+
+	private List<String> statsRows(boolean shown)
+	{
+		List<String> rows = new ArrayList<>();
+		Container stats = find(panel, "stats", Container.class);
+		if (!stats.isVisible())
+		{
+			return rows;
+		}
+		for (Component cell : stats.getComponents())
+		{
+			Container c = (Container) cell;
+			FitLabel value = (FitLabel) c.getComponent(1);
+			rows.add(text(c.getComponent(0)) + " | " + (shown ? value.getText() : value.getFullText()));
+		}
+		return rows;
+	}
+
+	/** The tooltips of the stats grid's cells, in the order of {@link #getStatsRows}. */
+	List<String> getStatsTooltips()
+	{
+		List<String> tooltips = new ArrayList<>();
+		for (Component cell : find(panel, "stats", Container.class).getComponents())
+		{
+			tooltips.add(((JComponent) cell).getToolTipText());
+		}
+		return tooltips;
+	}
+
+	/** The value of the stats cell {@code key} ({@code "profit"}, {@code "timeLeft"} and so on), in full. */
+	String statValue(String key)
+	{
+		return find(panel, "stats." + key + ".value", FitLabel.class).getFullText();
+	}
+
+	/** The tooltip of the stats cell {@code key}. */
+	String statTooltip(String key)
+	{
+		return tooltip(panel, "stats." + key);
+	}
+
+	/** The colour of the stats cell {@code key}'s value. */
+	Color statColor(String key)
+	{
+		return find(panel, "stats." + key + ".value").getForeground();
+	}
+
+	/** The progress bar's label ({@code "73 / 201"}), or {@code null} while the bar is hidden. */
+	String getBarText()
+	{
+		if (!SwingLookup.isVisible(panel, "progress"))
+		{
+			return null;
+		}
+		// RuneLite's ProgressBar: its left, centre and right labels, in that order.
+		return text(find(panel, "progress.bar", Container.class).getComponent(1));
+	}
+
+	/**
+	 * The progress bar's label as Swing draws it after {@link #layOutLiveCard}: whole, or cut short with {@code ...}
+	 * when its room is too narrow (Swing's own clipping, as a {@code JLabel} paints it).
+	 */
+	String getBarTextShown()
+	{
+		JLabel label = (JLabel) find(panel, "progress.bar", Container.class).getComponent(1);
+		Insets insets = label.getInsets();
+		Rectangle view = new Rectangle(insets.left, insets.top, label.getWidth() - insets.left - insets.right,
+			label.getHeight() - insets.top - insets.bottom);
+		return SwingUtilities.layoutCompoundLabel(label, label.getFontMetrics(label.getFont()), label.getText(), null,
+			label.getVerticalAlignment(), label.getHorizontalAlignment(), label.getVerticalTextPosition(),
+			label.getHorizontalTextPosition(), view, new Rectangle(), new Rectangle(), 0);
+	}
+
+	/** How full the progress bar is, in percent. */
+	int getBarPercentage()
+	{
+		return find(panel, "progress.bar", ProgressBar.class).getPercentage();
+	}
+
+	/**
+	 * What the live card's task icon shows ({@link PanelProbe#iconText}): {@code "<item id> 36x32"} when its slot is
+	 * that size too, or {@code "none"} while it is hidden.
+	 */
+	String getTaskIcon()
+	{
+		JLabel icon = find(panel, "taskBox.icon", JLabel.class);
+		if (!icon.isVisible())
+		{
+			return "none";
+		}
+		String shown = iconText(icon.getIcon(), iconText);
+		String slot = icon.getPreferredSize().width + "x" + icon.getPreferredSize().height;
+		return shown.endsWith(" " + slot) ? shown : shown + " in a " + slot + " slot";
+	}
+
+	/** How many times the live card's icon was asked for (performance seam). */
+	int getLiveCardBuildCount()
+	{
+		return panel.getLiveCardBuildCount();
+	}
+
+	/** How many times the live grids and XP list were drawn (performance seam). */
+	int getLiveListsBuildCount()
+	{
+		return panel.getLiveListsBuildCount();
+	}
+
+	/**
+	 * After laying the panel out at the sidebar's width: the panel's width, the live card's width, the widest part
+	 * inside the card, and the width and shown text of the card's name line.
+	 */
+	Object[] layOutLiveCard()
+	{
+		panel.setSize(PluginPanel.PANEL_WIDTH, 4000);
+		SwingLookup.layOut(panel);
+		Container card = find(panel, "liveCard", Container.class);
+		int widest = 0;
+		for (Component part : card.getComponents())
+		{
+			widest = Math.max(widest, part.getWidth());
+		}
+		FitLabel name = find(panel, "taskBox.task", FitLabel.class);
+		return new Object[]{panel.getWidth(), card.getWidth(), widest, name.getWidth(), name.getText()};
+	}
+
+	/** Whether a component named {@code name} is anywhere in the panel (shown or not). */
+	boolean isInPanel(String name)
+	{
+		return SwingLookup.isInTree(panel, name);
+	}
+
+	/** The names of the panel's top-level parts, in order (the unnamed gaps and labels left out). */
+	List<String> getContentOrder()
+	{
+		List<String> names = new ArrayList<>();
+		for (Component part : ((Container) panel.getComponent(0)).getComponents())
+		{
+			if (part.getName() != null)
+			{
+				names.add(part.getName());
+			}
+		}
+		return names;
+	}
+
+	/**
+	 * The widest preferred width of the status strip and the live section's parts (the card, its grids and XP, the
+	 * task loot, the note and the dart hint), to check that none of them widens the sidebar.
+	 */
+	int getLiveSectionPreferredWidth()
+	{
+		int widest = 0;
+		for (String name : new String[]{"session", "liveCard", "dartHint", "liveSupplies", "liveLoot", "liveXp",
+			"taskLoot", "note"})
+		{
+			widest = Math.max(widest, find(panel, name).getPreferredSize().width);
+		}
+		return widest;
+	}
+
+	/** The preferred width of every part of the panel's content, the widest, to check that nothing widens it. */
+	int getContentPreferredWidth()
+	{
+		Container content = (Container) panel.getComponent(0);
+		int widest = 0;
+		for (Component part : content.getComponents())
+		{
+			if (part.isVisible())
+			{
+				widest = Math.max(widest, part.getPreferredSize().width);
+			}
+		}
+		return widest;
 	}
 
 	/** The live "Supplies used" icons. */
@@ -102,49 +325,48 @@ final class PanelProbe
 		return SwingLookup.isVisible(panel, "liveSupplies") && SwingLookup.isVisible(panel, "liveLoot");
 	}
 
-	/** Text of the live XP line, or {@code null} while it is not in the progress box. */
+	/** The live XP total in the stats ({@code "58.6K"}), or {@code null} while the stats are hidden. */
 	String getXpText()
 	{
-		Component xp = findOrNull(progress(), "progress.xp");
-		return xp == null ? null : text(xp);
+		return isStatsShown() ? statValue("xp") : null;
 	}
 
-	/** Whether the time-left line is in the progress box. */
+	/** Whether the time left is shown (the stats, while a session is active). */
 	boolean isTimeLeftShown()
 	{
-		return findOrNull(progress(), "progress.timeLeft") != null;
+		return isStatsShown();
 	}
 
-	/** Text of the time-left line, or {@code null} while it is not in the progress box. */
+	/** The time left as {@code "Time left: ~12m"} (its label and value), or {@code null} while the stats are hidden. */
 	String getTimeLeftText()
 	{
-		Component timeLeft = findOrNull(progress(), "progress.timeLeft");
-		return timeLeft == null ? null : text(timeLeft);
+		return isStatsShown() ? "Time left: " + statValue("timeLeft") : null;
 	}
 
-	/** Tooltip of the time-left line, or {@code null} while it is not in the progress box. */
+	/** Tooltip of the time left, or {@code null} while the stats are hidden. */
 	String getTimeLeftTooltip()
 	{
-		Component timeLeft = findOrNull(progress(), "progress.timeLeft");
-		return timeLeft == null ? null : ((JComponent) timeLeft).getToolTipText();
+		return isStatsShown() ? statTooltip("timeLeft") : null;
 	}
 
-	/** Text of the superiors, deaths and bank trips line, or {@code null} while it is not in the progress box. */
+	/**
+	 * The superiors, and once either happened the deaths and bank trips, as {@code "Superiors: 1 | Deaths: 0 |
+	 * Bank trips: 2"} ({@code "Superiors: 1"} while the deaths and bank trips row is out of the grid); {@code null}
+	 * while the stats are hidden.
+	 */
 	String getCountsText()
 	{
-		Component counts = findOrNull(progress(), "progress.counts");
-		if (counts == null)
+		if (!isStatsShown())
 		{
 			return null;
 		}
-		Container line = (Container) counts;
-		return text(line, "progress.superiors") + " | " + text(line, "progress.deaths") + " | "
-			+ text(line, "progress.bankTrips");
-	}
-
-	private Container progress()
-	{
-		return find(panel, "progress", Container.class);
+		String counts = "Superiors: " + statValue("superiors");
+		Container stats = find(panel, "stats", Container.class);
+		if (findOrNull(stats, "stats.deaths") != null)
+		{
+			counts += " | Deaths: " + statValue("deaths") + " | Bank trips: " + statValue("bankTrips");
+		}
+		return counts;
 	}
 
 	/**
@@ -212,10 +434,280 @@ final class PanelProbe
 		return find(panel, "note.box", JComboBox.class);
 	}
 
+	/** Whether the live task's setup toggles are shown. */
+	boolean isLiveSetupShown()
+	{
+		return SwingLookup.isVisible(panel, "setup");
+	}
+
+	/**
+	 * What the live setup toggle for {@code tag} ({@code "cannon"}, {@code "style"} or {@code "gear"}) shows, as
+	 * {@code "<name> | <image> | <value>"}: its name, its image as {@link PluginHarness#iconText} reads it
+	 * and its slot's size ({@code "sprite <archive> 18x16"}, {@code "<item id> 18x16"}; {@code "- 18x16"} for a word in
+	 * its place or an image not arrived yet) and its value as the image describes it, {@code "Barrage, set by you"}.
+	 */
+	String getLiveSetupToggle(String tag)
+	{
+		AbstractButton toggle = setupToggle(tag);
+		String image = iconText(toggle.getIcon(), iconText);
+		return toggle.getText() + " | " + image + " | " + ((ImageIcon) toggle.getIcon()).getDescription();
+	}
+
+	/**
+	 * Whether the live setup toggle for {@code tag} draws the override mark: the top right pixel of its image slot,
+	 * painted, is the heading colour.
+	 */
+	boolean isLiveSetupMarked(String tag)
+	{
+		AbstractButton toggle = setupToggle(tag);
+		Icon icon = toggle.getIcon();
+		BufferedImage canvas = new BufferedImage(icon.getIconWidth(), icon.getIconHeight(),
+			BufferedImage.TYPE_INT_ARGB);
+		Graphics2D g = canvas.createGraphics();
+		try
+		{
+			icon.paintIcon(toggle, g, 0, 0);
+		}
+		finally
+		{
+			g.dispose();
+		}
+		int corner = canvas.getRGB(icon.getIconWidth() - 1, 0);
+		return (corner >>> 24) != 0 && (corner & 0xFFFFFF) == (LedgerTheme.HEADING.getRGB() & 0xFFFFFF);
+	}
+
+	/** The live setup toggle's tooltip for {@code tag}. */
+	String getLiveSetupTooltip(String tag)
+	{
+		return setupToggle(tag).getToolTipText();
+	}
+
+	/**
+	 * The items the live setup toggle's menu for {@code tag} holds now, without opening it: each label, with
+	 * {@code "* "} before the selected one; empty before the menu was first opened.
+	 */
+	List<String> getLiveSetupMenu(String tag)
+	{
+		List<String> items = new ArrayList<>();
+		for (Component c : setupToggle(tag).getComponentPopupMenu().getComponents())
+		{
+			if (c instanceof JMenuItem)
+			{
+				JMenuItem item = (JMenuItem) c;
+				items.add((item.isSelected() ? "* " : "") + item.getText());
+			}
+		}
+		return items;
+	}
+
+	/**
+	 * Clicks the live setup toggle for {@code tag}, as the player does, which opens its menu (headless, the menu is
+	 * filled but has no screen to open on), and returns the menu's items ({@link #getLiveSetupMenu}).
+	 */
+	List<String> clickLiveSetup(String tag)
+	{
+		setupToggle(tag).doClick();
+		return getLiveSetupMenu(tag);
+	}
+
+	/**
+	 * Presses and releases Space on the live setup toggle for {@code tag} through its own key bindings, as a player
+	 * with the keyboard focus on it does, and returns its menu's items ({@link #getLiveSetupMenu}).
+	 */
+	List<String> pressSpaceOnLiveSetup(String tag)
+	{
+		AbstractButton toggle = setupToggle(tag);
+		for (String key : new String[]{"pressed SPACE", "released SPACE"})
+		{
+			Object name = toggle.getInputMap(JComponent.WHEN_FOCUSED).get(KeyStroke.getKeyStroke(key));
+			if (name == null)
+			{
+				throw new AssertionError("no " + key + " binding on the " + tag + " toggle");
+			}
+			toggle.getActionMap().get(name).actionPerformed(new ActionEvent(toggle, ActionEvent.ACTION_PERFORMED,
+				null));
+		}
+		return getLiveSetupMenu(tag);
+	}
+
+	/** Whether the live setup toggle for {@code tag} can take the keyboard focus, so Tab reaches it. */
+	boolean isLiveSetupFocusable(String tag)
+	{
+		AbstractButton toggle = setupToggle(tag);
+		return toggle.isFocusable() && toggle.isRequestFocusEnabled() && toggle.isEnabled();
+	}
+
+	/**
+	 * Clicks the live setup toggle for {@code tag}, then its menu's item labelled {@code label}, as the player would.
+	 */
+	void chooseLiveSetup(String tag, String label)
+	{
+		List<String> shown = clickLiveSetup(tag);
+		for (Component c : setupToggle(tag).getComponentPopupMenu().getComponents())
+		{
+			if (c instanceof JMenuItem && label.equals(((JMenuItem) c).getText()))
+			{
+				((JMenuItem) c).doClick();
+				return;
+			}
+		}
+		throw new AssertionError("no setup choice " + label + " in " + shown);
+	}
+
+	/** The width the live setup toggles want, to check that they fit the card's 199 px. */
+	int getLiveSetupPreferredWidth()
+	{
+		return find(panel, "setup").getPreferredSize().width;
+	}
+
+	/**
+	 * After {@link #layOutLiveCard}: the setup row's width, then for each toggle (cannon, style, gear) its left edge,
+	 * width and preferred width in the row.
+	 */
+	List<Integer> getLiveSetupLayout()
+	{
+		List<Integer> layout = new ArrayList<>();
+		layout.add(find(panel, "setup").getWidth());
+		for (String tag : new String[]{"cannon", "style", "gear"})
+		{
+			AbstractButton toggle = setupToggle(tag);
+			layout.add(toggle.getX());
+			layout.add(toggle.getWidth());
+			layout.add(toggle.getPreferredSize().width);
+		}
+		return layout;
+	}
+
+	/** How many times the live setup toggles were redrawn (performance seam). */
+	int getLiveSetupBuildCount()
+	{
+		return panel.getLiveSetupBuildCount();
+	}
+
+	private AbstractButton setupToggle(String tag)
+	{
+		return find(panel, "setup." + tag, AbstractButton.class);
+	}
+
 	/** Text of the saved-task count, e.g. {@code "Saved tasks: 3"}. */
 	String getSavedTasksText()
 	{
 		return text(panel, "savedTasks");
+	}
+
+	// ---- Status strip: tracking state and controls (V2 plan 4.1, DESIGN_PRINCIPLES.md 3.4a) ----
+
+	/** The status strip's state word, e.g. {@code "Waiting for first kill"}. */
+	String getTrackingState()
+	{
+		return text(panel, "session.state");
+	}
+
+	/** The status strip's clock beside the state word ({@code "21:54"}), or {@code ""} when none is shown. */
+	String getStatusClock()
+	{
+		return text(panel, "session.clock");
+	}
+
+	/**
+	 * The status strip as the player reads it: the state word, then each button shown, left to right, with
+	 * {@code " (off)"} when it can't be pressed: {@code "Paused | Resume | End task"}, {@code "Ended | Track again"}.
+	 * The clock is read with {@link #getStatusClock}.
+	 */
+	String getStatusStrip()
+	{
+		StringBuilder sb = new StringBuilder(getTrackingState());
+		for (String name : new String[]{"session.pauseResume", "session.endTask"})
+		{
+			AbstractButton button = find(panel, name, AbstractButton.class);
+			if (button.isVisible())
+			{
+				sb.append(" | ").append(button.getText()).append(button.isEnabled() ? "" : " (off)");
+			}
+		}
+		return sb.toString();
+	}
+
+	/** Whether the Pause / Resume button is shown. */
+	boolean isPauseButtonShown()
+	{
+		return find(panel, "session.pauseResume").isVisible();
+	}
+
+	/** Whether the End task / Track again button is shown. */
+	boolean isEndButtonShown()
+	{
+		return find(panel, "session.endTask").isVisible();
+	}
+
+	/** The Pause / Resume button's text. */
+	String getPauseButtonText()
+	{
+		return find(panel, "session.pauseResume", AbstractButton.class).getText();
+	}
+
+	/** Whether the Pause / Resume button can be pressed. */
+	boolean isPauseButtonEnabled()
+	{
+		return find(panel, "session.pauseResume", AbstractButton.class).isEnabled();
+	}
+
+	/** Presses Pause or Resume, as the player does: only while it is shown. */
+	void clickPauseButton()
+	{
+		AbstractButton button = find(panel, "session.pauseResume", AbstractButton.class);
+		if (!button.isVisible())
+		{
+			throw new AssertionError("Pause / Resume is not shown");
+		}
+		button.doClick();
+	}
+
+	/** Puts {@code text} on the Pause/Resume button as a refresh would, to stand for a label not yet refreshed. */
+	void showPauseButtonAs(String text)
+	{
+		find(panel, "session.pauseResume", AbstractButton.class).setText(text);
+	}
+
+	/** The End task / Track again button's text. */
+	String getEndButtonText()
+	{
+		return find(panel, "session.endTask", AbstractButton.class).getText();
+	}
+
+	/** Whether the End task / Track again button can be pressed. */
+	boolean isEndButtonEnabled()
+	{
+		return find(panel, "session.endTask", AbstractButton.class).isEnabled();
+	}
+
+	/** Presses End task or Track again, as the player does: only while it is shown. */
+	void clickEndButton()
+	{
+		AbstractButton button = find(panel, "session.endTask", AbstractButton.class);
+		if (!button.isVisible())
+		{
+			throw new AssertionError("End task / Track again is not shown");
+		}
+		button.doClick();
+	}
+
+	/** Puts {@code text} on the End task / Track again button, to stand for a label not yet refreshed. */
+	void showEndButtonAs(String text)
+	{
+		find(panel, "session.endTask", AbstractButton.class).setText(text);
+	}
+
+	/** The "Previous session saved as partial" notice's text, or {@code null} while it is hidden. */
+	String getPartialNotice()
+	{
+		return SwingLookup.isVisible(panel, "partialNotice") ? text(panel, "partialNotice.text") : null;
+	}
+
+	/** Presses the partial notice's Discard, as the player does. */
+	void clickPartialNoticeDiscard()
+	{
+		find(panel, "partialNotice.discard", AbstractButton.class).doClick();
 	}
 
 	// ---- Optional sections ----
@@ -226,19 +718,13 @@ final class PanelProbe
 		return SwingLookup.isVisible(panel, blockName(section));
 	}
 
-	/** The preferred height of an optional section's header (the What to bring box for {@code WHAT_TO_BRING}). */
+	/** The preferred height of an optional section's header. */
 	int getSectionHeaderHeight(SlayerLedgerPanel.OptionalSection section)
 	{
 		switch (section)
 		{
-			case WHAT_TO_BRING:
-				return find(panel, "bring").getPreferredSize().height;
-			case TRENDS:
-				return find(panel, "trends.header").getPreferredSize().height;
 			case OVERALL_TOTALS:
 				return find(panel, "totals.header").getPreferredSize().height;
-			case LUCK_METER:
-				return find(panel, "luck.header").getPreferredSize().height;
 			default:
 				return find(panel, "assignments.header").getPreferredSize().height;
 		}
@@ -248,35 +734,11 @@ final class PanelProbe
 	{
 		switch (section)
 		{
-			case WHAT_TO_BRING:
-				return "bringBlock";
-			case TRENDS:
-				return "trendsBlock";
 			case OVERALL_TOTALS:
 				return "totalsBlock";
-			case LUCK_METER:
-				return "luckBlock";
 			default:
 				return "assignmentsBlock";
 		}
-	}
-
-	/**
-	 * After laying the panel out at the sidebar's width: the width the History title gets and the width it wants, then
-	 * the same for its " (N tasks)" count, the count's offset from the title, and 1 when the time has a line of its
-	 * own.
-	 */
-	int[] layOutHistoryEstimateTitle()
-	{
-		panel.setSize(PluginPanel.PANEL_WIDTH, 4000);
-		SwingLookup.layOut(panel);
-		Component title = find(panel, "estimate.title");
-		Component count = find(panel, "estimate.count");
-		Component time = find(panel, "estimate.time");
-		return new int[]{title.getWidth(), title.getPreferredSize().width,
-			count.getWidth(), count.getPreferredSize().width,
-			count.getX() - title.getX(),
-			"estimate.timeLine".equals(time.getParent().getName()) ? 1 : 0};
 	}
 
 	// ---- Sections ----
@@ -286,14 +748,9 @@ final class PanelProbe
 		return new TaskBoxProbe(find(panel, "taskBox", Container.class));
 	}
 
-	LocationPromptProbe getLocationPrompt()
+	AdvisorCardProbe getAdvisor()
 	{
-		return new LocationPromptProbe(panel);
-	}
-
-	HistoryEstimateProbe getHistoryEstimate()
-	{
-		return new HistoryEstimateProbe(panel);
+		return new AdvisorCardProbe(panel, iconText);
 	}
 
 	HistoryListProbe getHistory()
@@ -307,19 +764,9 @@ final class PanelProbe
 		return text(panel, "history.editHint");
 	}
 
-	TrendsProbe getTrends()
-	{
-		return new TrendsProbe(panel, iconText);
-	}
-
 	OverallTotalsProbe getOverallTotals()
 	{
 		return new OverallTotalsProbe(panel, iconText);
-	}
-
-	LuckMeterProbe getLuckMeter()
-	{
-		return new LuckMeterProbe(panel, iconText);
 	}
 
 	AssignmentsProbe getAssignments()
@@ -369,45 +816,6 @@ final class PanelProbe
 		return rows;
 	}
 
-	/**
-	 * Each choice of {@code box}, in order, as its renderer shows it: {@code text | icon}, the icon as
-	 * {@link #iconText(Icon, Function)} reads it.
-	 */
-	private static <T> List<String> choiceIcons(JComboBox<T> box, Function<Icon, String> iconText)
-	{
-		List<String> icons = new ArrayList<>();
-		for (int i = 0; i < box.getItemCount(); i++)
-		{
-			Component shown = box.getRenderer().getListCellRendererComponent(new JList<>(), box.getItemAt(i), i,
-				false, false);
-			icons.add(text(shown) + " | " + iconText(((JLabel) shown).getIcon(), iconText));
-		}
-		return icons;
-	}
-
-	/** Each row of {@code list}: a label's text, or a panel's lines ({@code left | right}) joined by a newline. */
-	private static List<String> multiLineRows(Container list)
-	{
-		List<String> rows = new ArrayList<>();
-		for (Component component : list.getComponents())
-		{
-			if (component instanceof JLabel)
-			{
-				rows.add(((JLabel) component).getText());
-			}
-			else if (component instanceof JPanel)
-			{
-				List<String> lines = new ArrayList<>();
-				for (Component line : ((JPanel) component).getComponents())
-				{
-					lines.add(lineText(line));
-				}
-				rows.add(String.join("\n", lines));
-			}
-		}
-		return rows;
-	}
-
 	/** The tooltip of each row (panel) of {@code list}. */
 	private static List<String> rowTooltips(Container list)
 	{
@@ -420,6 +828,59 @@ final class PanelProbe
 			}
 		}
 		return tooltips;
+	}
+
+	/**
+	 * How the header of {@code list} (a {@link TitledListView}) looks: the title's {@link #look}, then the right-hand
+	 * label's ({@code Show}/{@code Hide} or the value) when it shows text, then {@code "rule"} or {@code "no rule"} for
+	 * a line under the header, joined by {@code " | "}: {@code "Bold heading | Small value | rule"}.
+	 */
+	private static String headerLook(Container list)
+	{
+		Container header = find(list, "itemList.header", Container.class);
+		List<String> parts = new ArrayList<>();
+		parts.add(look(find(header, "itemList.title")));
+		for (Component c : header.getComponents())
+		{
+			if (!"itemList.title".equals(c.getName()) && c instanceof JLabel && !text(c).isEmpty())
+			{
+				parts.add(look(c));
+			}
+		}
+		parts.add(hasRule(((JComponent) header).getBorder()) ? "rule" : "no rule");
+		return String.join(" | ", parts);
+	}
+
+	/**
+	 * How {@code label} looks: its font, {@code "Bold"}, {@code "Plain"} or {@code "Small"} ({@link LedgerTheme}'s
+	 * three) or the font itself, then its colour as the {@link LedgerTheme} token's name ({@code "heading"}) or hex.
+	 */
+	private static String look(Component label)
+	{
+		Font font = label.getFont();
+		String fontName = font.equals(LedgerTheme.boldFont()) ? "Bold" : font.equals(LedgerTheme.plainFont())
+			? "Plain" : font.equals(LedgerTheme.smallFont()) ? "Small" : font.toString();
+		Color color = label.getForeground();
+		String colorName = color.equals(LedgerTheme.HEADING) ? "heading" : color.equals(LedgerTheme.LABEL) ? "label"
+			: color.equals(LedgerTheme.VALUE) ? "value" : color.equals(LedgerTheme.HINT) ? "hint"
+			: String.format("#%06X", color.getRGB() & 0xFFFFFF);
+		return fontName + " " + colorName;
+	}
+
+	/** Whether {@code border} draws a line (a matte or line border, alone or inside a compound one). */
+	private static boolean hasRule(Border border)
+	{
+		if (border instanceof CompoundBorder)
+		{
+			return hasRule(((CompoundBorder) border).getOutsideBorder())
+				|| hasRule(((CompoundBorder) border).getInsideBorder());
+		}
+		if (border instanceof MatteBorder)
+		{
+			Insets insets = ((MatteBorder) border).getBorderInsets();
+			return insets.top + insets.left + insets.bottom + insets.right > 0;
+		}
+		return border instanceof LineBorder;
 	}
 
 	/** One {@link ItemGridView}, found by its own name; its parts are named within it. */
@@ -439,6 +900,12 @@ final class PanelProbe
 		String getHeaderText()
 		{
 			return grid.getHeaderText();
+		}
+
+		/** How the header looks ({@link PanelProbe#headerLook}): {@code "Small value | Small label | no rule"}. */
+		String getHeaderLook()
+		{
+			return headerLook(grid);
 		}
 
 		/** The title's tooltip (the hidden items' note), or {@code null} without one. */
@@ -546,6 +1013,12 @@ final class PanelProbe
 		String getHeaderText()
 		{
 			return list.getHeaderText();
+		}
+
+		/** How the header looks ({@link PanelProbe#headerLook}): {@code "Small value | no rule"}. */
+		String getHeaderLook()
+		{
+			return headerLook(list);
 		}
 
 		/**
@@ -663,8 +1136,9 @@ final class PanelProbe
 	}
 
 	/**
-	 * The task box: the task line, then (while known) the details line and the advice row. The master, type, location
-	 * and next bonus are read from the details line's tooltip, which has each of them in full.
+	 * The live card's header: the task's name, then (while known) the location line and the master line. The master,
+	 * type, location and next bonus are read from the master line's tooltip, which has each of them in full. (The skip /
+	 * block badge is on the advisor card since {@link AdvisorCardProbe#getBadge}.)
 	 */
 	static final class TaskBoxProbe
 	{
@@ -675,16 +1149,29 @@ final class PanelProbe
 			this.box = box;
 		}
 
-		/** The details line ("Konar · Kraken Cove · bonus in 3"), or {@code null} while it is not in the box. */
+		/** The master line ("Konar · bonus in 3"), or {@code null} while it is not in the header. */
 		String getDetailsText()
 		{
 			return optionalText("taskBox.details");
 		}
 
-		/** The details line's tooltip as set (HTML, not unescaped), or {@code null} while the line is not in the box. */
+		/** The location line ("Kraken Cove"), or {@code null} while it is not in the header. */
+		String getLocationLine()
+		{
+			return optionalText("taskBox.location");
+		}
+
+		/**
+		 * The tooltip of the master and location lines (they share it) as set (HTML, not unescaped), or {@code null}
+		 * while neither is in the header.
+		 */
 		String getDetailsTooltip()
 		{
 			Component details = findOrNull(box, "taskBox.details");
+			if (details == null)
+			{
+				details = findOrNull(box, "taskBox.location");
+			}
 			return details == null ? null : ((JComponent) details).getToolTipText();
 		}
 
@@ -700,26 +1187,13 @@ final class PanelProbe
 			return detail("Next bonus: ");
 		}
 
-		/** The advice row, or {@code null} while it is not in the box. */
-		String getAdviceText()
-		{
-			return optionalText("taskBox.advice");
-		}
-
-		/** The advice row's tooltip, or {@code null} while it is not in the box. */
-		String getAdviceTooltip()
-		{
-			Component advice = findOrNull(box, "taskBox.advice");
-			return advice == null ? null : ((JComponent) advice).getToolTipText();
-		}
-
-		/** The task box's rows as shown, in order. */
+		/** The header's lines in order, each in full ({@link FitLabel#getFullText()}). */
 		List<String> getRows()
 		{
 			List<String> rows = new ArrayList<>();
-			for (Component c : box.getComponents())
+			for (Component c : find(box, "taskBox.lines", Container.class).getComponents())
 			{
-				rows.add(text(c));
+				rows.add(((FitLabel) c).getFullText());
 			}
 			return rows;
 		}
@@ -741,11 +1215,10 @@ final class PanelProbe
 			return master == null && type == null ? null : master + " | " + type;
 		}
 
-		/** The line of the details tooltip that starts with {@code prefix}, unescaped, or {@code null}. */
+		/** The line of the master and location tooltip that starts with {@code prefix}, unescaped, or {@code null}. */
 		private String detail(String prefix)
 		{
-			Component details = findOrNull(box, "taskBox.details");
-			String tooltip = details == null ? null : ((JComponent) details).getToolTipText();
+			String tooltip = getDetailsTooltip();
 			if (tooltip == null)
 			{
 				return null;
@@ -763,194 +1236,455 @@ final class PanelProbe
 		private String optionalText(String name)
 		{
 			Component label = findOrNull(box, name);
-			return label == null ? null : text(label);
+			return label == null || label.getParent() == null ? null : ((FitLabel) label).getFullText();
 		}
 	}
 
-	/** The inline "Name this location" prompt. */
-	static final class LocationPromptProbe
+	/**
+	 * The advisor card: open, its title, badge, metric tabs and parchment note; collapsed, its one line.
+	 * A part not in the card (another state's) reads {@code null}.
+	 */
+	static final class AdvisorCardProbe
 	{
 		private final SlayerLedgerPanel panel;
-		private final Container prompt;
+		private final Function<Icon, String> iconText;
 
-		LocationPromptProbe(SlayerLedgerPanel panel)
+		AdvisorCardProbe(SlayerLedgerPanel panel, Function<Icon, String> iconText)
 		{
 			this.panel = panel;
-			this.prompt = find(panel, "locationPrompt", Container.class);
+			this.iconText = iconText;
 		}
 
-		/** The region the prompt asks about, or {@link LocationTally#NO_REGION} while hidden (the panel's test seam). */
-		int getRegion()
+		private Container card()
 		{
-			return panel.getLocationPromptRegion();
+			return find(panel, "advisorCard", Container.class);
 		}
 
-		/** Reads the bundled task location list from {@code resource} instead (the panel's test seam). */
-		void setTaskLocationsResource(String resource)
+		/** The part named {@code name} in the card now, or {@code null}. */
+		private Component part(String name)
 		{
-			panel.setTaskLocationsResource(resource);
+			return findOrNull(card(), name);
 		}
 
-		/** The text field's text. */
-		String getText()
+		/** Whether the card takes space in the panel. */
+		boolean isShown()
 		{
-			return field().getText();
+			return SwingLookup.isVisible(panel, "advisor");
 		}
 
-		/** The names the prompt suggests, in its list's order. */
-		List<String> getSuggestions()
+		/** Whether the card is shown open (not collapsed to its one line). */
+		boolean isOpen()
 		{
-			return items(box(), s -> s);
+			return isShown() && part("advisor.collapsed") == null;
 		}
 
-		/** Picks suggestion {@code index} from the list, as the player would. */
-		void pickSuggestion(int index)
+		/** The collapsed line ({@code Plan: barrage, ~1 h (3 tasks)}), in full, or {@code null} while open or hidden. */
+		String getCollapsedLine()
 		{
-			box().setSelectedIndex(index);
+			return isShown() ? fullText(part("advisor.collapsed")) : null;
 		}
 
-		/** Types {@code name} and presses Enter, as the player would. */
-		void enter(String name)
+		/** The collapsed line's tooltip (HTML). */
+		String getCollapsedTooltip()
 		{
-			JTextComponent field = field();
-			field.setText(name);
-			if (field instanceof JTextField)
-			{
-				((JTextField) field).postActionEvent();
-			}
+			return ((JComponent) part("advisor.collapsed")).getToolTipText();
 		}
 
-		/** Fires the combo box's edit event, as Swing does when the field loses focus (e.g. clicking Skip). */
-		void loseFocus(String typed)
+		/** The title, its lines in full joined by a space, or {@code null} while it is not in the card. */
+		String getTitle()
 		{
-			JTextComponent field = field();
-			field.setText(typed);
-			box().actionPerformed(new ActionEvent(field, ActionEvent.ACTION_PERFORMED, ""));
+			return isShown() ? sentence(part("advisor.title")) : null;
 		}
 
-		/** Types {@code name} and clicks Save, as the player would. */
-		void save(String name)
+		/** The title's lines as wrapped (at most two), each in full. */
+		List<String> getTitleLines()
 		{
-			field().setText(name);
-			find(prompt, "locationPrompt.save", AbstractButton.class).doClick();
-		}
-
-		/** Clicks Skip. */
-		void skip()
-		{
-			find(prompt, "locationPrompt.skip", AbstractButton.class).doClick();
-		}
-
-		@SuppressWarnings("unchecked")
-		private JComboBox<String> box()
-		{
-			return find(prompt, "locationPrompt.box", JComboBox.class);
-		}
-
-		private JTextComponent field()
-		{
-			return (JTextComponent) box().getEditor().getEditorComponent();
-		}
-	}
-
-	/** The History estimate and What to bring below it. */
-	static final class HistoryEstimateProbe
-	{
-		private final SlayerLedgerPanel panel;
-
-		HistoryEstimateProbe(SlayerLedgerPanel panel)
-		{
-			this.panel = panel;
+			return lines(part("advisor.title"));
 		}
 
 		/**
-		 * The estimate's lines, "History (N tasks) | N kills ~time | Loot (GE): ... | Supplies: ...", or {@code null}
-		 * while it is hidden.
+		 * The title's lines as the player sees them after {@link #layOut}, whole or the last cut short with
+		 * {@link FitLabel#ELLIPSIS}.
 		 */
-		String getText()
+		List<String> getTitleLinesShown()
 		{
-			if (!SwingLookup.isVisible(panel, "estimate"))
-			{
-				return null;
-			}
-			return text(panel, "estimate.title") + text(panel, "estimate.count") + " | " + text(panel, "estimate.time")
-				+ " | " + text(panel, "estimate.loot") + " | " + text(panel, "estimate.supplies");
+			return shownLines(part("advisor.title"));
 		}
 
-		/** The estimate's tooltip. */
-		String getTooltip()
+		/** The title's tooltip (HTML). */
+		String getTitleTooltip()
 		{
-			return tooltip(panel, "estimate");
+			return ((JComponent) part("advisor.title")).getToolTipText();
 		}
 
-		/** How many times the estimate's text and tooltip were built (performance seam). */
-		int getBuildCount()
+		/** The skip / block badge ({@code Consider skip (n=6)}), or {@code null} while it is not in the card. */
+		String getBadge()
 		{
-			return panel.getHistoryEstimateBuildCount();
+			return isShown() ? fullText(part("advisor.badge")) : null;
 		}
 
-		/** Clicks the What to bring header, as the player does. */
-		void clickBringTitle()
+		/** The badge's tooltip (HTML), or {@code null} while there is no badge. */
+		String getBadgeTooltip()
 		{
-			click(find(panel, "bring.header"));
+			Component badge = isShown() ? part("advisor.badge") : null;
+			return badge == null ? null : ((JComponent) badge).getToolTipText();
 		}
 
-		/** Opens or closes What to bring: a click on its header. */
-		void toggleBring()
+		/** The colour of the badge's text. */
+		Color getBadgeColor()
 		{
-			clickBringTitle();
+			return part("advisor.badge").getForeground();
 		}
 
 		/**
-		 * What to bring's header, "What to bring (N tasks) | Show | ~N bank trips | N supplies" (an unknown part
-		 * empty), or {@code null} while it is hidden.
+		 * The metric tabs, {@code "[Fastest] | Profit/h | Cheapest"}: the chosen one (in the value colour, over the
+		 * accent line) in brackets; {@code null} while they are not in the card.
 		 */
-		String getBringText()
+		String getTabs()
 		{
-			if (!SwingLookup.isVisible(panel, "bring"))
+			if (!isShown() || part("advisor.tabs") == null)
 			{
 				return null;
 			}
-			return text(panel, "bring.title") + " | " + text(panel, "bring.toggle") + " | " + text(panel, "bring.trips")
-				+ " | " + text(panel, "bring.count");
+			List<String> tabs = new ArrayList<>();
+			for (AdvisorMetric metric : AdvisorMetric.values())
+			{
+				AbstractButton tab = tab(metric);
+				boolean chosen = LedgerTheme.VALUE.equals(tab.getForeground());
+				tabs.add(chosen ? "[" + tab.getText() + "]" : tab.getText());
+			}
+			return String.join(" | ", tabs);
 		}
 
-		/** The header tooltip of What to bring. */
-		String getBringTooltip()
+		/** Whether each tab can be reached with the keyboard and shows the hand cursor, as a link does. */
+		boolean areTabsFocusableLinks()
 		{
-			return tooltip(panel, "bring.header");
+			for (AdvisorMetric metric : AdvisorMetric.values())
+			{
+				AbstractButton tab = tab(metric);
+				if (!tab.isFocusable() || tab.getCursor().getType() != java.awt.Cursor.HAND_CURSOR)
+				{
+					return false;
+				}
+			}
+			return true;
 		}
 
-		/** What to bring's rows as "name | amount" (or just the message), in order; empty while closed. */
-		List<String> getBringLines()
+		/** Clicks the tab of {@code metric}, as the player does: only while the tabs are in the card. */
+		void clickTab(AdvisorMetric metric)
 		{
+			if (getTabs() == null)
+			{
+				throw new AssertionError("the tabs are not shown");
+			}
+			tab(metric).doClick();
+		}
+
+		private AbstractButton tab(AdvisorMetric metric)
+		{
+			return find(card(), "advisor.tab." + metric.name(), AbstractButton.class);
+		}
+
+		/** Clicks the title (it closes the card), as the player does. */
+		void clickTitle()
+		{
+			click(part("advisor.title"));
+		}
+
+		/** Clicks the collapsed line (it opens the card), as the player does. */
+		void clickCollapsed()
+		{
+			click(part("advisor.collapsed"));
+		}
+
+		/**
+		 * The lines of the option block {@code which} ({@code "recommendation"} or {@code "counterpart"}), in order,
+		 * each as {@code "left | right"} with texts in full ({@code "Barrage, Catacombs | 3 tasks"}, the name's lines
+		 * joined by a space; {@code "~1 h | 56 min to 1 h 4 min"}, {@code "Slayer XP/h | 21.1K"}, ...), then
+		 * {@code "Bring"}, each Bring icon as {@link ItemGridProbe#getCellTexts} reads it and {@code "+N more"};
+		 * {@code null} while the block is not in the card.
+		 */
+		List<String> getBlock(String which)
+		{
+			Component block = isShown() ? part("advisor." + which) : null;
+			if (block == null)
+			{
+				return null;
+			}
 			List<String> lines = new ArrayList<>();
-			Container rows = find(panel, "bring.rows", Container.class);
-			if (!SwingLookup.isVisible(panel, "bring") || !rows.isVisible())
+			for (Component c : ((Container) block).getComponents())
 			{
-				return lines;
-			}
-			for (Component c : rows.getComponents())
-			{
-				lines.add(lineText(c));
+				if (c instanceof ItemGridView)
+				{
+					ItemGridProbe grid = new ItemGridProbe((ItemGridView) c, iconText);
+					lines.add(grid.getHeaderText());
+					lines.addAll(grid.getCellTexts());
+				}
+				else if (("advisor." + which + ".head").equals(c.getName()))
+				{
+					lines.add(String.join(" ", getNameLines(which)) + " | "
+						+ fullText(find((Container) c, "advisor." + which + ".tasks")));
+				}
+				else if (c instanceof JPanel)
+				{
+					lines.add(labelsText((Container) c));
+				}
+				else if (c instanceof JLabel)
+				{
+					lines.add(fullText(c));
+				}
 			}
 			return lines;
 		}
 
-		/** The tooltip of What to bring's {@code index}th row. */
-		String getBringRowTooltip(int index)
+		/** The name of option block {@code which} as wrapped (at most two lines), each line in full. */
+		List<String> getNameLines(String which)
 		{
-			return ((JComponent) find(panel, "bring.rows", Container.class).getComponent(index)).getToolTipText();
+			List<String> texts = new ArrayList<>();
+			for (JLabel line : nameLabels(which))
+			{
+				texts.add(fullText(line));
+			}
+			return texts;
 		}
 
-		/** How many times What to bring was built (performance seam). */
-		int getBringBuildCount()
+		/**
+		 * The name of option block {@code which} as the player sees it after {@link #layOut}: its lines, whole or the
+		 * last cut short with {@link FitLabel#ELLIPSIS}.
+		 */
+		List<String> getNameLinesShown(String which)
 		{
-			return panel.getBringBuildCount();
+			List<String> texts = new ArrayList<>();
+			for (JLabel line : nameLabels(which))
+			{
+				texts.add(line.getText());
+			}
+			return texts;
+		}
+
+		/** The labels of option block {@code which}'s name, in order: the one beside the sample size first. */
+		private List<JLabel> nameLabels(String which)
+		{
+			List<JLabel> labels = new ArrayList<>();
+			collect(find(card(), "advisor." + which + ".head", Container.class), "advisor." + which + ".name", labels);
+			return labels;
+		}
+
+		/** Adds the labels named {@code name} in {@code root}'s tree to {@code found}, in tree order. */
+		private static void collect(Container root, String name, List<JLabel> found)
+		{
+			for (Component child : root.getComponents())
+			{
+				if (name.equals(child.getName()))
+				{
+					found.add((JLabel) child);
+				}
+				else if (child instanceof Container)
+				{
+					collect((Container) child, name, found);
+				}
+			}
+		}
+
+		/** The colour of the value on the right of block {@code which}'s row {@code row} ({@code "profit"}). */
+		Color getRowValueColor(String which, String row)
+		{
+			Container line = (Container) part("advisor." + which + "." + row);
+			return line.getComponent(line.getComponentCount() - 1).getForeground();
+		}
+
+		/** The Bring grid of block {@code which}, for its tooltips and slots. */
+		ItemGridProbe getBring(String which)
+		{
+			return new ItemGridProbe(find(card(), "advisor." + which + ".bring", ItemGridView.class), iconText);
+		}
+
+		/** The tooltip (HTML) of block {@code which}'s {@code +N more}, or {@code null} while it has none. */
+		String getBringMoreTooltip(String which)
+		{
+			Component more = isShown() ? part("advisor." + which + ".bringMore") : null;
+			return more == null ? null : ((JComponent) more).getToolTipText();
+		}
+
+		/** {@code With cannon} or {@code Without cannon} over the counterpart, or {@code null} without one. */
+		String getCounterpartLabel()
+		{
+			return isShown() ? fullText(part("advisor.counterpartLabel")) : null;
+		}
+
+		/** Whether the rule between the recommendation and the counterpart is in the card. */
+		boolean hasRule()
+		{
+			return isShown() && part("advisor.rule") != null;
+		}
+
+		/** {@code "All setups (6 tasks) | ~1 h 8 min"}, or {@code null} while it is not in the card. */
+		String getAllSetups()
+		{
+			Component line = isShown() ? part("advisor.allSetups") : null;
+			return line == null ? null : labelsText((Container) line);
+		}
+
+		/** The More setups toggle's text ({@code More setups (2)}), or {@code null} while it is not in the card. */
+		String getMoreToggle()
+		{
+			Component toggle = isShown() ? part("advisor.moreToggle") : null;
+			return toggle == null ? null : ((AbstractButton) toggle).getText();
+		}
+
+		/** Clicks the More setups toggle, as the player does. */
+		void clickMoreToggle()
+		{
+			((AbstractButton) part("advisor.moreToggle")).doClick();
+		}
+
+		/** The other setups' lines ({@code "Melee, Stronghold Cave | ~1 h 23 min (1 task)"}); empty while closed. */
+		List<String> getMoreRows()
+		{
+			List<String> rows = new ArrayList<>();
+			Component list = isShown() ? part("advisor.more") : null;
+			if (list != null && list.isVisible())
+			{
+				for (Component row : children((Container) list, "advisor.more.row"))
+				{
+					rows.add(labelsText((Container) row));
+				}
+			}
+			return rows;
+		}
+
+		/** The no-history sentence, its lines joined by a space, or {@code null} while it is not in the card. */
+		String getNoHistoryLine()
+		{
+			return isShown() ? sentence(part("advisor.noHistory")) : null;
+		}
+
+		/** The no-history sentence's lines as broken to fit the card, each in full. */
+		List<String> getNoHistoryLines()
+		{
+			return lines(part("advisor.noHistory"));
+		}
+
+		/**
+		 * The no-history sentence's lines as the player sees them after {@link #layOut}, whole or cut short with
+		 * {@link FitLabel#ELLIPSIS}.
+		 */
+		List<String> getNoHistoryLinesShown()
+		{
+			return shownLines(part("advisor.noHistory"));
+		}
+
+		/** A Konar task's note when its area has no task yet, its lines joined by a space, or {@code null}. */
+		String getAreaNote()
+		{
+			return isShown() ? sentence(part("advisor.areaNote")) : null;
+		}
+
+		/** A Konar task's note's lines as broken to fit the note. */
+		List<String> getAreaNoteLines()
+		{
+			return lines(part("advisor.areaNote"));
+		}
+
+		/** The note's line when no option has a known setup, or {@code null}. */
+		String getSetupUnknown()
+		{
+			return isShown() ? fullText(part("advisor.setupUnknown")) : null;
+		}
+
+		/** The preferred width of the card's row, to check that it never widens the sidebar. */
+		int getPreferredWidth()
+		{
+			return find(panel, "advisor").getPreferredSize().width;
+		}
+
+		/**
+		 * Lays the panel out at the sidebar's width (so the lines show what fits: {@link #getTitleLinesShown},
+		 * {@link #getNameLinesShown}), and returns the panel's width, the card's and the widest part inside the card.
+		 */
+		int[] layOut()
+		{
+			panel.setSize(PluginPanel.PANEL_WIDTH, 4000);
+			SwingLookup.layOut(panel);
+			Container card = card();
+			return new int[]{panel.getWidth(), card.getWidth(), widest(card)};
+		}
+
+		/** The widest component anywhere in {@code root}, laid out. */
+		private static int widest(Container root)
+		{
+			int widest = root.getWidth();
+			for (Component c : root.getComponents())
+			{
+				widest = Math.max(widest, c instanceof Container ? widest((Container) c) : c.getWidth());
+			}
+			return widest;
+		}
+
+		/** How many times the card's content was built (performance seam). */
+		int getBuildCount()
+		{
+			return panel.getAdvisorCardBuildCount();
+		}
+
+		/** The texts of {@code line}'s labels, left to right, in full, the empty ones left out, joined by " | ". */
+		private static String labelsText(Container line)
+		{
+			List<String> texts = new ArrayList<>();
+			for (Component c : line.getComponents())
+			{
+				String text = c instanceof JLabel ? fullText(c) : null;
+				if (text != null && !text.isEmpty())
+				{
+					texts.add(text);
+				}
+			}
+			return String.join(" | ", texts);
+		}
+
+		/** A label's text in full ({@link FitLabel#getFullText()}), or {@code null} for none. */
+		private static String fullText(Component label)
+		{
+			if (label == null)
+			{
+				return null;
+			}
+			return label instanceof FitLabel ? ((FitLabel) label).getFullText() : ((JLabel) label).getText();
+		}
+
+		/** A sentence broken into lines (one label each), joined by a space again, or {@code null} for none. */
+		private static String sentence(Component lines)
+		{
+			return lines == null ? null : String.join(" ", lines(lines));
+		}
+
+		/** The lines of a sentence broken into lines, each in full. */
+		private static List<String> lines(Component lines)
+		{
+			List<String> texts = new ArrayList<>();
+			for (Component line : ((Container) lines).getComponents())
+			{
+				texts.add(fullText(line));
+			}
+			return texts;
+		}
+
+		/** The lines of a sentence broken into lines as shown, whole or cut short ({@link JLabel#getText}). */
+		private static List<String> shownLines(Component lines)
+		{
+			List<String> texts = new ArrayList<>();
+			for (Component line : ((Container) lines).getComponents())
+			{
+				texts.add(((JLabel) line).getText());
+			}
+			return texts;
 		}
 	}
 
-	/** The task history: filter, the error line and the rows with their item details. */
+	/**
+	 * The task history (look A): its header, the filters with the setup filters behind More filters,
+	 * the error line, and the two-line rows with their item details.
+	 */
 	static final class HistoryListProbe
 	{
 		private final SlayerLedgerPanel panel;
@@ -985,6 +1719,37 @@ final class PanelProbe
 			return null;
 		}
 
+		/** The section header's title, with the count of filters set: {@code Task history \u00b7 2 filters}. */
+		String getHeaderTitle()
+		{
+			return text(panel, "history.title");
+		}
+
+		/** Whether Clear filters shows beside More filters (only while a filter is set). */
+		boolean isClearFiltersShown()
+		{
+			return SwingLookup.isVisible(panel, "history.clearFilters");
+		}
+
+		/** Clicks Clear filters beside More filters, as the player does. */
+		void clickClearFilters()
+		{
+			find(panel, "history.clearFilters", AbstractButton.class).doClick();
+		}
+
+		/** Whether the empty list offers Clear filters (only when the filters match no task). */
+		boolean isEmptyClearShown()
+		{
+			Component clear = findOrNull(list, "history.empty.clear");
+			return clear != null && clear.isVisible();
+		}
+
+		/** Clicks Clear filters under "No tasks match these filters.", as the player does. */
+		void clickEmptyClear()
+		{
+			find(list, "history.empty.clear", AbstractButton.class).doClick();
+		}
+
 		/** The tooltip of each history row shown, in order. */
 		List<String> getTooltips()
 		{
@@ -1016,34 +1781,281 @@ final class PanelProbe
 			return labelIcons(rows(), "history.name", iconText);
 		}
 
+		/** How the name of the {@code index}th row shown looks ({@link PanelProbe#look}): {@code "Plain value"}. */
+		String getNameLook(int index)
+		{
+			return look(find((Container) rows().get(index), "history.name"));
+		}
+
 		/** The width the shown rows want, to check that they fit the sidebar ({@code PluginPanel.PANEL_WIDTH}). */
 		int getListPreferredWidth()
 		{
 			return list.getPreferredSize().width;
 		}
 
-		/** The first line of each row shown, in order: {@code monster | status}. */
+		/**
+		 * Each row's name in full, in order, with {@code " | Partial"} for a partial task: the only status a row names
+		 *.
+		 */
 		List<String> getTitleTexts()
 		{
 			List<String> titles = new ArrayList<>();
 			for (Component c : rows())
 			{
-				titles.add(lineText(((JPanel) c).getComponent(0)));
+				Component status = findOrNull((Container) c, "history.status");
+				titles.add(fullText(c, "history.name") + (status == null ? "" : " | " + text(status)));
 			}
 			return titles;
 		}
 
-		/** The loot, supplies and profit text and the tooltip of each row shown, in order, one string per row. */
+		/**
+		 * Each row as the player reads it, in full (before any cut): {@code "name | duration / date \u00b7 location |
+		 * profit"}, with {@code "Partial | "} before the date of a partial task.
+		 */
+		List<String> getRowTexts()
+		{
+			List<String> texts = new ArrayList<>();
+			for (Component c : rows())
+			{
+				texts.add(rowText(c, true));
+			}
+			return texts;
+		}
+
+		/**
+		 * Each row's texts as shown after {@link #layOut}: {@link #getRowTexts}'s form, with each long part cut short
+		 * with {@code \u2026} as it fits the sidebar.
+		 */
+		List<String> getRowTextsShown()
+		{
+			List<String> texts = new ArrayList<>();
+			for (Component c : rows())
+			{
+				texts.add(rowText(c, false));
+			}
+			return texts;
+		}
+
+		private static String rowText(Component row, boolean full)
+		{
+			Container parts = (Container) row;
+			Component status = findOrNull(parts, "history.status");
+			return (full ? fullText(row, "history.name") : text(parts, "history.name")) + " | "
+				+ text(parts, "history.duration") + " / " + (status == null ? "" : text(status) + " | ")
+				+ (full ? fullText(row, "history.when") : text(parts, "history.when")) + " | "
+				+ text(parts, "history.profit");
+		}
+
+		private static String fullText(Component row, String name)
+		{
+			return find((Container) row, name, FitLabel.class).getFullText();
+		}
+
+		/** The profit's colour on each row shown, in order. */
+		List<Color> getProfitColors()
+		{
+			List<Color> colors = new ArrayList<>();
+			for (Component c : rows())
+			{
+				colors.add(find((Container) c, "history.profit").getForeground());
+			}
+			return colors;
+		}
+
+		/**
+		 * After {@link #layOut}: each shown row's setup tag icons, in order, each as {@code "<what the icon shows>
+		 * <size>: <tooltip>"}, the tooltip being what Swing shows with the mouse over the icon's centre, for example
+		 * {@code "sprite 1234 16x16: Barrage (estimated)"} ({@link PanelProbe#iconText}; a sprite not arrived yet is
+		 * {@code "- 16x16"}).
+		 */
+		List<List<String>> getTagIcons()
+		{
+			List<List<String>> rows = new ArrayList<>();
+			for (Component c : rows())
+			{
+				List<String> tags = new ArrayList<>();
+				for (Component tag : tags(c))
+				{
+					tags.add(PanelProbe.iconText(((JLabel) tag).getIcon(), iconText) + ": " + tooltipAt(tag));
+				}
+				rows.add(tags);
+			}
+			return rows;
+		}
+
+		/** The setup tag icons of {@code row}, in order. */
+		private static List<Component> tags(Component row)
+		{
+			return children(find((Container) row, "history.tags", Container.class), "history.tag");
+		}
+
+		/** The row {@code part} is in (or {@code part}, a row). */
+		private static JComponent rowOf(Component part)
+		{
+			Component row = part;
+			while (!"history.row".equals(row.getName()))
+			{
+				row = row.getParent();
+			}
+			return (JComponent) row;
+		}
+
+		/** The centre of {@code part} in the coordinates of its row. */
+		private static Point centreInRow(Component part)
+		{
+			return SwingUtilities.convertPoint(part, part.getWidth() / 2, part.getHeight() / 2, rowOf(part));
+		}
+
+		/**
+		 * The tooltip Swing shows with the mouse over {@code part}'s centre: the tooltip of the component that gets the
+		 * mouse there ({@link #mouseTarget}), asked with the mouse's point, as {@code ToolTipManager} asks it.
+		 */
+		private static String tooltipAt(Component part)
+		{
+			JComponent row = rowOf(part);
+			Point point = centreInRow(part);
+			JComponent target = (JComponent) mouseTarget(row, point);
+			Point local = SwingUtilities.convertPoint(row, point, target);
+			return target.getToolTipText(mouse(target, MouseEvent.MOUSE_MOVED, local.x, local.y, MouseEvent.NOBUTTON));
+		}
+
+		/**
+		 * The component that gets the mouse at {@code point} of {@code root}, as AWT's lightweight dispatcher picks it:
+		 * the deepest component shown there that listens to the mouse (a mouse or motion listener, which a tooltip adds
+		 * too, or a popup menu of its own), else {@code root}.
+		 */
+		private static Component mouseTarget(Component root, Point point)
+		{
+			Component at = SwingUtilities.getDeepestComponentAt(root, point.x, point.y);
+			while (at != null && at != root && !listensToMouse(at))
+			{
+				at = at.getParent();
+			}
+			return at == null ? root : at;
+		}
+
+		private static boolean listensToMouse(Component c)
+		{
+			return c.getMouseListeners().length > 0 || c.getMouseMotionListeners().length > 0
+				|| c instanceof JComponent && !((JComponent) c).getInheritsPopupMenu()
+				&& ((JComponent) c).getComponentPopupMenu() != null;
+		}
+
+		/**
+		 * After {@link #layOut}: the tooltip Swing shows with the mouse over the centre of the {@code index}th row's
+		 * part named {@code part}, for example {@code "history.name"}.
+		 */
+		String getTooltipOver(int index, String part)
+		{
+			return tooltipAt(find((Container) rows().get(index), part));
+		}
+
+		/**
+		 * After {@link #layOut}: whether the mouse over the centre of each tag icon of the {@code index}th row reaches the
+		 * row itself ({@link #mouseTarget}), so moving onto an icon is no exit from the row and its click, hover and menu
+		 * work there.
+		 */
+		boolean rowGetsTheMouseOverItsTags(int index)
+		{
+			Component row = rows().get(index);
+			for (Component tag : tags(row))
+			{
+				if (mouseTarget(row, centreInRow(tag)) != row)
+				{
+					return false;
+				}
+			}
+			return !tags(row).isEmpty();
+		}
+
+		/**
+		 * Lays the panel out at the sidebar's width ({@code PluginPanel.PANEL_WIDTH}), as the player sees it, and
+		 * returns the panel's width, the list's and the widest part of any row.
+		 */
+		int[] layOut()
+		{
+			// Headless, no peer validates the panel: forget the box layouts' cached sizes, as validate() would.
+			invalidateTree(panel);
+			panel.setSize(PluginPanel.PANEL_WIDTH, 4000);
+			SwingLookup.layOut(panel);
+			int widest = 0;
+			for (Component row : rows())
+			{
+				for (Component part : ((Container) row).getComponents())
+				{
+					widest = Math.max(widest, part.getX() + part.getWidth());
+				}
+				widest = Math.max(widest, row.getWidth());
+			}
+			return new int[]{panel.getWidth(), list.getWidth(), widest};
+		}
+
+		private static void invalidateTree(Container root)
+		{
+			root.invalidate();
+			for (Component child : root.getComponents())
+			{
+				if (child instanceof Container)
+				{
+					invalidateTree((Container) child);
+				}
+			}
+		}
+
+		/**
+		 * After {@link #layOut}: whether the header's title fits its header, and More filters and Clear filters fit their
+		 * line side by side.
+		 */
+		boolean headerAndFilterLinksFit()
+		{
+			Component title = find(panel, "history.title");
+			Component header = find(panel, "history.header");
+			Component more = find(panel, "history.moreFilters");
+			Component clear = find(panel, "history.clearFilters");
+			Component links = find(panel, "history.filterLinks");
+			return title.getPreferredSize().width <= header.getWidth() && title.getWidth() >= title.getPreferredSize().width
+				&& more.getX() + more.getWidth() <= clear.getX() && clear.getX() + clear.getWidth() <= links.getWidth()
+				&& links.getWidth() <= PluginPanel.PANEL_WIDTH;
+		}
+
+		/**
+		 * After {@link #layOut}: whether every part of each row lies inside the row and no two parts of a line overlap
+		 * (the tags after the date and location, the profit right of both).
+		 */
+		boolean partsFitTheirRows()
+		{
+			for (Component row : rows())
+			{
+				Container parts = (Container) row;
+				int right = row.getWidth() - parts.getInsets().right;
+				for (Component part : parts.getComponents())
+				{
+					if (part.getX() < 0 || part.getX() + part.getWidth() > right)
+					{
+						return false;
+					}
+				}
+				Component when = find(parts, "history.when");
+				Component tags = find(parts, "history.tags");
+				Component profit = find(parts, "history.profit");
+				Component name = find(parts, "history.name");
+				Component duration = find(parts, "history.duration");
+				if (when.getX() + when.getWidth() > tags.getX() || tags.getX() + tags.getWidth() > profit.getX()
+					|| name.getX() + name.getWidth() > duration.getX())
+				{
+					return false;
+				}
+			}
+			return true;
+		}
+
+		/** The loot, supplies and profit text and the tooltip of each row shown, in order: {@code "profit | tooltip"}. */
 		List<String> getValuesText()
 		{
 			List<String> values = new ArrayList<>();
 			for (Component c : rows())
 			{
-				JPanel row = (JPanel) c;
-				JPanel profitLine = (JPanel) row.getComponent(2);
-				values.add(lineText(row.getComponent(3)) + " | "
-					+ ((JLabel) profitLine.getComponent(profitLine.getComponentCount() - 1)).getText() + " | "
-					+ row.getToolTipText());
+				values.add(text((Container) c, "history.profit") + " | " + ((JComponent) c).getToolTipText());
 			}
 			return values;
 		}
@@ -1058,6 +2070,71 @@ final class PanelProbe
 		void clickRow(int index)
 		{
 			click(rows().get(index));
+		}
+
+		/**
+		 * After {@link #layOut}: a left click on the centre of the {@code index}th row's first tag icon, sent to the
+		 * component that gets the mouse there ({@link #mouseTarget}), as Swing sends it.
+		 */
+		void clickRowTag(int index)
+		{
+			Component tag = tags(rows().get(index)).get(0);
+			JComponent row = rowOf(tag);
+			Point point = centreInRow(tag);
+			Component target = mouseTarget(row, point);
+			Point local = SwingUtilities.convertPoint(row, point, target);
+			target.dispatchEvent(new MouseEvent(target, MouseEvent.MOUSE_CLICKED, System.currentTimeMillis(), 0,
+				local.x, local.y, 1, false, MouseEvent.BUTTON1));
+		}
+
+		/**
+		 * After {@link #layOut}: the right-click menu items over the {@code index}th row's first tag icon, as
+		 * {@link #getMenuItems} gives them: the menu of the component that gets the mouse there ({@link #mouseTarget}),
+		 * which Swing's look and feel shows on a popup trigger.
+		 */
+		List<String> getMenuItemsOverTag(int index)
+		{
+			Component tag = tags(rows().get(index)).get(0);
+			JComponent target = (JComponent) mouseTarget(rowOf(tag), centreInRow(tag));
+			List<String> items = new ArrayList<>();
+			for (Component c : target.getComponentPopupMenu().getComponents())
+			{
+				if (c instanceof JMenuItem)
+				{
+					items.add((c.isEnabled() ? "" : "-") + ((JMenuItem) c).getText());
+				}
+			}
+			return items;
+		}
+
+		/** Whether the {@code index}th row shows the hover background ({@link LedgerTheme#HOVER}). */
+		boolean isRowHovered(int index)
+		{
+			return LedgerTheme.HOVER.equals(rows().get(index).getBackground());
+		}
+
+		/** The mouse enters the {@code index}th row, as Swing reports it. */
+		void mouseEnterRow(int index)
+		{
+			Component row = rows().get(index);
+			row.dispatchEvent(mouse(row, MouseEvent.MOUSE_ENTERED, 1, 1, MouseEvent.NOBUTTON));
+		}
+
+		/**
+		 * The {@code index}th row hears the mouse leave, as Swing reports it: at a point outside it, or ({@code inside})
+		 * at its centre, as when the right-click menu or a dialog takes the mouse while it is still over the row.
+		 */
+		void mouseExitRow(int index, boolean inside)
+		{
+			Component row = rows().get(index);
+			int x = inside ? row.getWidth() / 2 : -5;
+			int y = inside ? row.getHeight() / 2 : -5;
+			row.dispatchEvent(mouse(row, MouseEvent.MOUSE_EXITED, x, y, MouseEvent.NOBUTTON));
+		}
+
+		private static MouseEvent mouse(Component source, int id, int x, int y, int button)
+		{
+			return new MouseEvent(source, id, System.currentTimeMillis(), 0, x, y, 0, false, button);
 		}
 
 		/**
@@ -1101,14 +2178,8 @@ final class PanelProbe
 		 */
 		List<String> getDetailsTooltips(int index, String title)
 		{
-			for (Component c : details(index).getComponents())
-			{
-				if (c instanceof ItemGridView && ((ItemGridView) c).getHeaderText().startsWith(title + " ("))
-				{
-					return new ItemGridProbe((ItemGridView) c, iconText).getCellTooltips();
-				}
-			}
-			return new ArrayList<>();
+			ItemGridProbe grid = getDetailsGrid(index, title);
+			return grid == null ? new ArrayList<>() : grid.getCellTooltips();
 		}
 
 		/** The first item grid below the {@code index}th row whose title starts with {@code title}, or {@code null}. */
@@ -1124,12 +2195,29 @@ final class PanelProbe
 			return null;
 		}
 
+		/**
+		 * How the header of the first list (item grid or XP list) below the {@code index}th row whose title starts with
+		 * {@code title} looks ({@link PanelProbe#headerLook}): {@code "Small value | Small label | no rule"};
+		 * {@code null} when there is no such list.
+		 */
+		String getDetailsHeaderLook(int index, String title)
+		{
+			for (Component c : details(index).getComponents())
+			{
+				if (c instanceof TitledListView && ((TitledListView<?>) c).getHeaderText().startsWith(title))
+				{
+					return headerLook((Container) c);
+				}
+			}
+			return null;
+		}
+
 		/** Clicks "+N more" (or "Show less") on the {@code title} text list (the XP) below the {@code index}th row. */
 		void clickShowAll(int index, String title)
 		{
 			for (Component c : details(index).getComponents())
 			{
-				if (c instanceof ItemListView && ((ItemListView) c).getHeaderText().startsWith(title + " ("))
+				if (c instanceof ItemListView && ((ItemListView) c).getHeaderText().startsWith(title))
 				{
 					new ItemListProbe((ItemListView) c, iconText).clickShowAll();
 				}
@@ -1152,17 +2240,6 @@ final class PanelProbe
 			return new ArrayList<>();
 		}
 
-		/** The XP line of each row shown, in order, as {@code "XP: 12,345 | 40,100/h"}. */
-		List<String> getXpText()
-		{
-			List<String> xp = new ArrayList<>();
-			for (Component row : rows())
-			{
-				xp.add(lineText(((Container) row).getComponent(4)));
-			}
-			return xp;
-		}
-
 		/** The error shown above the list, or {@code null} when none is shown. */
 		String getErrorText()
 		{
@@ -1183,21 +2260,48 @@ final class PanelProbe
 			find(panel, "history.filter", JComboBox.class).setSelectedItem(option);
 		}
 
-		/** The Location filter's choices, in order, as the player sees them ({@link HistoryFilter#label}). */
+		/**
+		 * The Location filter's choices, in order, as the player sees them (its renderer's text, a
+		 * choice is a spot key shown by its label).
+		 */
 		@SuppressWarnings("unchecked")
 		List<String> getLocationFilterOptions()
 		{
-			return items((JComboBox<String>) find(panel, "history.locationFilter", JComboBox.class),
-				HistoryFilter::label);
+			JComboBox<String> box = (JComboBox<String>) find(panel, "history.locationFilter", JComboBox.class);
+			return items(box, item -> rendered(box, item));
+		}
+
+		/** The Location filter's choices themselves (spot keys and the like), in order. */
+		@SuppressWarnings("unchecked")
+		List<String> getLocationFilterKeys()
+		{
+			return items((JComboBox<String>) find(panel, "history.locationFilter", JComboBox.class), s -> s);
 		}
 
 		/**
-		 * Selects the choice {@code option} in the Location filter, as the player does: {@link HistoryFilter#NO_LOCATION}
-		 * for the "No location" entry.
+		 * Selects the first choice of the Location filter shown as {@code option}, as the player does;
+		 * {@link HistoryFilter#NO_LOCATION} selects the "No location" entry of the tasks without a location, and
+		 * {@link LedgerHistory#ALL} every task.
 		 */
+		@SuppressWarnings("unchecked")
 		void selectLocationFilter(String option)
 		{
-			find(panel, "history.locationFilter", JComboBox.class).setSelectedItem(option);
+			JComboBox<String> box = (JComboBox<String>) find(panel, "history.locationFilter", JComboBox.class);
+			if (HistoryFilter.NO_LOCATION.equals(option) || LedgerHistory.ALL.equals(option))
+			{
+				box.setSelectedItem(option);
+				return;
+			}
+			for (int i = 0; i < box.getItemCount(); i++)
+			{
+				String item = box.getItemAt(i);
+				if (!HistoryFilter.NO_LOCATION.equals(item) && option.equals(rendered(box, item)))
+				{
+					box.setSelectedIndex(i);
+					return;
+				}
+			}
+			throw new AssertionError("No Location choice shown as " + option + ": " + getLocationFilterOptions());
 		}
 
 		/** The Master filter's choices, in order. */
@@ -1214,14 +2318,66 @@ final class PanelProbe
 		}
 
 		/**
+		 * The choices of the setup filter named {@code name} ({@code "history.taskTypeFilter"},
+		 * {@code "history.cannonFilter"}, {@code "history.styleFilter"} or {@code "history.gearFilter"}), in order.
+		 */
+		@SuppressWarnings("unchecked")
+		List<String> getSetupFilterOptions(String name)
+		{
+			return items((JComboBox<String>) find(panel, name, JComboBox.class), s -> s);
+		}
+
+		/** Selects {@code option} ("Any", "Yes", "Barrage" and so on) in the setup filter named {@code name}. */
+		void selectSetupFilter(String name, String option)
+		{
+			find(panel, name, JComboBox.class).setSelectedItem(option);
+		}
+
+		/** Whether the filter named {@code name} is shown (the setup filters only while More filters is open). */
+		boolean isFilterShown(String name)
+		{
+			return SwingLookup.isVisible(panel, name);
+		}
+
+		/** The More filters toggle's text: {@code More filters}, {@code More filters (1 set)} or {@code Hide more filters}. */
+		String getMoreFiltersText()
+		{
+			return text(panel, "history.moreFilters");
+		}
+
+		/** Clicks the More filters toggle, as the player does. */
+		void clickMoreFilters()
+		{
+			find(panel, "history.moreFilters", AbstractButton.class).doClick();
+		}
+
+		/**
 		 * The value each filter shows, as {@code "Monster | Location | Master"}, {@code "All"} for a filter showing
 		 * every task.
 		 */
+		@SuppressWarnings("unchecked")
 		String getFilterSelections()
 		{
+			JComboBox<String> location = (JComboBox<String>) find(panel, "history.locationFilter", JComboBox.class);
 			return find(panel, "history.filter", JComboBox.class).getSelectedItem() + " | "
-				+ HistoryFilter.label((String) find(panel, "history.locationFilter", JComboBox.class).getSelectedItem())
+				+ rendered(location, (String) location.getSelectedItem())
 				+ " | " + find(panel, "history.masterFilter", JComboBox.class).getSelectedItem();
+		}
+
+		/** The value each setup filter shows, as {@code "Task type | Cannon | Style | Gear"}, {@code "Any"} for none. */
+		String getSetupFilterSelections()
+		{
+			return find(panel, "history.taskTypeFilter", JComboBox.class).getSelectedItem() + " | "
+				+ find(panel, "history.cannonFilter", JComboBox.class).getSelectedItem() + " | "
+				+ find(panel, "history.styleFilter", JComboBox.class).getSelectedItem() + " | "
+				+ find(panel, "history.gearFilter", JComboBox.class).getSelectedItem();
+		}
+
+		/** The text {@code box}'s renderer shows for {@code item}, as the player sees it. */
+		private static String rendered(JComboBox<String> box, String item)
+		{
+			Component c = box.getRenderer().getListCellRendererComponent(new JList<>(), item, -1, false, false);
+			return c instanceof JLabel ? ((JLabel) c).getText() : String.valueOf(item);
 		}
 
 		/** The tooltip of the filter named {@code name} ({@code "history.locationFilter"} and so on). */
@@ -1261,13 +2417,13 @@ final class PanelProbe
 			return find(panel, name, JComboBox.class).getPreferredSize().width;
 		}
 
-		/** The preferred width of the three filter rows together. */
+		/** The preferred width of the filter rows together. */
 		int getFiltersPreferredWidth()
 		{
 			return find(panel, "history.filters").getPreferredSize().width;
 		}
 
-		/** The text shown instead of the rows ("No saved tasks yet." and so on), or {@code null} while rows are shown. */
+		/** The text shown instead of the rows ("No saved tasks yet. ..." and so on), or {@code null} while rows are shown. */
 		String getEmptyText()
 		{
 			Component empty = findOrNull(list, "history.empty");
@@ -1354,158 +2510,6 @@ final class PanelProbe
 		}
 	}
 
-	/** The Trends section: List or Chart, Metric and Monster. */
-	static final class TrendsProbe extends CollapsibleProbe
-	{
-		private final Function<Icon, String> iconText;
-
-		TrendsProbe(SlayerLedgerPanel panel, Function<Icon, String> iconText)
-		{
-			super(panel, "trends");
-			this.iconText = iconText;
-		}
-
-		/** What the icon before each List row's name shows, in rank order ({@link PanelProbe#iconText}). */
-		List<String> getRowIcons()
-		{
-			return labelIcons(panels(list()), "trends.name", iconText);
-		}
-
-		/** Each Monster choice as its renderer shows it: {@code label | icon}. */
-		List<String> getMonsterIcons()
-		{
-			return choiceIcons(monster(), iconText);
-		}
-
-		/** The width the List rows and the Monster choice want, the larger, to check that they fit the sidebar. */
-		int getPreferredWidth()
-		{
-			return Math.max(list().getPreferredSize().width, part("monsterRow").getPreferredSize().width);
-		}
-
-		/** Clicks the List or Chart button, as the player does. */
-		void clickView(TrendsSection.View target)
-		{
-			((AbstractButton) part(target == TrendsSection.View.LIST ? "listButton" : "chartButton")).doClick();
-		}
-
-		/** The shown view, as its selected button shows it. */
-		TrendsSection.View getView()
-		{
-			return ((AbstractButton) part("chartButton")).isSelected() ? TrendsSection.View.CHART
-				: TrendsSection.View.LIST;
-		}
-
-		/** Whether the Monster choice is shown. */
-		boolean isMonsterChoiceShown()
-		{
-			return part("monsterRow").isVisible();
-		}
-
-		/** Selects a metric, as the combo box does. */
-		void setMetric(TaskRanking.Metric value)
-		{
-			metric().setSelectedItem(value);
-		}
-
-		/** The selected metric as the combo box shows it, through its renderer. */
-		String getMetricText()
-		{
-			JComboBox<TaskRanking.Metric> metric = metric();
-			Component shown = metric.getRenderer().getListCellRendererComponent(new JList<>(),
-				(TaskRanking.Metric) metric.getSelectedItem(), -1, false, false);
-			return ((JLabel) shown).getText();
-		}
-
-		/** Every Metric choice in order, as the combo box's list shows them, through its renderer. */
-		List<String> getMetricChoices()
-		{
-			JComboBox<TaskRanking.Metric> metric = metric();
-			List<String> choices = new ArrayList<>();
-			for (int i = 0; i < metric.getItemCount(); i++)
-			{
-				Component shown = metric.getRenderer().getListCellRendererComponent(new JList<>(),
-					metric.getItemAt(i), i, false, false);
-				choices.add(((JLabel) shown).getText());
-			}
-			return choices;
-		}
-
-		/** Selects a chart monster by its displayed label. */
-		void setMonster(String label)
-		{
-			JComboBox<TaskChart.Monster> monster = monster();
-			for (int i = 0; i < monster.getItemCount(); i++)
-			{
-				if (Objects.equals(monster.getItemAt(i).getLabel(), label))
-				{
-					monster.setSelectedIndex(i);
-					return;
-				}
-			}
-		}
-
-		/** The chart's monster choices. */
-		List<String> getMonsters()
-		{
-			return items(monster(), TaskChart.Monster::getLabel);
-		}
-
-		/** The list rows, in rank order: {@code name | rate (n=...)}, or the empty message. */
-		List<String> getRows()
-		{
-			List<String> rows = new ArrayList<>();
-			for (Component component : list().getComponents())
-			{
-				if (component instanceof JLabel)
-				{
-					rows.add(((JLabel) component).getText());
-				}
-				else if (component instanceof JPanel)
-				{
-					rows.add(lineText(component));
-				}
-			}
-			return rows;
-		}
-
-		/** The tooltip of each list row, in rank order. */
-		List<String> getTooltips()
-		{
-			return rowTooltips(list());
-		}
-
-		/** Number of plotted task points. */
-		int getPointCount()
-		{
-			return getChart().getPointCount();
-		}
-
-		/** The chart, to read its point tooltips. */
-		TaskTrendChartView getChart()
-		{
-			return (TaskTrendChartView) part("chart");
-		}
-
-		/** How many times the shown view was built (performance seam). */
-		int getBuildCount()
-		{
-			return panel.getTrendsBuildCount();
-		}
-
-		@SuppressWarnings("unchecked")
-		private JComboBox<TaskRanking.Metric> metric()
-		{
-			return (JComboBox<TaskRanking.Metric>) part("metric");
-		}
-
-		@SuppressWarnings("unchecked")
-		private JComboBox<TaskChart.Monster> monster()
-		{
-			return (JComboBox<TaskChart.Monster>) part("monster");
-		}
-	}
-
 	/** The Overall totals section. */
 	static final class OverallTotalsProbe extends CollapsibleProbe
 	{
@@ -1570,6 +2574,12 @@ final class PanelProbe
 			return new ItemListProbe(find(entry(index), "totals.assignments", ItemListView.class), iconText);
 		}
 
+		/** How the name in the title line of the visible entry {@code index} looks ({@link PanelProbe#look}). */
+		String getNameLook(int index)
+		{
+			return look(find(entry(index), "totals.name"));
+		}
+
 		/** The tooltip of the task count in the title line of the visible entry {@code index}. */
 		String getTaskCountTooltip(int index)
 		{
@@ -1578,7 +2588,7 @@ final class PanelProbe
 		}
 
 		/**
-		 * What the icon before each visible entry's name shows (By monster's task; By master's face), in
+		 * What the icon before each visible entry's name shows (By monster's task, By master's face), in
 		 * order, as {@link PanelProbe#iconText} reads it: {@code "<item id>"}, {@code "master:<file>"}, {@code "-"} for
 		 * an empty slot or {@code "none"} for a name without one; then the icon's size as {@code "18x16"}.
 		 */
@@ -1597,6 +2607,104 @@ final class PanelProbe
 		int getListPreferredWidth()
 		{
 			return list().getPreferredSize().width;
+		}
+
+		/**
+		 * Each visible entry's rows below its title line, as {@code "<label>"}: the left-hand label of each, in order,
+		 * so a test can see that a grouping's blocks have the same rows.
+		 */
+		List<List<String>> getRowLabels()
+		{
+			List<List<String>> labels = new ArrayList<>();
+			for (Component entry : panels(list()))
+			{
+				List<String> rows = new ArrayList<>();
+				Component[] lines = ((Container) entry).getComponents();
+				for (int i = 1; i < lines.length; i++)
+				{
+					if (!"totals.items".equals(lines[i].getName()))
+					{
+						rows.add(text(((Container) lines[i]).getComponent(0)));
+					}
+				}
+				labels.add(rows);
+			}
+			return labels;
+		}
+
+		/**
+		 * The text colours of the visible entry {@code index}'s lines, in the order {@link #getRows} reads them: per
+		 * line, the colours of its labels left to right.
+		 */
+		List<List<Color>> getLineColors(int index)
+		{
+			List<List<Color>> colors = new ArrayList<>();
+			for (Component line : entry(index).getComponents())
+			{
+				if ("totals.items".equals(line.getName()))
+				{
+					continue;
+				}
+				List<Color> parts = new ArrayList<>();
+				for (Component part : ((Container) line).getComponents())
+				{
+					parts.add(part.getForeground());
+				}
+				colors.add(parts);
+			}
+			return colors;
+		}
+
+		/**
+		 * Lays the panel out at the sidebar's width ({@code PluginPanel.PANEL_WIDTH}), as the player sees it, and
+		 * returns the totals list's width.
+		 */
+		int layOut()
+		{
+			panel.setSize(PluginPanel.PANEL_WIDTH, 4000);
+			SwingLookup.layOut(panel);
+			return list().getWidth();
+		}
+
+		/** After {@link #layOut}: each visible entry's name as shown, whole or cut short with {@link FitLabel#ELLIPSIS}. */
+		List<String> getNamesShown()
+		{
+			List<String> names = new ArrayList<>();
+			for (Component entry : panels(list()))
+			{
+				names.add(((JLabel) find((Container) entry, "totals.name")).getText());
+			}
+			return names;
+		}
+
+		/**
+		 * After {@link #layOut}: the lines of the visible entries (title and rows, as {@link #getRows} reads them)
+		 * whose parts don't fit side by side in the list: a part past the line's right edge, or the value on the right
+		 * over the label on the left. Empty when every line fits.
+		 */
+		List<String> getLinesThatDontFit()
+		{
+			List<String> crowded = new ArrayList<>();
+			int width = list().getWidth();
+			for (Component entry : panels(list()))
+			{
+				for (Component line : ((Container) entry).getComponents())
+				{
+					if ("totals.items".equals(line.getName()))
+					{
+						continue;
+					}
+					Component[] parts = ((Container) line).getComponents();
+					Component first = parts[0];
+					Component last = parts[parts.length - 1];
+					boolean overlaps = parts.length > 1 && first.getX() + first.getWidth() > last.getX();
+					if (overlaps || entry.getX() + line.getX() + last.getX() + last.getWidth() > width)
+					{
+						crowded.add(lineText(line));
+					}
+				}
+			}
+			return crowded;
 		}
 
 		/** The Group choices, in order, as the combo box shows them. */
@@ -1631,62 +2739,6 @@ final class PanelProbe
 		int getBuildCount()
 		{
 			return panel.getOverallTotalsBuildCount();
-		}
-	}
-
-	/** The Luck meter section. */
-	static final class LuckMeterProbe extends CollapsibleProbe
-	{
-		private final Function<Icon, String> iconText;
-
-		LuckMeterProbe(SlayerLedgerPanel panel, Function<Icon, String> iconText)
-		{
-			super(panel, "luck");
-			this.iconText = iconText;
-		}
-
-		/** Each Task choice as its renderer shows it: {@code task | icon}. */
-		List<String> getTaskIcons()
-		{
-			@SuppressWarnings("unchecked")
-			JComboBox<String> box = (JComboBox<String>) part("task");
-			return choiceIcons(box, iconText);
-		}
-
-		/** The width the Task choice wants, to check that it fits the sidebar ({@code PluginPanel.PANEL_WIDTH}). */
-		int getTaskPreferredWidth()
-		{
-			return part("task").getParent().getPreferredSize().width;
-		}
-
-		/** Selects a task for the comparison, as the combo box does. */
-		void setTask(String value)
-		{
-			((JComboBox<?>) part("task")).setSelectedItem(value);
-		}
-
-		/** The summary line. */
-		String getSummary()
-		{
-			return text(part("summary"));
-		}
-
-		/** The visible rows, each as its lines ({@code left | right}) joined by a newline, or the message. */
-		List<String> getRows()
-		{
-			return multiLineRows(list());
-		}
-
-		/** The tooltip of each visible row. */
-		List<String> getTooltips()
-		{
-			return rowTooltips(list());
-		}
-
-		/** How many times the rows were built (performance seam). */
-		int getBuildCount()
-		{
-			return panel.getLuckMeterBuildCount();
 		}
 	}
 
@@ -1726,7 +2778,10 @@ final class PanelProbe
 			return text(part("title")) + " | " + text(part("toggle"));
 		}
 
-		/** Each row shown, in order, as {@code "<name> | <outcome · date> | <tooltip>"}; empty while closed. */
+		/**
+		 * Each row shown, in order, as {@code "<monster> | <outcome> | <date · master> | <tooltip>"}: its lines'
+		 * labels, the first line's then the second's (when the row has one), then its tooltip; empty while closed.
+		 */
 		List<String> getRows()
 		{
 			List<String> rows = new ArrayList<>();
@@ -1734,10 +2789,126 @@ final class PanelProbe
 			{
 				if (c instanceof JPanel)
 				{
-					rows.add(lineText(c) + " | " + ((JPanel) c).getToolTipText());
+					List<String> lines = new ArrayList<>();
+					for (Component line : ((Container) c).getComponents())
+					{
+						lines.add(lineText(line));
+					}
+					rows.add(String.join(" | ", lines) + " | " + ((JPanel) c).getToolTipText());
 				}
 			}
 			return rows;
+		}
+
+		/** The one line shown instead of the rows while there are none, or {@code null} while rows (or none) show. */
+		String getEmptyText()
+		{
+			Component empty = findOrNull(list(), "assignments.empty");
+			return empty == null ? null : text(empty);
+		}
+
+		/** Whether the hint above the rows ("Not counted as played tasks.", how to delete) is shown (set visible). */
+		boolean isHintShown()
+		{
+			return part("hint").isVisible();
+		}
+
+		/**
+		 * Lays the panel out at the sidebar's width ({@code PluginPanel.PANEL_WIDTH}), as the player sees it, and
+		 * returns the list's width.
+		 */
+		int layOut()
+		{
+			panel.setSize(PluginPanel.PANEL_WIDTH, 4000);
+			SwingLookup.layOut(panel);
+			return list().getWidth();
+		}
+
+		/**
+		 * After {@link #layOut}: each row's monster as shown, whole or cut short with {@link FitLabel#ELLIPSIS}, then
+		 * {@code " | "} and its outcome, with {@code " (fits)"} when the outcome sits right of the monster inside the
+		 * row.
+		 */
+		List<String> getFirstLinesShown()
+		{
+			List<String> lines = new ArrayList<>();
+			for (Component row : panels(list()))
+			{
+				Container first = (Container) ((Container) row).getComponent(0);
+				Component name = first.getComponent(0);
+				Component outcome = first.getComponent(1);
+				boolean fits = name.getX() + name.getWidth() <= outcome.getX()
+					&& outcome.getX() + outcome.getWidth() <= first.getWidth();
+				lines.add(text(name) + " | " + text(outcome) + (fits ? " (fits)" : ""));
+			}
+			return lines;
+		}
+
+		/** The text colours of the shown row {@code index}'s labels, in the order {@link #getRows} reads them. */
+		List<Color> getRowColors(int index)
+		{
+			List<Color> colors = new ArrayList<>();
+			for (Component line : ((Container) panels(list()).get(index)).getComponents())
+			{
+				for (Component label : ((Container) line).getComponents())
+				{
+					colors.add(label.getForeground());
+				}
+			}
+			return colors;
+		}
+
+		/**
+		 * The right-click menu items of the shown row {@code index}, as {@code "Delete entry"}, or
+		 * {@code "-Delete entry"} when disabled.
+		 */
+		List<String> getMenuItems(int index)
+		{
+			List<String> items = new ArrayList<>();
+			for (Component c : ((JComponent) panels(list()).get(index)).getComponentPopupMenu().getComponents())
+			{
+				if (c instanceof JMenuItem)
+				{
+					items.add((c.isEnabled() ? "" : "-") + ((JMenuItem) c).getText());
+				}
+			}
+			return items;
+		}
+
+		/**
+		 * The menu a right-click on each label of the shown row {@code index} opens (Swing shows a component's
+		 * {@link JComponent#getComponentPopupMenu}), in the order {@link #getRows} reads them, as
+		 * {@code "<label text>: row menu"} when it is the row's own menu, else {@code ": other menu"} or
+		 * {@code ": no menu"}.
+		 */
+		List<String> getLabelMenus(int index)
+		{
+			JComponent row = (JComponent) panels(list()).get(index);
+			List<String> menus = new ArrayList<>();
+			for (Component line : row.getComponents())
+			{
+				for (Component label : ((Container) line).getComponents())
+				{
+					JPopupMenu menu = ((JComponent) label).getComponentPopupMenu();
+					menus.add(text(label) + ": " + (menu == null ? "no menu"
+						: menu == row.getComponentPopupMenu() ? "row menu" : "other menu"));
+				}
+			}
+			return menus;
+		}
+
+		/** The background of the shown row {@code index}: the page, or the hover colour under the mouse. */
+		Color getRowBackground(int index)
+		{
+			return panels(list()).get(index).getBackground();
+		}
+
+		/** Moves the mouse onto ({@code true}) or off the shown row {@code index}, as the player does. */
+		void hoverRow(int index, boolean on)
+		{
+			Component row = panels(list()).get(index);
+			row.dispatchEvent(new MouseEvent(row, on ? MouseEvent.MOUSE_ENTERED : MouseEvent.MOUSE_EXITED,
+				System.currentTimeMillis(), 0, 1, 1, 0, false));
 		}
 
 		/** How many times the rows were built (performance seam). */

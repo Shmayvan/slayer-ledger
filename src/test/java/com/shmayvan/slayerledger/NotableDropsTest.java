@@ -234,20 +234,25 @@ public class NotableDropsTest
 	{
 		long[] now = {1_000_000L};
 		SessionTracker tracker = new SessionTracker(() -> now[0]);
-		tracker.observe("Kraken", 42, 10, 10, TaskContext.NONE, false);
+		tracker.observe(null, SessionTracker.NO_CREATURE, 0, false);
 		NotableDrop whip = item(WHIP, 1_500_000, 1);
 		NotableDrop pet = NotableDrop.pet(NotableDrop.Pet.RECEIVED, 2);
-		assertFalse("idle", tracker.isRecordingLoot());
+		assertFalse("no task", tracker.isRecordingLoot());
 		assertFalse(tracker.addLoot(tally(WHIP, 1), Collections.singletonList(whip)));
 		assertFalse(tracker.addPet(pet));
-		assertTrue(tracker.play(555L));
+		tracker.observe("Kraken", 42, 10, 10, TaskContext.NONE, false);
+		assertTrue("a task waiting for its first kill: buffered (V2 plan 4.1)", tracker.isRecordingLoot());
+		assertFalse("buffered, not in a session", tracker.addLoot(tally(WHIP, 1), Collections.singletonList(whip)));
+		assertFalse(tracker.addPet(pet));
+		assertTrue(tracker.startNow(555L));
+		assertTrue(tracker.getNotableDrops().isEmpty());
 		assertTrue(tracker.isRecordingLoot());
 		assertTrue(tracker.addLoot(tally(WHIP, 1), Collections.singletonList(whip)));
 		assertTrue(tracker.addPet(pet));
 		assertFalse(tracker.addPet(null));
 		assertFalse("no loot, no drops", tracker.addLoot(new ItemTally(), Collections.singletonList(whip)));
 		tracker.pause();
-		assertFalse(tracker.isRecordingLoot());
+		assertTrue("buffered while paused", tracker.isRecordingLoot());
 		assertFalse(tracker.addLoot(tally(WHIP, 1), Collections.singletonList(whip)));
 		assertFalse(tracker.addPet(pet));
 		assertEquals(Arrays.asList(whip, pet), tracker.getNotableDrops());
@@ -271,7 +276,7 @@ public class NotableDropsTest
 		tracker.stop();
 		SessionTracker empty = new SessionTracker(() -> now[0]);
 		empty.observe("Kraken", 42, 10, 10, TaskContext.NONE, false);
-		assertTrue(empty.play(555L));
+		assertTrue(empty.startNow(555L));
 		assertNull(LedgerRecord.fromSummary(empty.summary(), true).getNotableDrops());
 		assertNull(SessionSnapshot.fromSummary(empty.summary(), null, now[0]).getNotableDrops());
 	}
@@ -282,7 +287,7 @@ public class NotableDropsTest
 		long[] now = {1_000_000L};
 		SessionTracker tracker = new SessionTracker(() -> now[0]);
 		tracker.observe("Kraken", 42, 1, 10, TaskContext.NONE, false);
-		assertTrue(tracker.play(555L));
+		assertTrue(tracker.startNow(555L));
 		tracker.observe("Kraken", 42, 0, 10, TaskContext.NONE, true);
 		assertTrue(tracker.holdCompletion());
 		assertTrue(tracker.isRecordingLoot());

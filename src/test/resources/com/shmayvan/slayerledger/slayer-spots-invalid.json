@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "source": "Old School RuneScape Wiki",
+  "license": "CC BY-NC-SA 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-nc-sa/3.0/",
+  "contributors": "Old School RuneScape Wiki contributors",
+  "retrieved": "2026-11-09",
+  "attribution": "Test",
+  "matching": "Test",
+  "spots": [
+    { "id": "smoke-dungeon", "name": "Smoke Dungeon", "short": "Smoke Dungeon", "regions": [12946], "plane": null, "bounds": null, "tasks": ["Dust devils"], "sources": ["https://oldschool.runescape.wiki/w/Smoke_Dungeon?oldid=1"], "confidence": "high" },
+    { "id": "smoke-dungeon", "name": "Smoke Dungeon", "short": "Smoke Dungeon", "regions": [12690], "plane": null, "bounds": null, "tasks": ["Dust devils"], "sources": ["https://oldschool.runescape.wiki/w/Smoke_Dungeon?oldid=1"], "confidence": "high" }
+  ]
+}
