@@ -124,7 +124,7 @@ A task saved before it was finished says `Partial`.
 - **Details:** hover over a task for its details. Click it to see its supplies, loot and XP item by item.
 - **Edit:** right-click a task to edit its note, location or setup tags, or to delete it.
 
-<!-- screenshot: Task history with a few filters set (More filters open) and one task opened to show its supplies and loot -->
+![Task history with three tasks opened to show their supplies, loot and XP](screenshots/task-history.png)
 
 ### Overall totals
 
@@ -136,7 +136,9 @@ Totals for all your completed tasks: task count, active time, profit and XP, wit
 
 Every group shows the same lines in the same order, with the number of tasks it covers (`3 tasks`).
 
-<!-- screenshot: Overall totals By master, with one master's Monsters assigned list and a Loot received grid open -->
+![Overall totals By master, with the monsters the master assigned](screenshots/overall-totals-by-master.png)
+
+![Overall totals By monster](screenshots/overall-totals-by-monster.png)
 
 ### Skipped / blocked
 
