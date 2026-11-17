@@ -1,8 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Locale;
-import java.util.OptionalLong;
-import net.runelite.client.util.QuantityFormatter;
+import java.util.*;
+import net.runelite.client.util.*;
 
 /**
  * The number rules of docs/DESIGN_PRINCIPLES.md 5.5, for the redesigned sidebar and overlay: gp and XP,

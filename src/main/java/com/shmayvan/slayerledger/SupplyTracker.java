@@ -1,19 +1,10 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import net.runelite.api.gameval.ItemID;
+import com.google.gson.*;
+import java.util.*;
+import java.util.regex.*;
+import lombok.*;
+import net.runelite.api.gameval.*;
 
 /**
  * Pure per-tick supplies diff. The plugin reads the player's item containers once per game tick into an
@@ -72,94 +63,21 @@ final class SupplyTracker
 
 	/**
 	 * Food eaten in parts, by the id of each stage: {full item id, bites left in this stage, bites in a full item}. The
-	 * ids are the RuneLite 1.13.4 {@code net.runelite.api.gameval.ItemID} constants (unnoted; noted items are never
-	 * supplies). What is left after the last bite of a pie (the pie dish) has no "Eat" action, so it is not a supply.
+	 * families are the bundled {@code supply-items.json}'s {@code multiBiteFood} ({@link BundledData}; none when it
+	 * can't be read), by gameval {@code ItemID} (unnoted; noted items are never supplies). What is left after the last
+	 * bite of a pie (the pie dish) has no "Eat" action, so it is not a supply.
 	 */
-	static final Map<Integer, int[]> MULTI_BITE_FOOD = multiBiteFood();
-
-	private static Map<Integer, int[]> multiBiteFood()
-	{
-		final Map<Integer, int[]> food = new HashMap<>();
-		// Pizzas: full, then 1/2.
-		addStages(food, ItemID.PLAIN_PIZZA, ItemID.HALF_PLAIN_PIZZA);
-		addStages(food, ItemID.MEAT_PIZZA, ItemID.HALF_MEAT_PIZZA);
-		addStages(food, ItemID.ANCHOVIE_PIZZA, ItemID.HALF_ANCHOVIE_PIZZA);
-		addStages(food, ItemID.PINEAPPLE_PIZZA, ItemID.HALF_PINEAPPLE_PIZZA);
-		// Pies: full, then half (then the pie dish, which is not food).
-		addStages(food, ItemID.REDBERRY_PIE, ItemID.HALF_A_REDBERRY_PIE);
-		addStages(food, ItemID.MEAT_PIE, ItemID.HALF_A_MEAT_PIE);
-		addStages(food, ItemID.APPLE_PIE, ItemID.HALF_AN_APPLE_PIE);
-		addStages(food, ItemID.GARDEN_PIE, ItemID.HALF_GARDEN_PIE);
-		addStages(food, ItemID.FISH_PIE, ItemID.HALF_FISH_PIE);
-		addStages(food, ItemID.BOTANICAL_PIE, ItemID.HALF_BOTANICAL_PIE);
-		addStages(food, ItemID.MUSHROOM_PIE, ItemID.HALF_MUSHROOM_PIE);
-		addStages(food, ItemID.ADMIRAL_PIE, ItemID.HALF_ADMIRAL_PIE);
-		addStages(food, ItemID.DRAGONFRUIT_PIE, ItemID.HALF_DRAGONFRUIT_PIE);
-		addStages(food, ItemID.WILD_PIE, ItemID.HALF_WILD_PIE);
-		addStages(food, ItemID.SUMMER_PIE, ItemID.HALF_SUMMER_PIE);
-		// Cakes: full, then 2/3, then a slice.
-		addStages(food, ItemID.CAKE, ItemID.PARTIAL_CAKE, ItemID.CAKE_SLICE);
-		addStages(food, ItemID.CHOCOLATE_CAKE, ItemID.PARTIAL_CHOCOLATE_CAKE, ItemID.CHOCOLATE_SLICE);
-		return Collections.unmodifiableMap(food);
-	}
+	static final Map<Integer, int[]> MULTI_BITE_FOOD = stages("multiBiteFood");
 
 	/**
 	 * Items used per charge, by the id of each charged variant: {highest-charge item id, charges left, charges in the
 	 * highest-charge item}. One family per item type; the trimmed glory and the imbued ring of wealth are families of
 	 * their own. Uncharged variants ("Amulet of glory", "Skills necklace", "Fungicide spray 0" and so on) are not
 	 * listed, so they are not supplies, and neither are items that never run out (amulet of eternal glory, slayer ring
-	 * (eternal)). The ids are the RuneLite 1.13.4 {@code net.runelite.api.gameval.ItemID} constants, with the charges
-	 * core {@code ItemWithCharge} gives them (its TELEPORT and FUNGICIDE_SPRAY types).
+	 * (eternal)). The families are the bundled {@code supply-items.json}'s {@code chargedItems}, by gameval
+	 * {@code ItemID}, with the charges core {@code ItemWithCharge} gives them (its TELEPORT and FUNGICIDE_SPRAY types).
 	 */
-	static final Map<Integer, int[]> CHARGED_ITEMS = chargedItems();
-
-	private static Map<Integer, int[]> chargedItems()
-	{
-		final Map<Integer, int[]> items = new HashMap<>();
-		addStages(items, ItemID.RING_OF_DUELING_8, ItemID.RING_OF_DUELING_7, ItemID.RING_OF_DUELING_6,
-			ItemID.RING_OF_DUELING_5, ItemID.RING_OF_DUELING_4, ItemID.RING_OF_DUELING_3, ItemID.RING_OF_DUELING_2,
-			ItemID.RING_OF_DUELING_1);
-		// Games necklace.
-		addStages(items, ItemID.NECKLACE_OF_MINIGAMES_8, ItemID.NECKLACE_OF_MINIGAMES_7,
-			ItemID.NECKLACE_OF_MINIGAMES_6, ItemID.NECKLACE_OF_MINIGAMES_5, ItemID.NECKLACE_OF_MINIGAMES_4,
-			ItemID.NECKLACE_OF_MINIGAMES_3, ItemID.NECKLACE_OF_MINIGAMES_2, ItemID.NECKLACE_OF_MINIGAMES_1);
-		addStages(items, ItemID.AMULET_OF_GLORY_6, ItemID.AMULET_OF_GLORY_5, ItemID.AMULET_OF_GLORY_4,
-			ItemID.AMULET_OF_GLORY_3, ItemID.AMULET_OF_GLORY_2, ItemID.AMULET_OF_GLORY_1);
-		// Amulet of glory (t).
-		addStages(items, ItemID.TRAIL_AMULET_OF_GLORY_6, ItemID.TRAIL_AMULET_OF_GLORY_5,
-			ItemID.TRAIL_AMULET_OF_GLORY_4, ItemID.TRAIL_AMULET_OF_GLORY_3, ItemID.TRAIL_AMULET_OF_GLORY_2,
-			ItemID.TRAIL_AMULET_OF_GLORY_1);
-		// Skills necklace.
-		addStages(items, ItemID.JEWL_NECKLACE_OF_SKILLS_6, ItemID.JEWL_NECKLACE_OF_SKILLS_5,
-			ItemID.JEWL_NECKLACE_OF_SKILLS_4, ItemID.JEWL_NECKLACE_OF_SKILLS_3, ItemID.JEWL_NECKLACE_OF_SKILLS_2,
-			ItemID.JEWL_NECKLACE_OF_SKILLS_1);
-		// Combat bracelet.
-		addStages(items, ItemID.JEWL_BRACELET_OF_COMBAT_6, ItemID.JEWL_BRACELET_OF_COMBAT_5,
-			ItemID.JEWL_BRACELET_OF_COMBAT_4, ItemID.JEWL_BRACELET_OF_COMBAT_3, ItemID.JEWL_BRACELET_OF_COMBAT_2,
-			ItemID.JEWL_BRACELET_OF_COMBAT_1);
-		addStages(items, ItemID.RING_OF_WEALTH_5, ItemID.RING_OF_WEALTH_4, ItemID.RING_OF_WEALTH_3,
-			ItemID.RING_OF_WEALTH_2, ItemID.RING_OF_WEALTH_1);
-		// Ring of wealth (i).
-		addStages(items, ItemID.RING_OF_WEALTH_I5, ItemID.RING_OF_WEALTH_I4, ItemID.RING_OF_WEALTH_I3,
-			ItemID.RING_OF_WEALTH_I2, ItemID.RING_OF_WEALTH_I1);
-		addStages(items, ItemID.NECKLACE_OF_PASSAGE_5, ItemID.NECKLACE_OF_PASSAGE_4, ItemID.NECKLACE_OF_PASSAGE_3,
-			ItemID.NECKLACE_OF_PASSAGE_2, ItemID.NECKLACE_OF_PASSAGE_1);
-		// Digsite pendant.
-		addStages(items, ItemID.NECKLACE_OF_DIGSITE_5, ItemID.NECKLACE_OF_DIGSITE_4, ItemID.NECKLACE_OF_DIGSITE_3,
-			ItemID.NECKLACE_OF_DIGSITE_2, ItemID.NECKLACE_OF_DIGSITE_1);
-		addStages(items, ItemID.BURNING_AMULET_5, ItemID.BURNING_AMULET_4, ItemID.BURNING_AMULET_3,
-			ItemID.BURNING_AMULET_2, ItemID.BURNING_AMULET_1);
-		addStages(items, ItemID.SLAYER_RING_8, ItemID.SLAYER_RING_7, ItemID.SLAYER_RING_6, ItemID.SLAYER_RING_5,
-			ItemID.SLAYER_RING_4, ItemID.SLAYER_RING_3, ItemID.SLAYER_RING_2, ItemID.SLAYER_RING_1);
-		addStages(items, ItemID.RING_OF_RETURNING_5, ItemID.RING_OF_RETURNING_4, ItemID.RING_OF_RETURNING_3,
-			ItemID.RING_OF_RETURNING_2, ItemID.RING_OF_RETURNING_1);
-		// Fungicide spray 10 down to 1 ("Fungicide spray 0" is empty).
-		addStages(items, ItemID.SLAYER_SPRAY_PUMP_10, ItemID.SLAYER_SPRAY_PUMP_9, ItemID.SLAYER_SPRAY_PUMP_8,
-			ItemID.SLAYER_SPRAY_PUMP_7, ItemID.SLAYER_SPRAY_PUMP_6, ItemID.SLAYER_SPRAY_PUMP_5,
-			ItemID.SLAYER_SPRAY_PUMP_4, ItemID.SLAYER_SPRAY_PUMP_3, ItemID.SLAYER_SPRAY_PUMP_2,
-			ItemID.SLAYER_SPRAY_PUMP_1);
-		return Collections.unmodifiableMap(items);
-	}
+	static final Map<Integer, int[]> CHARGED_ITEMS = stages("chargedItems");
 
 	/**
 	 * Slayer items used up one per use: the bag of salt ({@code SLAYER_BAG_OF_SALT}) and the ice cooler
@@ -171,27 +89,32 @@ final class SupplyTracker
 
 	/**
 	 * Teleport scrolls, used up one per teleport: the scrolls core ItemIdentification lists as
-	 * {@code Type.SCROLL}, by their RuneLite 1.13.4 {@code net.runelite.api.gameval.ItemID} constants. They are stackable
+	 * {@code Type.SCROLL}, the bundled {@code supply-items.json}'s {@code teleportScrolls}. They are stackable
 	 * and read with a "Teleport" inventory action (OSRS Wiki item infoboxes, for example Zul-andra teleport and Revenant
 	 * cave teleport), which other items that are not used up share, so they are classified by id. The scrolls stored in
 	 * a master scroll book are not read; storing them is not a use ({@link SupplyExclusions#useClicked}).
 	 */
-	static final Set<Integer> TELEPORT_SCROLLS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
-		ItemID.TELEPORTSCROLL_NARDAH, ItemID.TELEPORTSCROLL_DIGSITE, ItemID.TELEPORTSCROLL_FELDIP,
-		ItemID.TELEPORTSCROLL_LUNARISLE, ItemID.TELEPORTSCROLL_MORTTON, ItemID.TELEPORTSCROLL_PESTCONTROL,
-		ItemID.TELEPORTSCROLL_PISCATORIS, ItemID.TELEPORTSCROLL_TAIBWO, ItemID.TELEPORTSCROLL_ELF,
-		ItemID.TELEPORTSCROLL_MOSLES, ItemID.TELEPORTSCROLL_LUMBERYARD, ItemID.TELEPORTSCROLL_ZULANDRA,
-		ItemID.TELEPORTSCROLL_CERBERUS, ItemID.TELEPORTSCROLL_REVENANTS, ItemID.TELEPORTSCROLL_WATSON,
-		ItemID.TELEPORTSCROLL_ARDEAGLAIS, ItemID.TELEPORTSCROLL_CHASMOFFIRE, ItemID.TELEPORTSCROLL_COLOSSAL_WYRM,
-		ItemID.TELEPORTSCROLL_GUTHIXIAN_TEMPLE, ItemID.TELEPORTSCROLL_SPIDERCAVE)));
+	static final Set<Integer> TELEPORT_SCROLLS = BundledData.idSet("supply-items.json", "teleportScrolls");
 
-	/** Adds an item's stages, from the full item down to the last bite (or charge). */
-	private static void addStages(Map<Integer, int[]> food, int... stages)
+	/**
+	 * The {@code list} families of {@code supply-items.json}, each item's stages from the full item down to the last
+	 * bite (or charge), by the id of each stage. Unmodifiable; empty when the file can't be read.
+	 */
+	private static Map<Integer, int[]> stages(String list)
 	{
-		for (int i = 0; i < stages.length; i++)
+		return BundledData.load("supply-items.json", root ->
 		{
-			food.put(stages[i], new int[]{stages[0], stages.length - i, stages.length});
-		}
+			final Map<Integer, int[]> items = new HashMap<>();
+			for (JsonElement family : root.getAsJsonArray(list))
+			{
+				final int[] stages = BundledData.ids(family.getAsJsonObject().getAsJsonArray("stages"));
+				for (int i = 0; i < stages.length; i++)
+				{
+					items.put(stages[i], new int[]{stages[0], stages.length - i, stages.length});
+				}
+			}
+			return Collections.unmodifiableMap(items);
+		}, Collections.emptyMap());
 	}
 
 	/** How an item is tracked. */
@@ -215,12 +138,18 @@ final class SupplyTracker
 	}
 
 	/** What the tracker needs to know about one item id. */
+	@Getter
 	static final class ItemInfo
 	{
 		static final ItemInfo OTHER = new ItemInfo(Category.OTHER, null, 0);
 
 		private final Category category;
+		/**
+		 * Family tracked in doses (or bites), or {@code null}: a potion's name without the dose suffix, or one key per
+		 * full item for food eaten in parts.
+		 */
 		private final String family;
+		/** Doses in one potion item, or bites left in one stage of a multi-bite food; 0 otherwise. */
 		private final int doses;
 		/**
 		 * Item a multi-bite food's bites (or a charged item's charges) are recorded under, or -1 (potions use their
@@ -270,38 +199,6 @@ final class SupplyTracker
 		static ItemInfo charged(int fullItemId, int chargesLeft, int chargesPerItem)
 		{
 			return new ItemInfo(Category.CHARGES, "charges:" + fullItemId, chargesLeft, fullItemId, chargesPerItem);
-		}
-
-		Category getCategory()
-		{
-			return category;
-		}
-
-		/**
-		 * Family tracked in doses (or bites), or {@code null}: a potion's name without the dose suffix, or one key per
-		 * full item for food eaten in parts.
-		 */
-		String getFamily()
-		{
-			return family;
-		}
-
-		/** Doses in one potion item, or bites left in one stage of a multi-bite food; 0 otherwise. */
-		int getDoses()
-		{
-			return doses;
-		}
-
-		/** Full item a multi-bite food's bites are recorded under, or -1. */
-		int getFullItemId()
-		{
-			return fullItemId;
-		}
-
-		/** Bites in one {@link #getFullItemId() full item}, or 0. */
-		int getDosesPerItem()
-		{
-			return dosesPerItem;
 		}
 	}
 
@@ -417,6 +314,7 @@ final class SupplyTracker
 	static final class Observation
 	{
 		private final Map<Integer, Long> items = new TreeMap<>();
+		@Getter
 		private int cannonBalls;
 
 		/** Adds an item stack. Negative ids (empty slots) and non-positive quantities are ignored. */
@@ -440,14 +338,10 @@ final class SupplyTracker
 		{
 			return Collections.unmodifiableMap(items);
 		}
-
-		int getCannonBalls()
-		{
-			return cannonBalls;
-		}
 	}
 
 	/** Supplies used on one tick. */
+	@AllArgsConstructor(access = AccessLevel.PACKAGE)
 	static final class Usage
 	{
 		static final Usage NONE = new Usage(new ItemTally(), new ItemTally(), Collections.emptyMap());
@@ -455,13 +349,6 @@ final class SupplyTracker
 		private final ItemTally used;
 		private final ItemTally returned;
 		private final Map<Integer, Integer> doses;
-
-		Usage(ItemTally used, ItemTally returned, Map<Integer, Integer> doses)
-		{
-			this.used = used;
-			this.returned = returned;
-			this.doses = doses;
-		}
 
 		/**
 		 * Items used, by item id. Potions are in doses, keyed by the highest-dose variant seen of their family,
@@ -492,16 +379,11 @@ final class SupplyTracker
 	}
 
 	/** Identifies one tracked quantity: an item id, or a potion or multi-bite food family (in doses or bites). */
+	@AllArgsConstructor(access = AccessLevel.PRIVATE)
 	private static final class Key
 	{
 		private final int itemId;
 		private final String family;
-
-		private Key(int itemId, String family)
-		{
-			this.itemId = itemId;
-			this.family = family;
-		}
 
 		@Override
 		public boolean equals(Object o)
@@ -547,6 +429,7 @@ final class SupplyTracker
 	/** The cannon's ammo at the update before the baseline's, so a pickup split over two ticks can resolve a guess. */
 	private int priorCannonBalls;
 	/** Cannonball type the cannon's loaded ammo is attributed to; inferred from what the player loads or picks up. */
+	@Getter
 	private int cannonBallId = CANNONBALL;
 	/**
 	 * Whether {@link #cannonBallId} comes from a load or pickup this tracker saw. Until then it is only a guess (regular
@@ -575,12 +458,6 @@ final class SupplyTracker
 	boolean hasBaseline()
 	{
 		return baseline != null;
-	}
-
-	/** Item id the cannon's loaded ammo is currently attributed to. */
-	int getCannonBallId()
-	{
-		return cannonBallId;
 	}
 
 	/**
@@ -758,51 +635,19 @@ final class SupplyTracker
 	}
 
 	/** One supply the last {@link #update} saw carried ({@link #carried}). Immutable. */
+	@Getter
+	@AllArgsConstructor(access = AccessLevel.PACKAGE)
 	static final class Carried
 	{
+		/** Its key ({@link #supplyKey}): one per item, or one per potion, multi-bite food or charged item family. */
 		private final String key;
+		/** The item its use is recorded under: the item, or a family's largest size seen (its full item). */
 		private final int itemId;
 		private final Category category;
-		private final String family;
-		private final long amount;
-
-		Carried(String key, int itemId, Category category, String family, long amount)
-		{
-			this.key = key;
-			this.itemId = itemId;
-			this.category = category;
-			this.family = family;
-			this.amount = amount;
-		}
-
-		/** Its key ({@link #supplyKey}): one per item, or one per potion, multi-bite food or charged item family. */
-		String getKey()
-		{
-			return key;
-		}
-
-		/** The item its use is recorded under: the item, or a family's largest size seen (its full item). */
-		int getItemId()
-		{
-			return itemId;
-		}
-
-		Category getCategory()
-		{
-			return category;
-		}
-
 		/** A potion's family (its name without the dose), or {@code null}; internal keys for food and charges. */
-		String getFamily()
-		{
-			return family;
-		}
-
+		private final String family;
 		/** How much is carried: doses, bites or charges for a family, else items. */
-		long getAmount()
-		{
-			return amount;
-		}
+		private final long amount;
 	}
 
 	/** The key of an item tracked on its own ({@link #supplyKey}). */

@@ -1,20 +1,12 @@
 package com.shmayvan.slayerledger;
 
-import com.google.gson.Gson;
-import com.google.gson.annotations.SerializedName;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import lombok.extern.slf4j.Slf4j;
+import com.google.gson.*;
+import com.google.gson.annotations.*;
+import java.io.*;
+import java.nio.charset.*;
+import java.util.*;
+import lombok.*;
+import lombok.extern.slf4j.*;
 
 /**
  * The bundled Slayer spot table (V2 plan 4.5): each named Slayer spot's stable id, its full and short names, the
@@ -460,49 +452,34 @@ final class SlayerSpots
 	/** One Slayer spot of the table. Read by Gson; never changed once loaded. */
 	static final class Spot
 	{
+		/** The stable id, for example {@code catacombs-of-kourend}. */
+		@Getter
 		private String id;
+		/** The full name, for example "Catacombs of Kourend". */
+		@Getter
 		private String name;
+		/** The short name, at most {@link #MAX_SHORT_NAME_LENGTH} characters, for example "Catacombs". */
 		@SerializedName("short")
+		@Getter
 		private String shortName;
 		private List<Integer> regions;
 		/** The plane that decides a shared region, or {@code null}. */
+		@Getter
 		private Integer plane;
 		/** Inclusive {@code [x1, y1, x2, y2]} boxes that decide shared regions, or {@code null}. */
 		private List<int[]> bounds;
 		private List<String> tasks;
 		private List<String> sources;
+		/** {@code high}, {@code medium} or {@code low}. */
+		@Getter
 		private String confidence;
 		/** {@link #tasks}, {@link TaskStatistics#normalize}d; set once when the table is built. */
 		private transient Set<String> taskKeys;
-
-		/** The stable id, for example {@code catacombs-of-kourend}. */
-		String getId()
-		{
-			return id;
-		}
-
-		/** The full name, for example "Catacombs of Kourend". */
-		String getName()
-		{
-			return name;
-		}
-
-		/** The short name, at most {@link #MAX_SHORT_NAME_LENGTH} characters, for example "Catacombs". */
-		String getShortName()
-		{
-			return shortName;
-		}
 
 		/** The regions, in table order. Unmodifiable. */
 		List<Integer> getRegions()
 		{
 			return Collections.unmodifiableList(regions);
-		}
-
-		/** The plane that decides a shared region, or {@code null}. */
-		Integer getPlane()
-		{
-			return plane;
 		}
 
 		/** Copies of the bounds boxes, or an empty list when the spot has none. */
@@ -529,12 +506,6 @@ final class SlayerSpots
 		List<String> getSources()
 		{
 			return Collections.unmodifiableList(sources);
-		}
-
-		/** {@code high}, {@code medium} or {@code low}. */
-		String getConfidence()
-		{
-			return confidence;
 		}
 
 		/** Whether the task list includes {@code task} (matched by {@link TaskStatistics#normalize}). */

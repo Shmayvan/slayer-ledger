@@ -1,6 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import lombok.Data;
+import lombok.*;
 
 /**
  * A Slayer assignment that ended without a saved session: skipped, blocked, reset, completed while no session was

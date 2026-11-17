@@ -1,14 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Image;
-import java.awt.RenderingHints;
-import javax.swing.Icon;
-import javax.swing.ImageIcon;
-import javax.swing.JLabel;
+import java.awt.*;
+import javax.swing.*;
 
 /**
  * An item sprite drawn at the size of the sidebar's small icon slot ({@link ItemListView#ICON_WIDTH} by

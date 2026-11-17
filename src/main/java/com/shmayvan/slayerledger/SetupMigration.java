@@ -1,7 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Map;
-import net.runelite.api.gameval.ItemID;
+import java.util.*;
+import net.runelite.api.gameval.*;
 
 /**
  * Migrates a 1.x ledger record to the 2.0 record (V2 plan 4.3) when it is read: a record whose

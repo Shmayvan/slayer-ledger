@@ -1,8 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
+import lombok.*;
 
 /**
  * Kills a session counted at one place: a map region and the Slayer spot of the tiles they were counted on.
@@ -12,6 +10,7 @@ import lombok.ToString;
 @Getter
 @EqualsAndHashCode
 @ToString
+@AllArgsConstructor(access = AccessLevel.PACKAGE)
 final class LocationKills
 {
 	/** Map region id of the local player's tile when the kills were counted (instances as their template region). */
@@ -33,12 +32,5 @@ final class LocationKills
 	LocationKills(int region, int kills)
 	{
 		this(region, null, kills);
-	}
-
-	LocationKills(int region, String spot, int kills)
-	{
-		this.region = region;
-		this.spot = spot;
-		this.kills = kills;
 	}
 }

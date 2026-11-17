@@ -1,10 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import lombok.Data;
+import java.util.*;
+import lombok.*;
 
 /**
  * A persisted in-progress session (the account's "active session" file). Written on logout, client exit, plugin
@@ -218,15 +215,6 @@ public class SessionSnapshot
 		s.setKillsBeforeContexts(summary.getKillsBeforeContexts() > 0 ? summary.getKillsBeforeContexts() : null);
 		summary.getSetupOverrides().copyTo(s);
 		return s;
-	}
-
-	/**
-	 * {@link #toSummary(SlayerSpots)} without the spot table ({@link SlayerSpots#NONE}): only kills tallied with their
-	 * spot count for one. For tests of the other fields; the plugin passes its table.
-	 */
-	SessionTracker.Summary toSummary()
-	{
-		return toSummary(SlayerSpots.NONE);
 	}
 
 	/**

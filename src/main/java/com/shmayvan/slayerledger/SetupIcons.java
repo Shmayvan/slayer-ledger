@@ -1,7 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.Image;
-import java.util.function.Consumer;
+import java.awt.*;
+import java.util.function.*;
 
 /**
  * Where the sidebar's setup tag images come from: the game images {@link SetupTagIcons} names, asked for once

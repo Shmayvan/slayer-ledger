@@ -1,17 +1,8 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Value;
-import net.runelite.api.gameval.AnimationID;
-import net.runelite.api.gameval.ItemID;
-import net.runelite.api.gameval.SpotanimID;
+import java.util.*;
+import lombok.*;
+import net.runelite.api.gameval.*;
 
 /**
  * Counts what the toxic blowpipe, the tridents and the powered staves (Sanguinesti staff, Tumeken's shadow) use up,
@@ -132,6 +123,11 @@ final class ChargedWeaponUsage
 	private int carryDartId = NO_ITEM;
 	/** Scale thirds used but not yet reported as a whole scale. */
 	private int scaleThirds;
+	/**
+	 * Whether a blowpipe shot was counted without a known dart type (scales only) and no dart type has been known since.
+	 * The panel can show "Check your blowpipe".
+	 */
+	@Getter
 	private boolean dartCheckNeeded;
 
 	/**
@@ -349,15 +345,6 @@ final class ChargedWeaponUsage
 		{
 			used.merge(itemId, quantity, Integer::sum);
 		}
-	}
-
-	/**
-	 * Whether a blowpipe shot was counted without a known dart type (scales only) and no dart type has been known since.
-	 * The panel can show "Check your blowpipe".
-	 */
-	boolean isDartCheckNeeded()
-	{
-		return dartCheckNeeded;
 	}
 
 	/**

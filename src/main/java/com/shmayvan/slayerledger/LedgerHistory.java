@@ -1,17 +1,9 @@
 package com.shmayvan.slayerledger;
 
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.time.format.FormatStyle;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Locale;
-import java.util.OptionalLong;
-import java.util.TreeSet;
-import net.runelite.client.util.QuantityFormatter;
+import java.time.*;
+import java.time.format.*;
+import java.util.*;
+import net.runelite.client.util.*;
 
 /**
  * Pure sorting, filtering and formatting for the task-history view and the live session values. No Swing, client
@@ -159,15 +151,6 @@ final class LedgerHistory
 			return "~" + minutes + "m";
 		}
 		return String.format("~%dh %02dm", minutes / 60, minutes % 60);
-	}
-
-	/**
-	 * Estimated time left on the task from the session's pace alone: {@link #formatTimeLeft(long, int, int, Long)}
-	 * with no history.
-	 */
-	static String formatTimeLeft(long activeMillis, int kills, int remaining)
-	{
-		return formatTimeLeft(activeMillis, kills, remaining, null);
 	}
 
 	/**
@@ -341,15 +324,6 @@ final class LedgerHistory
 			return record.getSuppliesGeValue();
 		}
 		return isValued(record) ? 0L : null;
-	}
-
-	/**
-	 * Stored loot GE minus supplies GE, or {@code null} when the record was not valued; see {@link #lootGe} (use
-	 * {@link HistoryPricing} for the shown profit).
-	 */
-	static Long profitGe(LedgerRecord record)
-	{
-		return profit(lootGe(record), suppliesGe(record));
 	}
 
 	/** Distinct loot items whose GE price was unavailable when the record was saved. */

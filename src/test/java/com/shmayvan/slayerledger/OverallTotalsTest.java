@@ -33,7 +33,7 @@ public class OverallTotalsTest
 		LedgerRecord noKills = record(8, 0, 5_000L);
 		noKills.setKills(0);
 
-		OverallTotals.Entry total = OverallTotals.summarize(
+		OverallTotals.Entry total = TestTotals.summarize(
 			Arrays.asList(first, legacy, partial, incomplete, noKills),
 			OverallTotals.Grouping.ALL, LootPriceMode.GE, Collections.emptyMap(), ZoneId.of("UTC")).get(0);
 
@@ -53,18 +53,18 @@ public class OverallTotalsTest
 			60_000L);
 		LedgerRecord unknownMasterAndDate = record(null, 0, 120_000L);
 
-		List<OverallTotals.Entry> masters = OverallTotals.summarize(Arrays.asList(konar, unknownMasterAndDate),
+		List<OverallTotals.Entry> masters = TestTotals.summarize(Arrays.asList(konar, unknownMasterAndDate),
 			OverallTotals.Grouping.MASTER, LootPriceMode.GE, Collections.emptyMap(), ZoneId.of("America/Los_Angeles"));
 		assertEquals(2, masters.size());
 		assertEquals("Konar", masters.get(0).getLabel());
 		assertEquals("Unknown master", masters.get(1).getLabel());
 
-		List<OverallTotals.Entry> months = OverallTotals.summarize(Arrays.asList(konar, unknownMasterAndDate),
+		List<OverallTotals.Entry> months = TestTotals.summarize(Arrays.asList(konar, unknownMasterAndDate),
 			OverallTotals.Grouping.MONTH, LootPriceMode.GE, Collections.emptyMap(), ZoneId.of("America/Los_Angeles"));
 		assertEquals(2, months.size());
 		assertEquals("2024-12", months.get(0).getLabel());
 		assertEquals("Unknown date", months.get(1).getLabel());
-		assertEquals(0, OverallTotals.summarize(Collections.emptyList(), OverallTotals.Grouping.ALL,
+		assertEquals(0, TestTotals.summarize(Collections.emptyList(), OverallTotals.Grouping.ALL,
 			LootPriceMode.GE, Collections.emptyMap(), ZoneId.of("UTC")).size());
 	}
 
@@ -82,15 +82,15 @@ public class OverallTotalsTest
 
 		// At the prices it was saved with (item 6 at 0).
 		Map<Integer, Long> then = Map.of(5, 10L, 6, 0L);
-		OverallTotals.Entry thenGe = OverallTotals.summarize(Collections.singletonList(record),
+		OverallTotals.Entry thenGe = TestTotals.summarize(Collections.singletonList(record),
 			OverallTotals.Grouping.ALL, LootPriceMode.GE, then, ZoneId.of("UTC")).get(0);
 		assertEquals(Long.valueOf(20L), thenGe.getProfit());
 
-		OverallTotals.Entry thenHa = OverallTotals.summarize(Collections.singletonList(record),
+		OverallTotals.Entry thenHa = TestTotals.summarize(Collections.singletonList(record),
 			OverallTotals.Grouping.ALL, LootPriceMode.HIGH_ALCH, then, ZoneId.of("UTC")).get(0);
 		assertEquals(Long.valueOf(40L), thenHa.getProfit());
 
-		OverallTotals.Entry today = OverallTotals.summarize(Collections.singletonList(record),
+		OverallTotals.Entry today = TestTotals.summarize(Collections.singletonList(record),
 			OverallTotals.Grouping.ALL, LootPriceMode.GE, Map.of(5, 100L, 6, 5L),
 			ZoneId.of("UTC")).get(0);
 		assertEquals(Long.valueOf(195L), today.getProfit());
@@ -108,7 +108,7 @@ public class OverallTotalsTest
 		LedgerRecord vannaka = record(3, 1, 60_000L);
 		LedgerRecord konar = record(SlayerMaster.KONAR, 1, 60_000L);
 
-		List<OverallTotals.Entry> masters = OverallTotals.summarize(Arrays.asList(unknown, none, unnamed, vannaka,
+		List<OverallTotals.Entry> masters = TestTotals.summarize(Arrays.asList(unknown, none, unnamed, vannaka,
 			konar), OverallTotals.Grouping.MASTER, LootPriceMode.GE, Collections.emptyMap(), ZoneId.of("UTC"));
 
 		assertEquals(4, masters.size());
@@ -126,7 +126,7 @@ public class OverallTotalsTest
 		LedgerRecord older = record(null, Instant.parse("2024-11-15T12:00:00Z").toEpochMilli(), 60_000L);
 		LedgerRecord newer = record(null, Instant.parse("2025-02-15T12:00:00Z").toEpochMilli(), 60_000L);
 
-		List<OverallTotals.Entry> months = OverallTotals.summarize(Arrays.asList(unknown, older, newer),
+		List<OverallTotals.Entry> months = TestTotals.summarize(Arrays.asList(unknown, older, newer),
 			OverallTotals.Grouping.MONTH, LootPriceMode.GE, Collections.emptyMap(), ZoneId.of("UTC"));
 
 		assertEquals(3, months.size());
@@ -159,13 +159,13 @@ public class OverallTotalsTest
 		record.setSuppliesGeValue(4L);
 
 		// Today's prices are the saved ones.
-		OverallTotals.Entry highAlch = OverallTotals.summarize(Collections.singletonList(record),
+		OverallTotals.Entry highAlch = TestTotals.summarize(Collections.singletonList(record),
 			OverallTotals.Grouping.ALL, LootPriceMode.HIGH_ALCH, ge, ZoneId.of("UTC")).get(0);
 		assertEquals(Long.valueOf(2 * 20 + 3 * 30 - 4), highAlch.getProfit());
 		assertFalse(highAlch.isProfitApproximate());
 
 		// GE mode values the GE-0 item at its alch value too (owner decision, 2026-10-25).
-		OverallTotals.Entry grandExchange = OverallTotals.summarize(Collections.singletonList(record),
+		OverallTotals.Entry grandExchange = TestTotals.summarize(Collections.singletonList(record),
 			OverallTotals.Grouping.ALL, LootPriceMode.GE, ge, ZoneId.of("UTC")).get(0);
 		assertEquals(Long.valueOf(2 * 10 + 3 * 30 - 4), grandExchange.getProfit());
 	}
@@ -180,7 +180,7 @@ public class OverallTotalsTest
 		xp.put("RANGED", 120L);
 		record.setXpGained(xp);
 
-		OverallTotals.Entry total = OverallTotals.summarize(Collections.singletonList(record),
+		OverallTotals.Entry total = TestTotals.summarize(Collections.singletonList(record),
 			OverallTotals.Grouping.ALL, LootPriceMode.GE, Collections.emptyMap(), ZoneId.of("UTC")).get(0);
 		assertEquals(Long.valueOf(260L), total.getXp());
 		assertEquals(1, total.getXpSampleCount());

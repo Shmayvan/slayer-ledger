@@ -1,11 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.function.IntFunction;
+import java.util.*;
+import java.util.function.*;
 
 /**
  * Works out which loot item ids Ground Items' hidden list ({@link GroundItemsHidden}) hides, from the items' names

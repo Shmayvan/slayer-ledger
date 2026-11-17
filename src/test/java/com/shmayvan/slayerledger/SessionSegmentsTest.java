@@ -76,7 +76,7 @@ public class SessionSegmentsTest
 		assertEquals(now - 40_000, tracker.summary().getStartedAt());
 		assertEquals(50, tracker.summary().getInitialAmount());
 		assertEquals(ACCOUNT, tracker.getSessionAccountHash());
-		assertEquals(Collections.singletonList("abyssal demon"), tracker.getTaskNpcNames());
+		assertEquals(Collections.singletonList("abyssal demon"), tracker.summary().getSegments().getTaskNpcs());
 	}
 
 	@Test
@@ -184,7 +184,7 @@ public class SessionSegmentsTest
 		tracker.pairKill(killAt, fightFrom(killAt - 30_000));
 		assertEquals(30_600, tracker.getActiveMillis());
 		assertEquals(killAt - 30_000, tracker.summary().getStartedAt());
-		assertEquals(Collections.singletonList("abyssal demon"), tracker.getTaskNpcNames());
+		assertEquals(Collections.singletonList("abyssal demon"), tracker.summary().getSegments().getTaskNpcs());
 
 		// Still clamped: never before the assignment.
 		tracker.pairKill(killAt, fightFrom(0));
@@ -440,7 +440,7 @@ public class SessionSegmentsTest
 		demons(47);
 		assertEquals("no kill restarts an Ended assignment", State.IDLE, tracker.getState());
 		assertFalse(tracker.startNow(ACCOUNT));
-		assertTrue(tracker.isEnded());
+		assertEquals(Status.ENDED, tracker.getStatus());
 
 		assertTrue(tracker.trackAgain());
 		assertEquals(Status.WAITING_FOR_FIRST_KILL, tracker.getStatus());
@@ -471,8 +471,7 @@ public class SessionSegmentsTest
 		tracker.endTask();
 		tracker.observe(null, SessionTracker.NO_CREATURE, 0, false);
 		tracker.observe("Black dragons", DRAGON_ID, 20, 20, false);
-		assertFalse(tracker.isEnded());
-		assertEquals(Status.WAITING_FOR_FIRST_KILL, tracker.getStatus());
+		assertEquals("not Ended", Status.WAITING_FOR_FIRST_KILL, tracker.getStatus());
 		tracker.observe("Black dragons", DRAGON_ID, 19, 20, false);
 		assertEquals(State.RUNNING, tracker.getState());
 		assertEquals("Black dragons", tracker.getSessionMonster());
@@ -480,7 +479,7 @@ public class SessionSegmentsTest
 		// The same creature assigned again (a higher count) is a new assignment too.
 		tracker.endTask();
 		tracker.observe("Black dragons", DRAGON_ID, 25, 25, false);
-		assertFalse(tracker.isEnded());
+		assertEquals("not Ended", Status.WAITING_FOR_FIRST_KILL, tracker.getStatus());
 	}
 
 	@Test
@@ -512,7 +511,7 @@ public class SessionSegmentsTest
 		SessionTracker newTask = new SessionTracker(() -> now);
 		newTask.observe("Black dragons", DRAGON_ID, 20, false);
 		assertEquals(SessionTracker.RestoreResult.MISMATCH, newTask.restoreEnded(marker, counters));
-		assertFalse(newTask.isEnded());
+		assertEquals("not Ended", Status.WAITING_FOR_FIRST_KILL, newTask.getStatus());
 		assertNull("nothing Ended, no marker", newTask.endedMarker(counters, now));
 	}
 
@@ -538,7 +537,7 @@ public class SessionSegmentsTest
 		restored.observe("Abyssal demons", DEMON_ID, 49, 50, false);
 		assertEquals(SessionTracker.RestoreResult.RESTORED, restored.restore(snapshot, null));
 		assertEquals(State.LOGGED_OUT, restored.getState());
-		assertEquals(Collections.singletonList("abyssal demon"), restored.getTaskNpcNames());
+		assertEquals(Collections.singletonList("abyssal demon"), restored.summary().getSegments().getTaskNpcs());
 		now += MINUTE;
 		restored.observe("Abyssal demons", DEMON_ID, 48, 50, TaskContext.NONE, LocationTally.NO_REGION, false,
 			fightFrom(paused - MINUTE));

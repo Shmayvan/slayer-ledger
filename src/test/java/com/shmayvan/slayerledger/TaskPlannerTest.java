@@ -9,7 +9,6 @@ import static com.shmayvan.slayerledger.TestSpots.TOWER_ID;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -22,8 +21,8 @@ import org.junit.Test;
 
 /**
  * The advisor's planner (V2 plan 5 and 6) on synthetic records: which tasks count, the options and their
- * grouping (estimated values, Unknown spot or style, the boss variant), the n rules of the recommendation and its
- * counterpart, the time percentiles, what to bring and the three metrics with their ties.
+ * grouping (estimated values, Unknown spot or style, the boss variant), the n rules of the recommendation, the time,
+ * what to bring and the order with its ties.
  */
 public class TaskPlannerTest
 {
@@ -126,7 +125,7 @@ public class TaskPlannerTest
 		return record;
 	}
 
-	private static TaskPlan plan(int kills, AdvisorMetric metric, List<LedgerRecord> records)
+	private static TaskPlan plan(int kills, List<LedgerRecord> records)
 	{
 		return TaskPlanner.plan(TaskPlanner.Request.builder()
 			.creatureId(CREATURE)
@@ -134,17 +133,14 @@ public class TaskPlannerTest
 			.taskType(TaskType.REGULAR)
 			.killsLeft(kills)
 			.records(records)
-			.metric(metric)
-			.mode(LootPriceMode.GE)
 			.prices(PRICES)
-			.hidden(HiddenLoot.NONE)
 			.spots(TABLE)
 			.build());
 	}
 
-	private static TaskPlan plan(int kills, AdvisorMetric metric, LedgerRecord... records)
+	private static TaskPlan plan(int kills, LedgerRecord... records)
 	{
-		return plan(kills, metric, Arrays.asList(records));
+		return plan(kills, Arrays.asList(records));
 	}
 
 	@SafeVarargs
@@ -168,15 +164,12 @@ public class TaskPlannerTest
 	@Test
 	public void withNoCompletedTaskThePlanIsEmptyAndSaysSo()
 	{
-		final TaskPlan none = plan(142, null);
+		final TaskPlan none = plan(142);
 		assertFalse(none.hasHistory());
 		assertNull(none.getRecommendation());
-		assertNull(none.getCounterpart());
 		assertTrue(none.getOptions().isEmpty());
-		assertTrue(none.getMoreSetups().isEmpty());
 		assertEquals(0, none.getAllSetups().getTasks());
 		assertNull(none.getAllSetups().getTime());
-		assertEquals("the default metric", AdvisorMetric.FASTEST_FINISH, none.getMetric());
 		assertEquals("No completed Dust devils tasks yet, so no estimate.", TaskPlanText.noHistory(TASK));
 
 		// None of these is a sample: partial, unfinished, without kills or time, or of another creature.
@@ -188,19 +181,19 @@ public class TaskPlannerTest
 		final LedgerRecord noTime = task(SMOKE_ID, false, SetupStyle.MELEE, 10, 0);
 		final LedgerRecord other = task(SMOKE_ID, false, SetupStyle.MELEE, 10, 10);
 		other.setCreatureId(CREATURE + 1);
-		assertFalse(plan(142, null, partial, unfinished, noKills, noTime, other).hasHistory());
+		assertFalse(plan(142, partial, unfinished, noKills, noTime, other).hasHistory());
 	}
 
 	@Test
 	public void withTheKillsLeftUnknownThePlanIsPerKill()
 	{
-		// 10 kills in 20 minutes, 10 of the supply (100 gp each): 2 minutes and 100 gp a kill.
+		// 10 kills in 20 minutes, 10 of the supply: 2 minutes a kill.
 		final List<LedgerRecord> records = times(3,
 			valued(task(SMOKE_ID, false, SetupStyle.MELEE, 10, 20), 5_000, 10));
 		records.add(task(CATACOMBS_ID, false, SetupStyle.UNKNOWN, 10, 20));
 		for (int kills : new int[]{0, SessionTracker.UNKNOWN_AMOUNT})
 		{
-			final TaskPlan plan = plan(kills, null, records);
+			final TaskPlan plan = plan(kills, records);
 			assertTrue(kills + ": history, so a plan", plan.hasHistory());
 			assertFalse(plan.hasKillsLeft());
 			assertEquals(4, plan.getAllSetups().getTasks());
@@ -210,13 +203,10 @@ public class TaskPlannerTest
 			assertEquals(3, best.getTasks());
 			assertEquals("for one kill, not scaled", 2 * MINUTE, best.getTime().getMillis());
 			assertEquals(2 * MINUTE, best.getTime().getPerKillMillis());
-			assertEquals(2 * MINUTE, best.getTime().getLowMillis());
-			assertEquals(2 * MINUTE, best.getTime().getHighMillis());
-			assertEquals("per kill", Long.valueOf(100), best.getSupplyCost());
 			assertTrue("nothing to bring for unknown kills", best.getBring().isEmpty());
 			assertEquals(0, best.getBringMore());
 		}
-		assertTrue(plan(10, null, records).hasKillsLeft());
+		assertTrue(plan(10, records).hasKillsLeft());
 	}
 
 	// ---- The n rules ----
@@ -224,7 +214,7 @@ public class TaskPlannerTest
 	@Test
 	public void threeSlowerTasksBeatTwoFasterOnes()
 	{
-		final TaskPlan plan = plan(100, AdvisorMetric.FASTEST_FINISH, all(
+		final TaskPlan plan = plan(100, all(
 			times(3, task(CATACOMBS_ID, false, SetupStyle.BARRAGE, 100, 30)),
 			times(2, task(SMOKE_ID, false, SetupStyle.BARRAGE, 100, 10))));
 
@@ -233,16 +223,14 @@ public class TaskPlannerTest
 		assertEquals(3, best.getTasks());
 		assertFalse(plan.isRecommendationThin());
 		assertEquals(30, minutes(best.getTime().getMillis()));
-		assertNull("no option with a cannon", plan.getCounterpart());
-		assertEquals(1, plan.getMoreSetups().size());
-		assertEquals(SMOKE_ID, plan.getMoreSetups().get(0).getSpot());
-		assertEquals("all options, in the metric's order", SMOKE_ID, plan.getOptions().get(0).getSpot());
+		assertEquals(2, plan.getOptions().size());
+		assertEquals("all options, fastest first", SMOKE_ID, plan.getOptions().get(0).getSpot());
 	}
 
 	@Test
-	public void withNoOptionOfThreeTheMostTasksWinTiesByTheMetricAndItIsThin()
+	public void withNoOptionOfThreeTheMostTasksWinTiesByTimeAndItIsThin()
 	{
-		final TaskPlan plan = plan(100, AdvisorMetric.FASTEST_FINISH, all(
+		final TaskPlan plan = plan(100, all(
 			times(2, task(CATACOMBS_ID, false, SetupStyle.BARRAGE, 100, 30)),
 			times(1, task(SMOKE_ID, false, SetupStyle.BARRAGE, 100, 5)),
 			times(2, task(TOWER_ID, false, SetupStyle.BARRAGE, 100, 20))));
@@ -269,7 +257,7 @@ public class TaskPlannerTest
 		final LedgerRecord estimatedCannon = task(CATACOMBS_ID, true, SetupStyle.BARRAGE, 100, 30);
 		estimatedCannon.setCannonEstimated(true);
 
-		final TaskPlan plan = plan(100, null, estimated, detected, overridden, estimatedCannon);
+		final TaskPlan plan = plan(100, estimated, detected, overridden, estimatedCannon);
 		assertEquals(2, plan.getOptions().size());
 		final TaskPlan.Option barrage = plan.getRecommendation();
 		assertFalse(barrage.isCannon());
@@ -278,12 +266,13 @@ public class TaskPlannerTest
 		assertTrue(barrage.isStyleEstimated());
 		assertFalse(barrage.isCannonEstimated());
 		assertTrue(barrage.isEstimated());
-		final TaskPlan.Option cannon = plan.getCounterpart();
+		// As fast, with fewer tasks: second.
+		final TaskPlan.Option cannon = plan.getOptions().get(1);
 		assertTrue("~Yes with Yes", cannon.isCannon());
 		assertTrue(cannon.isCannonEstimated());
 		assertTrue(cannon.isEstimated());
 
-		assertFalse("no estimate, no mark", plan(100, null, detected, overridden).getRecommendation().isEstimated());
+		assertFalse("no estimate, no mark", plan(100, detected, overridden).getRecommendation().isEstimated());
 	}
 
 	@Test
@@ -298,16 +287,15 @@ public class TaskPlannerTest
 		// A cannon task with only cannon kills: style Unknown, whatever its cannon.
 		final LedgerRecord cannonOnly = task(SMOKE_ID, true, SetupStyle.UNKNOWN, 10, 70);
 
-		final TaskPlan plan = plan(10, null, here, regionOnly, noSpot, noStyle, cannonOnly);
+		final TaskPlan plan = plan(10, here, regionOnly, noSpot, noStyle, cannonOnly);
 		assertEquals(1, plan.getOptions().size());
 		assertEquals(2, plan.getRecommendation().getTasks());
-		assertNull("the Unknown cannon task is in no option", plan.getCounterpart());
 		assertEquals(5, plan.getAllSetups().getTasks());
 		assertEquals(3, plan.getExcludedTasks());
 		// Times per kill 1, 1, 3, 5 and 7 minutes: the median is 3.
 		assertEquals(30, minutes(plan.getAllSetups().getTime().getMillis()));
 
-		final TaskPlan unknownOnly = plan(10, null, noSpot, noStyle);
+		final TaskPlan unknownOnly = plan(10, noSpot, noStyle);
 		assertTrue(unknownOnly.hasHistory());
 		assertNull(unknownOnly.getRecommendation());
 		assertTrue(unknownOnly.getOptions().isEmpty());
@@ -338,7 +326,8 @@ public class TaskPlannerTest
 		assertFalse(standard.isBoss());
 		assertEquals(2, standard.getTasks());
 		assertEquals("shown, not split", 1, standard.getBossKillTasks());
-		final TaskPlan.Option boss = plan.getMoreSetups().get(0);
+		// As fast, with fewer tasks: second.
+		final TaskPlan.Option boss = plan.getOptions().get(1);
 		assertTrue(boss.isBoss());
 		assertEquals(1, boss.getTasks());
 		assertEquals(1, boss.getBossKillTasks());
@@ -372,42 +361,6 @@ public class TaskPlannerTest
 			.task("Cerberus").taskType(TaskType.REGULAR).killsLeft(10).records(records).spots(TABLE).build());
 		assertEquals(1, regular.getAllSetups().getTasks());
 		assertEquals(10, minutes(regular.getRecommendation().getTime().getMillis()));
-	}
-
-	// ---- Counterpart ----
-
-	@Test
-	public void theCounterpartIsTheBestWithTheOtherCannonChoiceByTheSameNRule()
-	{
-		final List<LedgerRecord> records = all(
-			times(3, task(CATACOMBS_ID, false, SetupStyle.BARRAGE, 142, 24)),
-			times(2, task(SMOKE_ID, true, SetupStyle.MELEE, 142, 41)),
-			times(1, task(SMOKE_ID, true, SetupStyle.RANGED, 142, 20)),
-			times(1, task(TOWER_ID, false, SetupStyle.MELEE, 142, 30)));
-		final TaskPlan plan = plan(142, AdvisorMetric.FASTEST_FINISH, records);
-		assertEquals(CATACOMBS_ID, plan.getRecommendation().getSpot());
-		final TaskPlan.Option counterpart = plan.getCounterpart();
-		assertTrue(counterpart.isCannon());
-		assertEquals("none has 3: the most tasks, not the fastest", SetupStyle.MELEE, counterpart.getStyle());
-		assertEquals(2, counterpart.getTasks());
-		assertEquals(SMOKE_ID, counterpart.getSpot());
-		assertEquals("the rest by the metric", Arrays.asList(SetupStyle.RANGED, SetupStyle.MELEE),
-			Arrays.asList(plan.getMoreSetups().get(0).getStyle(), plan.getMoreSetups().get(1).getStyle()));
-		assertEquals(TOWER_ID, plan.getMoreSetups().get(1).getSpot());
-
-		// A slower cannon option with 3 tasks is chosen on the metric over those with fewer.
-		records.addAll(times(3, task(STRONGHOLD_ID, true, SetupStyle.MELEE, 142, 60)));
-		final TaskPlan withThree = plan(142, AdvisorMetric.FASTEST_FINISH, records);
-		assertEquals(STRONGHOLD_ID, withThree.getCounterpart().getSpot());
-		assertEquals(3, withThree.getMoreSetups().size());
-
-		// A cannon recommendation's counterpart is without one.
-		final TaskPlan cannonFirst = plan(142, AdvisorMetric.FASTEST_FINISH, all(
-			times(3, task(SMOKE_ID, true, SetupStyle.MELEE, 142, 20)),
-			times(1, task(CATACOMBS_ID, false, SetupStyle.BARRAGE, 142, 10))));
-		assertTrue(cannonFirst.getRecommendation().isCannon());
-		assertFalse(cannonFirst.getCounterpart().isCannon());
-		assertTrue(cannonFirst.getMoreSetups().isEmpty());
 	}
 
 	// ---- Time ----
@@ -445,31 +398,29 @@ public class TaskPlannerTest
 	}
 
 	@Test
-	public void theTimeIsTheMedianPerKillTimesTheKillsLeftWithItsRange()
+	public void theTimeIsTheMedianPerKillTimesTheKillsLeft()
 	{
 		// Tasks of 10 kills taking 10, 20, ... minutes; 10 kills left, so the times are those minutes again.
-		assertTime(1, 20, 20, 20);
-		assertTime(2, 15, 12, 18);
-		assertTime(5, 30, 18, 42);
-		assertTime(20, 105, 48, 162);
+		assertTime(1, 20);
+		assertTime(2, 15);
+		assertTime(5, 30);
+		assertTime(20, 105);
 
-		final TaskPlan one = plan(30, null, task(SMOKE_ID, false, SetupStyle.MELEE, 10, 20));
+		final TaskPlan one = plan(30, task(SMOKE_ID, false, SetupStyle.MELEE, 10, 20));
 		assertEquals("2 minutes a kill", 2 * MINUTE, one.getRecommendation().getTime().getPerKillMillis());
 		assertEquals("times the kills left", 60 * MINUTE, one.getRecommendation().getTime().getMillis());
 	}
 
 	/** {@code n} tasks of 10 kills taking 10, 20, ... minutes, or 20 minutes for one. */
-	private static void assertTime(int n, long median, long low, long high)
+	private static void assertTime(int n, long median)
 	{
 		final List<LedgerRecord> records = new ArrayList<>();
 		for (int i = 1; i <= n; i++)
 		{
 			records.add(task(SMOKE_ID, false, SetupStyle.MELEE, 10, n == 1 ? 20 : 10 * i));
 		}
-		final TaskPlan.Time time = plan(10, null, records).getRecommendation().getTime();
+		final TaskPlan.Time time = plan(10, records).getRecommendation().getTime();
 		assertEquals(n + " tasks: median", median, minutes(time.getMillis()));
-		assertEquals(n + " tasks: 20th percentile", low, minutes(time.getLowMillis()));
-		assertEquals(n + " tasks: 80th percentile", high, minutes(time.getHighMillis()));
 	}
 
 	// ---- What to bring ----
@@ -486,7 +437,7 @@ public class TaskPlannerTest
 		}
 		// A sixth task that used no death runes: 5 of 6 tasks used none, so the 80th percentile is none.
 		tasks.add(using(task(SMOKE_ID, true, SetupStyle.MELEE, 10, 10), CANNONBALL, 20));
-		final List<TaskPlan.BringItem> bring = TaskPlanner.bring(tasks, 10, PRICES);
+		final List<TaskPlan.BringItem> bring = TaskPlanner.bring(tasks, 10, PRICES, null);
 		assertEquals(1, bring.size());
 		assertEquals(CANNONBALL, bring.get(0).getItemId());
 		// Per kill 0, 1, 2, 2, 3, 4: rank 4 of 0 to 5 is 3.
@@ -494,7 +445,7 @@ public class TaskPlannerTest
 		assertEquals(Long.valueOf(30 * 200), bring.get(0).getValue());
 
 		tasks.remove(5);
-		assertEquals(32, TaskPlanner.bring(tasks, 10, PRICES).get(0).getQuantity());
+		assertEquals(32, TaskPlanner.bring(tasks, 10, PRICES, null).get(0).getQuantity());
 	}
 
 	@Test
@@ -511,7 +462,7 @@ public class TaskPlannerTest
 	private static long single(int id, long used, int taskKills, int kills)
 	{
 		final LedgerRecord record = using(task(SMOKE_ID, false, SetupStyle.MELEE, taskKills, 10), id, used);
-		return TaskPlanner.bring(Collections.singletonList(record), kills, PRICES).get(0).getQuantity();
+		return TaskPlanner.bring(Collections.singletonList(record), kills, PRICES, null).get(0).getQuantity();
 	}
 
 	@Test
@@ -526,15 +477,17 @@ public class TaskPlannerTest
 		doses.put(SlayerBracelets.SLAUGHTER_BRACELET, SlayerBracelets.CHARGES_PER_BRACELET);
 		potions.setSupplyDoses(doses);
 
-		final Map<Integer, Long> bring = quantities(TaskPlanner.bring(Collections.singletonList(potions), 9, PRICES));
+		final Map<Integer, Long> bring = quantities(TaskPlanner.bring(Collections.singletonList(potions), 9, PRICES,
+			null));
 		assertEquals(Long.valueOf(5), bring.get(PRAYER_POTION));
 		// 4 charges over 10 kills, 8 charges a ring: 0.45 rings for 9 kills.
 		assertEquals(Long.valueOf(1), bring.get(DUELING_RING));
 		assertEquals(Long.valueOf(1), bring.get(SlayerBracelets.SLAUGHTER_BRACELET));
-		final Map<Integer, Long> more = quantities(TaskPlanner.bring(Collections.singletonList(potions), 30, PRICES));
+		final Map<Integer, Long> more = quantities(TaskPlanner.bring(Collections.singletonList(potions), 30, PRICES,
+			null));
 		assertEquals("1.5 rings", Long.valueOf(2), more.get(DUELING_RING));
 		assertEquals("valued per potion", Long.valueOf(15 * 8_000L),
-			TaskPlanner.bring(Collections.singletonList(potions), 30, PRICES).get(0).getValue());
+			TaskPlanner.bring(Collections.singletonList(potions), 30, PRICES, null).get(0).getValue());
 	}
 
 	private static Map<Integer, Long> quantities(List<TaskPlan.BringItem> items)
@@ -569,20 +522,20 @@ public class TaskPlannerTest
 		assertTrue("supplies recorded", TaskPlanner.hasSupplyData(migrated(using(task(SMOKE_ID, false,
 			SetupStyle.MELEE, 10, 10), SUPPLY, 1))));
 		assertEquals("only the task that recorded supplies", 10,
-			TaskPlanner.bring(Arrays.asList(used, oldValued, oldUnvalued, notMigrated), 10, PRICES).get(0)
+			TaskPlanner.bring(Arrays.asList(used, oldValued, oldUnvalued, notMigrated), 10, PRICES, null).get(0)
 				.getQuantity());
 
 		// Saved by 2.0 without supplies: it used none, valued or not.
 		final LedgerRecord none = task(SMOKE_ID, false, SetupStyle.MELEE, 10, 10);
 		assertTrue(TaskPlanner.hasSupplyData(none));
 		// Per kill 0 and 1: the 80th percentile is 0.8.
-		assertEquals(8, TaskPlanner.bring(Arrays.asList(used, none), 10, PRICES).get(0).getQuantity());
+		assertEquals(8, TaskPlanner.bring(Arrays.asList(used, none), 10, PRICES, null).get(0).getQuantity());
 		assertEquals(8, TaskPlanner.bring(Arrays.asList(used, valued(task(SMOKE_ID, false, SetupStyle.MELEE, 10, 10),
-			1_000, 0)), 10, PRICES).get(0).getQuantity());
+			1_000, 0)), 10, PRICES, null).get(0).getQuantity());
 	}
 
 	@Test
-	public void aTaskWithoutSupplyDataIsLeftOutOfTheSupplyCostAndProfitAndCheapestDoesntPickIt()
+	public void tasksWithoutSupplyDataCountForTheTimeButBringNothing()
 	{
 		// Barrage tasks saved by 1.x with no supplies recorded (a 1.x supply bug), the case migration calls Barrage: 10
 		// minutes, 100K loot.
@@ -592,27 +545,17 @@ public class TaskPlannerTest
 		{
 			migrated(record);
 		}
-		// Cannon tasks with their supplies: 20 minutes, 100K loot, 500 of the supply (50K).
+		// Cannon tasks with their supplies: 20 minutes, 100K loot, 500 of the supply.
 		final List<LedgerRecord> cannon = times(3, valued(task(SMOKE_ID, true, SetupStyle.MELEE, 100, 20), 100_000,
 			500));
 
-		final TaskPlan cheapest = plan(100, AdvisorMetric.CHEAPEST, all(barrage, cannon));
-		assertEquals("not the tasks whose supplies are unknown", SMOKE_ID, cheapest.getRecommendation().getSpot());
-		assertEquals(Long.valueOf(50_000), cheapest.getRecommendation().getSupplyCost());
-		final TaskPlan.Option unknown = cheapest.getCounterpart();
-		assertEquals(CATACOMBS_ID, unknown.getSpot());
+		final TaskPlan plan = plan(100, all(barrage, cannon));
+		final TaskPlan.Option unknown = plan.getRecommendation();
+		assertEquals("the fastest, though its supplies are unknown", CATACOMBS_ID, unknown.getSpot());
 		assertEquals("they still count for n", 3, unknown.getTasks());
 		assertEquals("and for time", 10, minutes(unknown.getTime().getMillis()));
-		assertNull("no supply cost", unknown.getSupplyCost());
-		assertNull("no profit: its supplies are unknown", unknown.getProfitPerHour());
 		assertTrue("nothing to bring", unknown.getBring().isEmpty());
-
-		// A 2.0 record without supplies used none: 0 gp, and it is the cheapest.
-		final TaskPlan withNone = plan(100, AdvisorMetric.CHEAPEST, all(times(3, valued(task(CATACOMBS_ID, false,
-			SetupStyle.BARRAGE, 100, 10), 100_000, 0)), cannon));
-		assertEquals(CATACOMBS_ID, withNone.getRecommendation().getSpot());
-		assertEquals(Long.valueOf(0), withNone.getRecommendation().getSupplyCost());
-		assertEquals("100K in 10 minutes", Long.valueOf(600_000), withNone.getRecommendation().getProfitPerHour());
+		assertEquals("the cannon tasks know theirs", 500, plan.getOptions().get(1).getBring().get(0).getQuantity());
 	}
 
 	// ---- Potion families ----
@@ -647,7 +590,7 @@ public class TaskPlannerTest
 		assertEquals("keyed by the potion with the most doses", PRAYER_POTION, merged.get(0).getItemId());
 		assertEquals(4, merged.get(0).getQuantity());
 		assertEquals(Long.valueOf(4 * 8_000L), merged.get(0).getValue());
-		assertEquals("without the families, two lines", 2, TaskPlanner.bring(tasks, 10, PRICES).size());
+		assertEquals("without the families, two lines", 2, TaskPlanner.bring(tasks, 10, PRICES, null).size());
 
 		final TaskPlan plan = TaskPlanner.plan(TaskPlanner.Request.builder().creatureId(CREATURE).task(TASK)
 			.killsLeft(10).records(tasks).prices(PRICES).spots(TABLE).potionFamilies(families).build());
@@ -700,7 +643,7 @@ public class TaskPlannerTest
 		assertEquals(1, plan.getOptions().size());
 		assertFalse(plan.isWildernessHistoryMissing());
 
-		assertEquals("any other task uses them all", 5, plan(10, null, records).getAllSetups().getTasks());
+		assertEquals("any other task uses them all", 5, plan(10, records).getAllSetups().getTasks());
 
 		// Only tasks elsewhere: no history for a Wilderness task, noted, since the creature has tasks.
 		final TaskPlan none = TaskPlanner.plan(TaskPlanner.Request.builder().creatureId(CREATURE).task(TASK)
@@ -710,7 +653,7 @@ public class TaskPlannerTest
 		assertFalse("no task of the creature at all", TaskPlanner.plan(TaskPlanner.Request.builder()
 			.creatureId(CREATURE).task(TASK).taskType(TaskType.WILDERNESS).killsLeft(10)
 			.records(Collections.emptyList()).spots(TABLE).build()).isWildernessHistoryMissing());
-		assertFalse("not a Wilderness task", plan(10, null, Collections.emptyList()).isWildernessHistoryMissing());
+		assertFalse("not a Wilderness task", plan(10, Collections.emptyList()).isWildernessHistoryMissing());
 	}
 
 	@Test
@@ -727,8 +670,6 @@ public class TaskPlannerTest
 		assertEquals("only the options there", 1, there.getOptions().size());
 		assertEquals(CATACOMBS_ID, there.getRecommendation().getSpot());
 		assertTrue(there.isRecommendationThin());
-		assertNull("no cannon option there", there.getCounterpart());
-		assertTrue(there.getMoreSetups().isEmpty());
 		assertEquals("All setups keeps every task", 7, there.getAllSetups().getTasks());
 		assertEquals(0, there.getExcludedTasks());
 		assertEquals("the short name too", CATACOMBS_ID, konar("catacombs", records).getAreaSpot());
@@ -807,134 +748,36 @@ public class TaskPlannerTest
 		// Unpriced items last, then the larger amount, then the lower id.
 		final LedgerRecord unpriced = using(task(SMOKE_ID, false, SetupStyle.MELEE, 1, 1), 7, 3, 8, 5, 6, 3,
 			CANNONBALL, 1);
-		final List<TaskPlan.BringItem> order = TaskPlanner.bring(Collections.singletonList(unpriced), 1, PRICES);
+		final List<TaskPlan.BringItem> order = TaskPlanner.bring(Collections.singletonList(unpriced), 1, PRICES, null);
 		assertEquals(Arrays.asList(CANNONBALL, 8, 6, 7), Arrays.asList(order.get(0).getItemId(),
 			order.get(1).getItemId(), order.get(2).getItemId(), order.get(3).getItemId()));
 		assertNull(order.get(1).getValue());
 	}
 
-	// ---- Rates and gear ----
+	// ---- Order ----
 
 	@Test
-	public void ratesArePooledAndTheSupplyCostIsForTheKillsLeft()
+	public void theFastestComesFirstThenMoreTasksThenTheKey()
 	{
-		final LedgerRecord first = valued(task(SMOKE_ID, false, SetupStyle.MELEE, 100, 10), 50_000, 100);
-		first.setXpGained(Collections.singletonMap(SkillXp.SLAYER, 10_000L));
-		final LedgerRecord second = valued(task(SMOKE_ID, false, SetupStyle.MELEE, 50, 20), 100_000, 200);
-		second.setXpGained(Collections.singletonMap(SkillXp.SLAYER, 20_000L));
-		// Saved before values and XP were tracked: counts for the time only.
-		final LedgerRecord old = task(SMOKE_ID, false, SetupStyle.MELEE, 100, 30);
-
-		final TaskPlan.Option option = plan(100, null, first, second, old).getRecommendation();
-		assertEquals(3, option.getTasks());
-		assertEquals("30K XP in 30 minutes", Long.valueOf(60_000), option.getSlayerXpPerHour());
-		// Loot 150K minus supplies 300 x 100 gp, in 30 minutes.
-		assertEquals(Long.valueOf(240_000), option.getProfitPerHour());
-		assertFalse(option.isProfitApproximate());
-		// 30K of supplies over 150 kills: 200 gp a kill, for 100 kills.
-		assertEquals(Long.valueOf(20_000), option.getSupplyCost());
-		assertFalse(option.isSupplyCostApproximate());
-
-		final TaskPlan.Option unvalued = plan(100, null, old).getRecommendation();
-		assertNull(unvalued.getSlayerXpPerHour());
-		assertNull(unvalued.getProfitPerHour());
-		assertNull(unvalued.getSupplyCost());
-
-		// A supply without a price today: the cost is marked approximate.
-		final LedgerRecord unpriced = valued(task(SMOKE_ID, false, SetupStyle.MELEE, 100, 10), 50_000, 0);
-		unpriced.setSupplies(Collections.singletonMap(7, 5L));
-		assertTrue(plan(100, null, unpriced).getRecommendation().isSupplyCostApproximate());
+		final TaskPlan.Option fewer = option(SMOKE_ID, 3, 20);
+		final TaskPlan.Option more = option(TOWER_ID, 4, 20);
+		final TaskPlan.Option slower = option(CATACOMBS_ID, 4, 30);
+		final TaskPlan.Option fastest = option(STRONGHOLD_ID, 1, 10);
+		// The same time and tasks as "more": the spot decides.
+		final TaskPlan.Option sameAsMore = option(CATACOMBS_ID, 4, 20);
+		final List<TaskPlan.Option> options = new ArrayList<>(Arrays.asList(sameAsMore, fastest, slower, fewer, more));
+		options.sort(TaskPlanner.ORDER);
+		assertEquals(Arrays.asList(STRONGHOLD_ID, CATACOMBS_ID, TOWER_ID, SMOKE_ID, CATACOMBS_ID), spots(options));
+		assertEquals(30, minutes(options.get(4).getTime().getMillis()));
 	}
 
-	@Test
-	public void theGearNoteIsTheFocusOfMoreThanHalfTheTasks()
-	{
-		final LedgerRecord prayer1 = gear(GearFocus.PRAYER);
-		final LedgerRecord prayer2 = gear(GearFocus.PRAYER);
-		final LedgerRecord strength = gear(GearFocus.STRENGTH);
-		final TaskPlan.Option mostly = plan(10, null, prayer1, prayer2, strength).getRecommendation();
-		assertEquals(GearFocus.PRAYER, mostly.getGear());
-		assertEquals("mostly Prayer gear", mostly.gearNote());
-
-		assertNull("a tie", plan(10, null, prayer1, strength).getRecommendation().gearNote());
-		assertNull("Unknown is no note", plan(10, null, prayer1, gear(GearFocus.UNKNOWN), gear(GearFocus.UNKNOWN))
-			.getRecommendation().gearNote());
-		final LedgerRecord overridden = gear(GearFocus.UNKNOWN);
-		overridden.setGearOverride(GearFocus.STRENGTH);
-		assertEquals("the effective focus", GearFocus.STRENGTH,
-			plan(10, null, overridden, strength, prayer1).getRecommendation().getGear());
-	}
-
-	private static LedgerRecord gear(GearFocus focus)
-	{
-		final LedgerRecord record = task(SMOKE_ID, false, SetupStyle.MELEE, 10, 10);
-		record.setDetectedGear(focus);
-		return record;
-	}
-
-	// ---- Metrics ----
-
-	@Test
-	public void eachMetricPicksItsBest()
-	{
-		final List<LedgerRecord> records = all(
-			// 20 minutes; 100K profit (300K/h); 1,000 supplies (100K) per 100 kills.
-			times(3, valued(task(CATACOMBS_ID, false, SetupStyle.BARRAGE, 100, 20), 200_000, 1_000)),
-			// 30 minutes; 550K profit (1.1M/h); 50K of supplies.
-			times(3, valued(task(SMOKE_ID, true, SetupStyle.MELEE, 100, 30), 600_000, 500)),
-			// 40 minutes; 90K profit (135K/h); 10K of supplies.
-			times(3, valued(task(TOWER_ID, false, SetupStyle.RANGED, 100, 40), 100_000, 100)));
-
-		final TaskPlan fastest = plan(100, AdvisorMetric.FASTEST_FINISH, records);
-		assertEquals(CATACOMBS_ID, fastest.getRecommendation().getSpot());
-		assertEquals(SMOKE_ID, fastest.getCounterpart().getSpot());
-		assertEquals(TOWER_ID, fastest.getMoreSetups().get(0).getSpot());
-
-		final TaskPlan profit = plan(100, AdvisorMetric.PROFIT_PER_HOUR, records);
-		assertEquals(SMOKE_ID, profit.getRecommendation().getSpot());
-		assertEquals(Long.valueOf(1_100_000), profit.getRecommendation().getProfitPerHour());
-		assertEquals("the best without a cannon", CATACOMBS_ID, profit.getCounterpart().getSpot());
-
-		final TaskPlan cheapest = plan(100, AdvisorMetric.CHEAPEST, records);
-		assertEquals(TOWER_ID, cheapest.getRecommendation().getSpot());
-		assertEquals(Long.valueOf(10_000), cheapest.getRecommendation().getSupplyCost());
-		assertEquals(Arrays.asList(TOWER_ID, SMOKE_ID, CATACOMBS_ID), spots(cheapest.getOptions()));
-	}
-
-	@Test
-	public void tiesGoToMoreTasksThenLessTimeAndAMissingValueIsLast()
-	{
-		final TaskPlan.Option fewer = option(SMOKE_ID, 3, 20, 100L, 1_000L);
-		final TaskPlan.Option more = option(TOWER_ID, 4, 20, 100L, 1_000L);
-		final TaskPlan.Option slower = option(CATACOMBS_ID, 4, 30, 100L, 1_000L);
-		final TaskPlan.Option none = option(STRONGHOLD_ID, 9, 10, null, null);
-		for (AdvisorMetric metric : AdvisorMetric.values())
-		{
-			final List<TaskPlan.Option> options = new ArrayList<>(Arrays.asList(none, slower, fewer, more));
-			options.sort(TaskPlanner.order(metric));
-			if (metric == AdvisorMetric.FASTEST_FINISH)
-			{
-				assertEquals(metric.name(), Arrays.asList(STRONGHOLD_ID, TOWER_ID, SMOKE_ID, CATACOMBS_ID),
-					spots(options));
-			}
-			else
-			{
-				assertEquals(metric.name(), Arrays.asList(TOWER_ID, CATACOMBS_ID, SMOKE_ID, STRONGHOLD_ID),
-					spots(options));
-			}
-		}
-		assertSame(AdvisorMetric.FASTEST_FINISH, AdvisorMetric.orDefault(null));
-	}
-
-	private static TaskPlan.Option option(String spot, int tasks, long minutes, Long profitPerHour, Long cost)
+	private static TaskPlan.Option option(String spot, int tasks, long minutes)
 	{
 		return TaskPlan.Option.builder()
 			.spot(spot)
 			.style(SetupStyle.MELEE)
 			.tasks(tasks)
-			.time(new TaskPlan.Time(minutes * MINUTE / 10, minutes * MINUTE, minutes * MINUTE, minutes * MINUTE))
-			.profitPerHour(profitPerHour)
-			.supplyCost(cost)
+			.time(new TaskPlan.Time(minutes * MINUTE / 10, minutes * MINUTE))
 			.bring(Collections.emptyList())
 			.build();
 	}

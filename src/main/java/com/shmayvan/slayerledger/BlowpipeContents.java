@@ -1,6 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Map;
+import java.util.*;
+import lombok.*;
 
 /**
  * What the toxic blowpipe holds, for the overlay's supply runway: its darts and Zulrah's scales as its last check
@@ -12,13 +13,17 @@ import java.util.Map;
  * darts fired then are not taken out), and forgets them when darts or scales are loaded, on Unload or Uncharge, at
  * logout and when the account changes.</p>
  */
+@Getter
 final class BlowpipeContents
 {
 	/** An amount not known. */
 	static final long UNKNOWN = -1;
 
+	/** The darts' item id, or {@link ChargedWeaponUsage#NO_ITEM} with none or an unknown type. */
 	private int dartId = ChargedWeaponUsage.NO_ITEM;
+	/** Darts inside, or {@link #UNKNOWN}. */
 	private long darts = UNKNOWN;
+	/** Zulrah's scales inside, or {@link #UNKNOWN}. */
 	private long scales = UNKNOWN;
 
 	/**
@@ -84,23 +89,5 @@ final class BlowpipeContents
 	boolean isKnown()
 	{
 		return darts != UNKNOWN && scales != UNKNOWN;
-	}
-
-	/** The darts' item id, or {@link ChargedWeaponUsage#NO_ITEM} with none or an unknown type. */
-	int getDartId()
-	{
-		return dartId;
-	}
-
-	/** Darts inside, or {@link #UNKNOWN}. */
-	long getDarts()
-	{
-		return darts;
-	}
-
-	/** Zulrah's scales inside, or {@link #UNKNOWN}. */
-	long getScales()
-	{
-		return scales;
 	}
 }

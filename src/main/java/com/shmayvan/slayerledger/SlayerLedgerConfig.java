@@ -1,11 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import net.runelite.client.config.Config;
-import net.runelite.client.config.ConfigGroup;
-import net.runelite.client.config.ConfigItem;
-import net.runelite.client.config.ConfigSection;
-import net.runelite.client.config.Range;
-import net.runelite.client.config.Units;
+import net.runelite.client.config.*;
 
 @ConfigGroup(SlayerLedgerConfig.GROUP)
 public interface SlayerLedgerConfig extends Config
@@ -44,24 +39,16 @@ public interface SlayerLedgerConfig extends Config
 	String taskOverlaySection = "taskOverlay";
 
 	@ConfigSection(
-		name = "Task advisor",
-		description = "What the advisor ranks your setups by, and the Consider skip / Consider block advice on the"
-			+ " sidebar's advisor card, from your completed tasks.",
-		position = 4
-	)
-	String taskAdvisorSection = "taskAdvisorSection";
-
-	@ConfigSection(
 		name = "Panel sections",
 		description = "Choose which optional sections the Slayer Ledger sidebar shows.",
-		position = 5
+		position = 4
 	)
 	String panelSectionsSection = "panelSections";
 
 	@ConfigSection(
 		name = "Charged weapons",
 		description = "How charged weapons' supplies are estimated.",
-		position = 6
+		position = 5
 	)
 	String chargedWeaponsSection = "chargedWeapons";
 
@@ -150,23 +137,6 @@ public interface SlayerLedgerConfig extends Config
 			+ " Notable drop value: the item, its value and the monster or kill number."
 	)
 	default boolean notableDropLine()
-	{
-		return true;
-	}
-
-	/** The key 1.x saved its "New-task chat preview" under, kept so the player's choice carries over. */
-	String ADVISOR_CHAT_LINE = "assignmentPreview";
-
-	@ConfigItem(
-		keyName = ADVISOR_CHAT_LINE,
-		name = "Advisor chat line",
-		position = 4,
-		section = chatSection,
-		description = "When a new Slayer task is assigned, post one chat line with the advisor's pick from your"
-			+ " completed tasks of it: setup, location, time for the kills left, what to bring, and the best setup with"
-			+ " the other cannon choice. Says so when you have no completed tasks of it."
-	)
-	default boolean advisorChatLine()
 	{
 		return true;
 	}
@@ -373,39 +343,5 @@ public interface SlayerLedgerConfig extends Config
 	default boolean showSkippedBlocked()
 	{
 		return true;
-	}
-
-	String TASK_ADVISOR = "taskAdvisor";
-
-	@ConfigItem(
-		keyName = TASK_ADVISOR,
-		name = "Task advisor",
-		position = 0,
-		section = taskAdvisorSection,
-		description = "Show advice for the current task on the sidebar's advisor card: Consider block when the monster's"
-			+ " rate is in the bottom 10% of your monsters and it has 5+ tasks, Consider skip in the bottom 25%,"
-			+ " otherwise nothing is shown. The rate follows the Advisor metric: Slayer XP per hour under Fastest"
-			+ " finish, profit per hour otherwise. Only monsters with 3+ completed tasks and 30+ minutes count, and at"
-			+ " least 6 must. Boss tasks are ranked separately. Advice only."
-	)
-	default boolean taskAdvisor()
-	{
-		return true;
-	}
-
-	String ADVISOR_METRIC = "advisorMetric";
-
-	@ConfigItem(
-		keyName = ADVISOR_METRIC,
-		name = "Advisor metric",
-		position = 1,
-		section = taskAdvisorSection,
-		description = "What the advisor picks a setup by: Fastest finish (least time for the kills left), Profit per"
-			+ " hour (at the Loot price setting) or Cheapest (least supply cost). The task advice ranks by Slayer XP"
-			+ " per hour under Fastest finish and by profit per hour otherwise."
-	)
-	default AdvisorMetric advisorMetric()
-	{
-		return AdvisorMetric.DEFAULT;
 	}
 }

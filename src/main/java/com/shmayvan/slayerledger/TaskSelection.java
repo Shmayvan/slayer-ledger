@@ -1,6 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Objects;
+import java.util.*;
+import lombok.*;
 
 /**
  * Which of a task's records the current task's statistics use, on two independent dimensions:
@@ -12,6 +13,8 @@ import java.util.Objects;
  * </ul>
  * Immutable; compares by value so it can be part of a cache key. Pure (no RuneLite types).
  */
+@Getter
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 final class TaskSelection
 {
 	/** Every record of the task, whichever version and with or without a cannon. */
@@ -19,18 +22,12 @@ final class TaskSelection
 	/** Only records of the standard monster (no {@link LedgerRecord#getVariant variant}), with or without a cannon. */
 	static final TaskSelection STANDARD = new TaskSelection(false, null, null);
 
+	/** Whether the version is pooled (standard and variant alike). */
 	private final boolean anyVariant;
 	/** The variant's name ({@link CatacombsVariants.Variant#getName}), or {@code null} for any and standard. */
 	private final String variant;
 	/** {@code true} for cannon tasks only, {@code false} for tasks without a cannon only, {@code null} for both. */
 	private final Boolean cannon;
-
-	private TaskSelection(boolean anyVariant, String variant, Boolean cannon)
-	{
-		this.anyVariant = anyVariant;
-		this.variant = variant;
-		this.cannon = cannon;
-	}
 
 	/** Only the records of the variant {@code name} (with or without a cannon); {@link #STANDARD} for a blank name. */
 	static TaskSelection of(String name)
@@ -74,24 +71,6 @@ final class TaskSelection
 		}
 		final CatacombsVariants.Variant taskVariant = CatacombsVariants.forTask(taskName);
 		return taskVariant != null && variant.equals(taskVariant.getName()) ? this : withAnyVariant();
-	}
-
-	/** The variant's name, or {@code null} when the version is any or standard. */
-	String getVariant()
-	{
-		return variant;
-	}
-
-	/** Whether the version is pooled (standard and variant alike). */
-	boolean isAnyVariant()
-	{
-		return anyVariant;
-	}
-
-	/** {@code true} for cannon tasks only, {@code false} for tasks without a cannon only, {@code null} for both. */
-	Boolean getCannon()
-	{
-		return cannon;
 	}
 
 	/** Whether {@code record}'s version and cannon use are ones this selects (its task is matched elsewhere). */

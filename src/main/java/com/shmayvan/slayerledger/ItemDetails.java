@@ -1,19 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Value;
+import java.util.*;
+import lombok.*;
 
 /**
  * Pure: a task's supplies and loot item by item, for the panel's item grids. No RuneLite dependencies; item
@@ -40,6 +28,8 @@ import lombok.Value;
  *
  * <p>Immutable.</p>
  */
+@EqualsAndHashCode
+@ToString
 final class ItemDetails
 {
 	/** Rows a text list ({@link ItemListView}, the XP lists) shows before "+N more". */
@@ -64,6 +54,8 @@ final class ItemDetails
 	}
 
 	/** How a row's quantity is counted. */
+	@Getter
+	@AllArgsConstructor
 	enum Unit
 	{
 		ITEMS(null, null),
@@ -71,26 +63,10 @@ final class ItemDetails
 		BITES("bite", "bites"),
 		CHARGES("charge", "charges");
 
-		private final String one;
-		private final String many;
-
-		Unit(String one, String many)
-		{
-			this.one = one;
-			this.many = many;
-		}
-
 		/** The word for one ("dose"), or {@code null} for {@link #ITEMS}. */
-		String getOne()
-		{
-			return one;
-		}
-
+		private final String one;
 		/** The word for several ("doses"), or {@code null} for {@link #ITEMS}. */
-		String getMany()
-		{
-			return many;
-		}
+		private final String many;
 	}
 
 	/** One line of an item list. */
@@ -199,6 +175,7 @@ final class ItemDetails
 	private final Map<Integer, Long> ge;
 	private final Map<Integer, Long> ha;
 	/** The GE price of the nature rune a high alch uses, or {@code null} while unknown (then no alch hint). */
+	@EqualsAndHashCode.Exclude
 	private final Long natureRunePrice;
 
 	private ItemDetails(Map<Integer, Long> loot, Map<Integer, Long> supplies, Map<Integer, Integer> doses,
@@ -532,33 +509,5 @@ final class ItemDetails
 			}
 		}
 		return Collections.unmodifiableMap(result);
-	}
-
-	@Override
-	public boolean equals(Object o)
-	{
-		if (this == o)
-		{
-			return true;
-		}
-		if (!(o instanceof ItemDetails))
-		{
-			return false;
-		}
-		ItemDetails d = (ItemDetails) o;
-		return loot.equals(d.loot) && supplies.equals(d.supplies) && doses.equals(d.doses) && ge.equals(d.ge)
-			&& ha.equals(d.ha);
-	}
-
-	@Override
-	public int hashCode()
-	{
-		return Objects.hash(loot, supplies, doses, ge, ha);
-	}
-
-	@Override
-	public String toString()
-	{
-		return "ItemDetails{loot=" + loot + ", supplies=" + supplies + ", doses=" + doses + "}";
 	}
 }

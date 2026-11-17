@@ -1,6 +1,8 @@
 package com.shmayvan.slayerledger;
 
+import static org.junit.Assert.assertTrue;
 import net.runelite.client.eventbus.EventBus;
+import org.junit.Rule;
 import org.junit.Test;
 
 /**
@@ -9,6 +11,9 @@ import org.junit.Test;
  */
 public class EventSubscriberTest
 {
+	@Rule
+	public final PluginHarness harness = new PluginHarness();
+
 	@Test
 	public void pluginSubscribersRegisterWithTheEventBus()
 	{
@@ -16,6 +21,9 @@ public class EventSubscriberTest
 		SlayerLedgerPlugin plugin = new SlayerLedgerPlugin();
 		eventBus.register(plugin);
 
-		eventBus.register(plugin.completionGraceTicker());
+		// startUp registers the plugin's other subscriber, the completion grace ticker, with the injected (real) bus;
+		// a rejected one would make it throw.
+		harness.startUp();
+		assertTrue(harness.isRunning());
 	}
 }

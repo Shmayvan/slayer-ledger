@@ -1,18 +1,17 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import net.runelite.api.gameval.NpcID;
+import java.util.*;
+import lombok.*;
 
 /**
  * The Catacombs of Kourend variants of Slayer task monsters, for example Deviant spectres on an Aberrant spectres
  * task, and the rule that decides from a session's kills ({@link NpcKillTally}) whether a task was done on its variant.
- * Pure (no RuneLite types; the ids are the RuneLite 1.13.4 gameval {@code NpcID} constants, plain ints).
+ * Pure (no RuneLite types; the ids are gameval {@code NpcID} values, plain ints).
  *
- * <p>The table is curated: one entry per task with a Catacombs-only variant, keyed by the NPC id the game uses in the
+ * <p>The table is the bundled {@code catacombs-variants.json} ({@link BundledData}; no variants when it can't be
+ * read). It is curated: one entry per task with a Catacombs-only variant, keyed by the NPC id the game uses in the
  * Catacombs ({@code NpcID.KOUREND_*}, ids 7272 to 7279). Each id and its NPC name were checked against the RuneLite
- * 1.13.4 gameval {@code NpcID} constants and their javadoc names; {@code CatacombsVariantsTest} checks the constants
+ * 1.13.6 gameval {@code NpcID} constants and their javadoc names; {@code CatacombsVariantsTest} checks the constants
  * again. Some variants also live outside the Catacombs under the same name with other ids (Greater Nechryael in the
  * Wilderness Slayer Cave, Mutated Bloodveld in Meiyerditch, Brutal dragons in Lithkren and Tapoyauik); those are not
  * Catacombs variants, so {@link #tallyName} leaves them out of the tally.</p>
@@ -29,56 +28,24 @@ import net.runelite.api.gameval.NpcID;
 final class CatacombsVariants
 {
 	/** One task's Catacombs variant. Immutable. */
+	@Getter
+	@AllArgsConstructor(access = AccessLevel.PRIVATE)
 	static final class Variant
 	{
-		private final String task;
-		private final int npcId;
-		private final String npcName;
-		private final String name;
-
-		private Variant(String task, int npcId, String npcName, String name)
-		{
-			this.task = task;
-			this.npcId = npcId;
-			this.npcName = npcName;
-			this.name = name;
-		}
-
 		/** The Slayer task's name, as the game's task table gives it (for example "Aberrant spectres"). */
-		String getTask()
-		{
-			return task;
-		}
-
+		private final String task;
 		/** The variant's NPC id in the Catacombs. */
-		int getNpcId()
-		{
-			return npcId;
-		}
-
+		private final int npcId;
 		/** The variant's NPC name, as the game gives it (for example "Deviant spectre"). */
-		String getNpcName()
-		{
-			return npcName;
-		}
-
+		private final String npcName;
 		/** The name a variant task is shown and grouped under, like a task name (for example "Deviant spectres"). */
-		String getName()
-		{
-			return name;
-		}
+		private final String name;
 	}
 
-	private static final List<Variant> VARIANTS = Collections.unmodifiableList(Arrays.asList(
-		new Variant("Aberrant spectres", NpcID.KOUREND_SPECTRE, "Deviant spectre", "Deviant spectres"),
-		new Variant("Nechryael", NpcID.KOUREND_NECHRYAEL, "Greater Nechryael", "Greater nechryael"),
-		new Variant("Bloodveld", NpcID.KOUREND_BLOODVELD, "Mutated Bloodveld", "Mutated bloodveld"),
-		new Variant("Jellies", NpcID.KOUREND_JELLY, "Warped Jelly", "Warped jellies"),
-		new Variant("Banshees", NpcID.KOUREND_BANSHEE, "Twisted Banshee", "Twisted banshees"),
-		new Variant("Black dragons", NpcID.KOUREND_BLACK_DRAGON, "Brutal black dragon", "Brutal black dragons"),
-		new Variant("Blue dragons", NpcID.KOUREND_BLUE_DRAGON, "Brutal blue dragon", "Brutal blue dragons"),
-		new Variant("Red dragons", NpcID.KOUREND_RED_DRAGON, "Brutal red dragon", "Brutal red dragons")
-	));
+	private static final List<Variant> VARIANTS = BundledData.load("catacombs-variants.json",
+		root -> BundledData.rows(root.getAsJsonArray("variants"), row -> new Variant(row.get("task").getAsString(),
+			row.get("npcId").getAsInt(), row.get("npcName").getAsString(), row.get("name").getAsString())),
+		Collections.emptyList());
 
 	private CatacombsVariants()
 	{

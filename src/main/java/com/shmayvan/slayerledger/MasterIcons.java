@@ -1,18 +1,13 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.Component;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import javax.imageio.ImageIO;
-import javax.swing.Icon;
-import lombok.extern.slf4j.Slf4j;
+import java.awt.*;
+import java.awt.image.*;
+import java.io.*;
+import java.util.*;
+import javax.imageio.*;
+import javax.swing.*;
+import lombok.*;
+import lombok.extern.slf4j.*;
 
 /**
  * The Slayer masters' face icons of Overall totals' By master headers: each master's chathead image from the
@@ -158,23 +153,13 @@ final class MasterIcons
 	 * A master's face in the small slot ({@link ItemListView#ICON_WIDTH} by {@link ItemListView#ICON_HEIGHT}), scaled
 	 * as it is painted with bicubic interpolation, keeping its aspect ratio, centred.
 	 */
+	@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 	static final class MasterIcon implements Icon
 	{
-		/** The image's file name, for tests. */
+		/** The image's file name (under {@link #DIRECTORY}), for tests. */
+		@Getter
 		private final String file;
 		private final BufferedImage image;
-
-		private MasterIcon(String file, BufferedImage image)
-		{
-			this.file = file;
-			this.image = image;
-		}
-
-		/** The image's file name (under {@link #DIRECTORY}). */
-		String getFile()
-		{
-			return file;
-		}
 
 		@Override
 		public void paintIcon(Component c, Graphics g, int x, int y)

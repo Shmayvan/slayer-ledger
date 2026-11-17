@@ -1,19 +1,9 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.function.IntFunction;
-import net.runelite.api.gameval.ItemID;
+import java.util.*;
+import java.util.function.*;
+import lombok.*;
+import net.runelite.api.gameval.*;
 
 /**
  * The overlay's supply runway (DESIGN_PRINCIPLES.md 2.5): how many kills each carried supply lasts at the
@@ -60,6 +50,8 @@ final class SupplyRunway
 		"super restore", "blighted super restore", "sanfew serum"));
 
 	/** What a counted supply is, with its short name (DESIGN_PRINCIPLES.md 2.5), in tie-break order. */
+	@Getter
+	@AllArgsConstructor
 	enum Kind
 	{
 		PRAYER("Prayer"),
@@ -71,21 +63,12 @@ final class SupplyRunway
 		DARTS("Darts"),
 		SCALES("Scales");
 
-		private final String shortName;
-
-		Kind(String shortName)
-		{
-			this.shortName = shortName;
-		}
-
 		/** The runway's name for it: {@code Prayer}, {@code Cannonballs}. */
-		String getShortName()
-		{
-			return shortName;
-		}
+		private final String shortName;
 	}
 
 	/** A supply the player carries now. Immutable. */
+	@Getter
 	static final class Supply
 	{
 		private final String key;
@@ -105,26 +88,6 @@ final class SupplyRunway
 			this.kind = Objects.requireNonNull(kind);
 			this.amount = amount;
 		}
-
-		String getKey()
-		{
-			return key;
-		}
-
-		int getItemId()
-		{
-			return itemId;
-		}
-
-		Kind getKind()
-		{
-			return kind;
-		}
-
-		long getAmount()
-		{
-			return amount;
-		}
 	}
 
 	/**
@@ -136,15 +99,13 @@ final class SupplyRunway
 		/** Nothing known carried: the containers were not read on the tick, and no blowpipe's contents are known. */
 		static final Carrying UNSEEN = new Carrying(Collections.emptyList(), false, false);
 
+		/** The counted supplies carried; empty when {@link #UNSEEN}. */
+		@Getter
 		private final List<Supply> supplies;
+		/** Whether the containers were read on the tick. */
+		@Getter
 		private final boolean seen;
 		private final boolean blowpipeUnseen;
-
-		/** What the containers read on the tick carry ({@link #Carrying(List, boolean, boolean)}). */
-		Carrying(List<Supply> supplies, boolean blowpipeUnseen)
-		{
-			this(supplies, true, blowpipeUnseen);
-		}
 
 		/**
 		 * @param supplies       the counted supplies carried ({@link #carried}, {@link #withBlowpipe})
@@ -161,18 +122,6 @@ final class SupplyRunway
 			this.blowpipeUnseen = blowpipeUnseen;
 		}
 
-		/** The counted supplies carried; empty when {@link #UNSEEN}. */
-		List<Supply> getSupplies()
-		{
-			return supplies;
-		}
-
-		/** Whether the containers were read on the tick. */
-		boolean isSeen()
-		{
-			return seen;
-		}
-
 		/**
 		 * Whether the amount of {@code kind} carried is known, so that none of it means it ran out: not while the
 		 * containers weren't read, nor darts and scales while a blowpipe may hold some that can't be counted.
@@ -184,10 +133,13 @@ final class SupplyRunway
 	}
 
 	/** The runway to show: a supply and the kills it lasts. Immutable. */
+	@Value
 	static final class Warning
 	{
 		private final Kind kind;
+		/** The item whose icon is shown. */
 		private final int itemId;
+		/** The kills the carried amount lasts (rounded down, at least 1 while any is carried); 0 once it ran out. */
 		private final long kills;
 
 		Warning(Kind kind, int itemId, long kills)
@@ -197,50 +149,10 @@ final class SupplyRunway
 			this.kills = kills;
 		}
 
-		Kind getKind()
-		{
-			return kind;
-		}
-
-		/** The item whose icon is shown. */
-		int getItemId()
-		{
-			return itemId;
-		}
-
-		/** The kills the carried amount lasts (rounded down, at least 1 while any is carried); 0 once it ran out. */
-		long getKills()
-		{
-			return kills;
-		}
-
 		/** Whether it runs out within {@link #CRITICAL_KILLS} kills. */
 		boolean isCritical()
 		{
 			return kills <= CRITICAL_KILLS;
-		}
-
-		@Override
-		public boolean equals(Object other)
-		{
-			if (!(other instanceof Warning))
-			{
-				return false;
-			}
-			final Warning that = (Warning) other;
-			return kind == that.kind && itemId == that.itemId && kills == that.kills;
-		}
-
-		@Override
-		public int hashCode()
-		{
-			return Objects.hash(kind, itemId, kills);
-		}
-
-		@Override
-		public String toString()
-		{
-			return kind.getShortName() + " (" + itemId + "): " + kills;
 		}
 	}
 

@@ -1,6 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Arrays;
+import java.util.*;
 
 /**
  * Detects a Slayer task completion from the game's task-completion counters (regular, Wilderness and Mortimer

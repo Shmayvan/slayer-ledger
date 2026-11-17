@@ -1,11 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
+import lombok.*;
 
 /**
  * The loot item ids Ground Items' hidden list hides, as worked out from their names by
@@ -17,6 +13,8 @@ import java.util.TreeSet;
  *
  * <p>Immutable, so it can be handed to the views worked out off the EDT; equal sets are {@link #equals equal}.</p>
  */
+@EqualsAndHashCode
+@ToString
 final class HiddenLoot
 {
 	/** Hides nothing. */
@@ -25,6 +23,8 @@ final class HiddenLoot
 	/** Hidden from view. */
 	private final Set<Integer> ids;
 	/** Left out of the value: {@link #ids} without coins. */
+	@EqualsAndHashCode.Exclude
+	@ToString.Exclude
 	private final Set<Integer> valueIds;
 
 	private HiddenLoot(Set<Integer> ids)
@@ -119,23 +119,5 @@ final class HiddenLoot
 			}
 		}
 		return kept;
-	}
-
-	@Override
-	public boolean equals(Object o)
-	{
-		return this == o || o instanceof HiddenLoot && ids.equals(((HiddenLoot) o).ids);
-	}
-
-	@Override
-	public int hashCode()
-	{
-		return ids.hashCode();
-	}
-
-	@Override
-	public String toString()
-	{
-		return "HiddenLoot" + ids;
 	}
 }

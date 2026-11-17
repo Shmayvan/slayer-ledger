@@ -1,9 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-import net.runelite.api.Skill;
+import java.util.*;
+import net.runelite.api.*;
 import net.runelite.api.gameval.AnimationID;
 import net.runelite.api.gameval.ItemID;
 

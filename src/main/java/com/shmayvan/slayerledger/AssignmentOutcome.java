@@ -1,5 +1,7 @@
 package com.shmayvan.slayerledger;
 
+import lombok.*;
+
 /**
  * How a Slayer assignment ended without a saved session (see {@link AssignmentEntry}), worked out from what changed
  * around its end. Pure; no RuneLite types.
@@ -20,6 +22,8 @@ package com.shmayvan.slayerledger;
  * them changed at the same moment" is used. When the signals don't fit one outcome cleanly, the outcome is
  * {@link #UNKNOWN}: never a guess.</p>
  */
+@Getter
+@AllArgsConstructor
 enum AssignmentOutcome
 {
 	/** Cancelled for points: points went down, no block changed, no completion, no streak drop. */
@@ -33,26 +37,10 @@ enum AssignmentOutcome
 	/** The signals fit none of the above (or are missing). */
 	UNKNOWN("Ended", "Ended (reason unknown)");
 
-	private final String label;
-	private final String description;
-
-	AssignmentOutcome(String label, String description)
-	{
-		this.label = label;
-		this.description = description;
-	}
-
 	/** Short label for the history row, e.g. "Skipped". */
-	String getLabel()
-	{
-		return label;
-	}
-
+	private final String label;
 	/** Longer text for the row's tooltip, e.g. "Ended (reason unknown)". */
-	String getDescription()
-	{
-		return description;
-	}
+	private final String description;
 
 	/** A saved outcome, or {@link #UNKNOWN} for {@code null} (for example a value written by a newer build). */
 	static AssignmentOutcome orUnknown(AssignmentOutcome outcome)

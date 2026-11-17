@@ -1,8 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
+import lombok.*;
 
 /**
  * The player's kills of one NPC name in a session. Serialized with Gson in {@link SessionSnapshot}; effectively
@@ -11,6 +9,7 @@ import lombok.ToString;
 @Getter
 @EqualsAndHashCode
 @ToString
+@AllArgsConstructor(access = AccessLevel.PACKAGE)
 final class NpcKills
 {
 	/** The NPC's name as the game gives it, trimmed (for example "Deviant spectre"). */
@@ -21,11 +20,5 @@ final class NpcKills
 	/** For Gson. */
 	private NpcKills()
 	{
-	}
-
-	NpcKills(String name, int kills)
-	{
-		this.name = name;
-		this.kills = kills;
 	}
 }

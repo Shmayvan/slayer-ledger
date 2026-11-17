@@ -1,17 +1,9 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.FontMetrics;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
+import java.awt.*;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.OptionalDouble;
-import java.util.OptionalLong;
-import java.util.TreeMap;
-import lombok.Builder;
-import lombok.Value;
+import lombok.*;
 
 /**
  * The task overlay's rows (DESIGN_PRINCIPLES.md section 2, V2 plan 7), in their fixed order:
@@ -181,12 +173,18 @@ final class OverlayRows
 	 * only when it belongs to the same session (the plugin checks); or, with no session, the state of an assignment
 	 * waiting for its first kill or Ended ({@link #stateOnly}).
 	 */
+	@Getter
 	static final class Data
 	{
+		/** What tracking is doing ({@link SessionTracker#getStatus()}); never {@code null}. */
 		private final SessionTracker.Status status;
+		/** The active session's task, or {@code null} for {@link #stateOnly}. */
 		private final SessionTracker.LiveTask task;
+		/** The tick's snapshot, or {@code null}. */
 		private final Snapshot snapshot;
+		/** The session's live values, or {@code null}. */
 		private final SessionValuation.Values values;
+		/** The historical time per kill for the time left, or {@code null} when there is none. */
 		private final Long historicalMillisPerKill;
 
 		/**
@@ -223,36 +221,6 @@ final class OverlayRows
 		static Data stateOnly(SessionTracker.Status status, Snapshot snapshot)
 		{
 			return new Data(status, snapshot);
-		}
-
-		/** What tracking is doing ({@link SessionTracker#getStatus()}); never {@code null}. */
-		SessionTracker.Status getStatus()
-		{
-			return status;
-		}
-
-		/** The active session's task, or {@code null} for {@link #stateOnly}. */
-		SessionTracker.LiveTask getTask()
-		{
-			return task;
-		}
-
-		/** The tick's snapshot, or {@code null}. */
-		Snapshot getSnapshot()
-		{
-			return snapshot;
-		}
-
-		/** The session's live values, or {@code null}. */
-		SessionValuation.Values getValues()
-		{
-			return values;
-		}
-
-		/** The historical time per kill for the time left, or {@code null} when there is none. */
-		Long getHistoricalMillisPerKill()
-		{
-			return historicalMillisPerKill;
 		}
 
 		/**
@@ -296,16 +264,14 @@ final class OverlayRows
 	 * {@link LedgerHistoryModel} works them out from the history on the EDT and publishes them; the plugin reads them on
 	 * the client thread and uses them only for the same session. Immutable.
 	 */
+	@Getter
+	@EqualsAndHashCode
 	static final class HistoricalPace
 	{
 		private final String sessionId;
 		private final long millisPerKill;
+		/** Each supply's use per kill in the history, by item id; empty for none. */
 		private final Map<Integer, Double> suppliesPerKill;
-
-		HistoricalPace(String sessionId, long millisPerKill)
-		{
-			this(sessionId, millisPerKill, null);
-		}
 
 		/**
 		 * @param suppliesPerKill each supply's use per kill (item id to doses, bites or items:
@@ -330,40 +296,6 @@ final class OverlayRows
 		{
 			return belongsTo(task) ? millisPerKill : null;
 		}
-
-		String getSessionId()
-		{
-			return sessionId;
-		}
-
-		long getMillisPerKill()
-		{
-			return millisPerKill;
-		}
-
-		/** Each supply's use per kill in the history, by item id; empty for none. */
-		Map<Integer, Double> getSuppliesPerKill()
-		{
-			return suppliesPerKill;
-		}
-
-		@Override
-		public boolean equals(Object other)
-		{
-			if (!(other instanceof HistoricalPace))
-			{
-				return false;
-			}
-			HistoricalPace that = (HistoricalPace) other;
-			return millisPerKill == that.millisPerKill && Objects.equals(sessionId, that.sessionId)
-				&& suppliesPerKill.equals(that.suppliesPerKill);
-		}
-
-		@Override
-		public int hashCode()
-		{
-			return Objects.hash(sessionId, millisPerKill, suppliesPerKill);
-		}
 	}
 
 	/**
@@ -372,18 +304,39 @@ final class OverlayRows
 	 */
 	static final class Row
 	{
+		@Getter
 		private final Kind kind;
+		/** The left text: the state, the task name, the bar label, a value or the runway's and moment's line. */
+		@Getter
 		private final String left;
+		/** The right text (empty for none): the state's hint or a value. */
+		@Getter
 		private final String right;
+		@Getter
 		private final Tone leftTone;
+		@Getter
 		private final Tone rightTone;
-		/** Whether the left text is the key number, Bold while the overlay font is the default Plain. */
+		/**
+		 * Whether the left text is the key number ({@code 128 left}), Bold while the overlay font is the default
+		 * Plain.
+		 */
+		@Getter
 		private final boolean key;
+		/** The identity's task icon or the runway's supply icon, or {@code null}. */
+		@Getter
 		private final Integer iconItemId;
 		private final String second;
+		/** The identity's setup tag sprites. */
+		@Getter
 		private final List<SetupTagIcons.Icon> tags;
+		/** The bar's kills done. */
+		@Getter
 		private final int done;
+		/** The bar's task size. */
+		@Getter
 		private final int total;
+		/** The runway this row shows, or {@code null}. */
+		@Getter
 		private final SupplyRunway.Warning runway;
 
 		private Row(Kind kind, String left, String right, Tone leftTone, Tone rightTone, boolean key,
@@ -445,79 +398,16 @@ final class OverlayRows
 				new Details(iconItemId, second, tags, done, total, runway));
 		}
 
-		Kind getKind()
-		{
-			return kind;
-		}
-
-		/** The left text: the state, the task name, the bar label, a value or the runway's and moment's line. */
-		String getLeft()
-		{
-			return left;
-		}
-
-		/** The right text (empty for none): the state's hint or a value. */
-		String getRight()
-		{
-			return right;
-		}
-
-		Tone getLeftTone()
-		{
-			return leftTone;
-		}
-
-		Tone getRightTone()
-		{
-			return rightTone;
-		}
-
-		/** Whether the left text is the overlay's key number ({@code 128 left}). */
-		boolean isKey()
-		{
-			return key;
-		}
-
 		/** Whether the row is drawn in Bold while the overlay font is Plain: the key number, a critical runway. */
 		boolean isBold()
 		{
 			return key || (runway != null && runway.isCritical());
 		}
 
-		/** The identity's task icon or the runway's supply icon, or {@code null}. */
-		Integer getIconItemId()
-		{
-			return iconItemId;
-		}
-
 		/** The identity's second line: the spot's short name (may be empty). */
 		String getSecond()
 		{
 			return second == null ? "" : second;
-		}
-
-		/** The identity's setup tag sprites. */
-		List<SetupTagIcons.Icon> getTags()
-		{
-			return tags;
-		}
-
-		/** The bar's kills done. */
-		int getDone()
-		{
-			return done;
-		}
-
-		/** The bar's task size. */
-		int getTotal()
-		{
-			return total;
-		}
-
-		/** The runway this row shows, or {@code null}. */
-		SupplyRunway.Warning getRunway()
-		{
-			return runway;
 		}
 
 		@Override

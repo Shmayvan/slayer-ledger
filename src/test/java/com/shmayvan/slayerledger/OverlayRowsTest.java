@@ -537,8 +537,8 @@ public class OverlayRowsTest
 			"Wyrms", 42, 1, 30_000, 40)));
 		assertNull(pace.millisPerKillFor(null));
 		assertEquals(Collections.singletonMap(2434, 0.5), pace.getSuppliesPerKill());
-		assertTrue(new OverlayRows.HistoricalPace("session", 1L).getSuppliesPerKill().isEmpty());
-		assertFalse(pace.equals(new OverlayRows.HistoricalPace("session", 45_000L)));
+		assertTrue(new OverlayRows.HistoricalPace("session", 1L, null).getSuppliesPerKill().isEmpty());
+		assertFalse(pace.equals(new OverlayRows.HistoricalPace("session", 45_000L, null)));
 		assertEquals(pace, new OverlayRows.HistoricalPace("session", 45_000L, Collections.singletonMap(2434, 0.5)));
 	}
 

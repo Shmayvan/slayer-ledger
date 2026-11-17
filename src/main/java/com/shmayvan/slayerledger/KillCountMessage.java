@@ -1,10 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
+import java.util.regex.*;
+import lombok.*;
 
 /**
  * Recognises the game's kill count chat messages, such as {@code Your Vorkath kill count is: <col=ff0000>152</col>.}
@@ -40,6 +37,7 @@ final class KillCountMessage
 	@Getter
 	@EqualsAndHashCode
 	@ToString
+	@AllArgsConstructor(access = AccessLevel.PACKAGE)
 	static final class Result
 	{
 		/** The name the message gives, without colour tags, for example {@code Vorkath} or {@code Barrows chest}. */
@@ -48,13 +46,6 @@ final class KillCountMessage
 		private final int kc;
 		/** Whether it counts a boss kill ({@code kill count} or bare {@code count}), rather than a lap, raid and so on. */
 		private final boolean bossKill;
-
-		Result(String boss, int kc, boolean bossKill)
-		{
-			this.boss = boss;
-			this.kc = kc;
-			this.bossKill = bossKill;
-		}
 	}
 
 	/**

@@ -1,6 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import lombok.Value;
+import lombok.*;
 
 /**
  * The sidebar's icon sources, passed as one so a section's constructor stays within 7 parameters: item icons

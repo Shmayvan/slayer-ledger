@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.RETURNS_DEFAULTS;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 import com.google.gson.Gson;
@@ -23,7 +24,11 @@ import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -106,6 +111,7 @@ import net.runelite.client.game.NpcUtil;
 import net.runelite.client.game.SkillIconManager;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.ClientToolbar;
+import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.AsyncBufferedImage;
 import net.runelite.client.util.Filepath;
@@ -113,6 +119,7 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
+import org.mockito.invocation.Invocation;
 import org.mockito.invocation.InvocationOnMock;
 
 /**
@@ -213,7 +220,6 @@ final class PluginHarness implements TestRule
 		volatile boolean taskCompleteNotification;
 		volatile boolean recordTaskLine = true;
 		volatile boolean notableDropLine = true;
-		volatile boolean advisorChatLine = true;
 		volatile boolean showTaskOverlay = true;
 		volatile boolean overlayProgress = true;
 		volatile boolean overlayPace = true;
@@ -226,8 +232,6 @@ final class PluginHarness implements TestRule
 		volatile int notableDropThreshold = NotableDrops.DEFAULT_THRESHOLD;
 		volatile boolean showOverallTotals = true;
 		volatile boolean showSkippedBlocked = true;
-		volatile boolean taskAdvisor = true;
-		volatile AdvisorMetric advisorMetric = AdvisorMetric.DEFAULT;
 		volatile boolean hideGroundItemsHidden = true;
 		volatile int awayMinutes = SessionTracker.DEFAULT_AWAY_MINUTES;
 
@@ -243,17 +247,6 @@ final class PluginHarness implements TestRule
 			return hideGroundItemsHidden;
 		}
 
-		@Override
-		public boolean taskAdvisor()
-		{
-			return taskAdvisor;
-		}
-
-		@Override
-		public AdvisorMetric advisorMetric()
-		{
-			return advisorMetric;
-		}
 
 		@Override
 		public boolean showOverallTotals()
@@ -315,11 +308,6 @@ final class PluginHarness implements TestRule
 			return notableDropLine;
 		}
 
-		@Override
-		public boolean advisorChatLine()
-		{
-			return advisorChatLine;
-		}
 
 		@Override
 		public boolean showTaskOverlay()
@@ -407,6 +395,8 @@ final class PluginHarness implements TestRule
 	private volatile Thread clientThreadOwner;
 	private Thread.UncaughtExceptionHandler previousUncaughtHandler;
 	private File ledgerDirectory;
+	/** What the plugin's session tracker reads the time from ({@link #setTrackerClock}); the system clock until set. */
+	private volatile LongSupplier trackerClock = System::currentTimeMillis;
 	private boolean running;
 	private LootManager lootManager;
 
@@ -601,6 +591,8 @@ final class PluginHarness implements TestRule
 			binder.bind(ScheduledExecutorService.class).toInstance(executor);
 			binder.bind(Gson.class).toInstance(gson);
 			binder.bind(NpcUtil.class).toInstance(mock(NpcUtil.class));
+			// The plugin's optional clock, which its session tracker reads.
+			binder.bind(Clock.class).toInstance(new HarnessClock());
 		});
 		// The real LootManager, created by Guice as in the client (it registers itself with the event bus).
 		lootManager = parent.getInstance(LootManager.class);
@@ -624,25 +616,7 @@ final class PluginHarness implements TestRule
 			rsProfileConfig.remove(invocation.getArgument(0) + "." + invocation.getArgument(1));
 			return null;
 		}).when(configManager).unsetRSProfileConfiguration(anyString(), anyString());
-		// The advisor card's tabs save the "Advisor metric": as ConfigManager.setConfiguration, a new
-		// value is stored and ConfigChanged is posted at once, on the calling thread (the EDT); the same value posts
-		// nothing.
-		doAnswer(invocation ->
-		{
-			final AdvisorMetric metric = invocation.getArgument(2);
-			if (SlayerLedgerConfig.GROUP.equals(invocation.getArgument(0))
-				&& SlayerLedgerConfig.ADVISOR_METRIC.equals(invocation.getArgument(1))
-				&& metric != config.advisorMetric)
-			{
-				config.advisorMetric = metric;
-				final ConfigChanged event = new ConfigChanged();
-				event.setGroup(SlayerLedgerConfig.GROUP);
-				event.setKey(SlayerLedgerConfig.ADVISOR_METRIC);
-				event.setNewValue(metric.name());
-				eventBus.post(event);
-			}
-			return null;
-		}).when(configManager).setConfiguration(anyString(), anyString(), any(AdvisorMetric.class));
+
 		// The keys of the one profile, as ConfigManager lists them (whole keys after the group, "prefix..."); none, as
 		// with no profile, while the RSProfile config reads null.
 		when(configManager.getRSProfileKey()).thenAnswer(invocation ->
@@ -670,7 +644,8 @@ final class PluginHarness implements TestRule
 			binder.bind(SlayerLedgerPlugin.class).toInstance(plugin);
 			binder.install(plugin);
 		});
-		plugin.setLedgerDirectory(Filepath.Unchecked.getRooted(ledgerDirectory.toPath()));
+		final Filepath directory = Filepath.Unchecked.getRooted(ledgerDirectory.toPath());
+		plugin.setLedgerDirectorySource(() -> directory);
 		plugin.setKeepIncompleteDialog(this::showKeepDiscardPrompt);
 	}
 
@@ -1218,16 +1193,6 @@ final class PluginHarness implements TestRule
 		post(event);
 	}
 
-	/** Sets the "Task advisor" setting and posts {@link ConfigChanged} for it, as the config panel does. */
-	void setTaskAdvisor(boolean enabled)
-	{
-		config.taskAdvisor = enabled;
-		ConfigChanged event = new ConfigChanged();
-		event.setGroup(SlayerLedgerConfig.GROUP);
-		event.setKey(SlayerLedgerConfig.TASK_ADVISOR);
-		event.setNewValue(Boolean.toString(enabled));
-		post(event);
-	}
 
 	/**
 	 * Sets one of Ground Items' settings ({@code group} is {@link GroundItemsHidden#GROUP}) or its on/off state
@@ -1268,16 +1233,6 @@ final class PluginHarness implements TestRule
 		post(event);
 	}
 
-	/** Sets the "Advisor metric" setting and posts {@link ConfigChanged} for it, as the config panel does. */
-	void setAdvisorMetric(AdvisorMetric metric)
-	{
-		config.advisorMetric = metric;
-		ConfigChanged event = new ConfigChanged();
-		event.setGroup(SlayerLedgerConfig.GROUP);
-		event.setKey(SlayerLedgerConfig.ADVISOR_METRIC);
-		event.setNewValue(metric.name());
-		post(event);
-	}
 
 	/** How many times {@code ItemManager.getItemComposition} was called for {@code id}, for example to name it. */
 	int itemCompositionLookups(int id)
@@ -1883,10 +1838,26 @@ final class PluginHarness implements TestRule
 		return plugin.tracker();
 	}
 
-	/** The plugin's sidebar panel, or {@code null} while the plugin is stopped. Use it on the EDT ({@link #onEdt}). */
+	/**
+	 * The plugin's sidebar panel, or {@code null} while the plugin is stopped: the panel of the navigation button it
+	 * last added to the toolbar and has not removed. Use it on the EDT ({@link #onEdt}).
+	 */
 	SlayerLedgerPanel panel()
 	{
-		return plugin.panel();
+		NavigationButton shown = null;
+		for (Invocation call : mockingDetails(clientToolbar).getInvocations())
+		{
+			final String method = call.getMethod().getName();
+			if (method.equals("addNavigation"))
+			{
+				shown = call.getArgument(0);
+			}
+			else if (method.equals("removeNavigation") && call.getArgument(0) == shown)
+			{
+				shown = null;
+			}
+		}
+		return shown == null ? null : (SlayerLedgerPanel) shown.getPanel();
 	}
 
 	/**
@@ -1935,7 +1906,35 @@ final class PluginHarness implements TestRule
 	/** Points the plugin's session tracker at {@code clock} (it reads the system clock otherwise). */
 	void setTrackerClock(LongSupplier clock)
 	{
-		tracker().setClock(clock);
+		trackerClock = clock;
+	}
+
+	/** The clock the harness binds for the plugin: {@link #trackerClock}'s time, in UTC. */
+	private final class HarnessClock extends Clock
+	{
+		@Override
+		public ZoneId getZone()
+		{
+			return ZoneOffset.UTC;
+		}
+
+		@Override
+		public Clock withZone(ZoneId zone)
+		{
+			throw new UnsupportedOperationException("the harness clock has one zone");
+		}
+
+		@Override
+		public long millis()
+		{
+			return trackerClock.getAsLong();
+		}
+
+		@Override
+		public Instant instant()
+		{
+			return Instant.ofEpochMilli(millis());
+		}
 	}
 
 	OverlayRows.Data overlayData()

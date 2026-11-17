@@ -1,8 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
+import lombok.*;
 
 /**
  * One notable drop of a task: a loot item stack worth at least the "Notable drop value" setting, or a pet. Its values
@@ -13,6 +11,7 @@ import lombok.ToString;
 @Getter
 @EqualsAndHashCode
 @ToString
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 final class NotableDrop
 {
 	/** What a pet message said. */
@@ -45,17 +44,6 @@ final class NotableDrop
 	/** For Gson. */
 	private NotableDrop()
 	{
-	}
-
-	private NotableDrop(Integer itemId, String name, long quantity, Long geValue, Long haValue, long time, Pet pet)
-	{
-		this.itemId = itemId;
-		this.name = name;
-		this.quantity = quantity;
-		this.geValue = geValue;
-		this.haValue = haValue;
-		this.time = time;
-		this.pet = pet;
 	}
 
 	/** An item stack worth {@code geValue} / {@code haValue} in all (each {@code null} when unknown). */

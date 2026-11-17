@@ -1,9 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Value;
+import lombok.*;
 
 /**
  * The plain counters of one session (superior spawns, bank trips, deaths), shared by {@link SessionTracker} (which

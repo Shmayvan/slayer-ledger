@@ -1,9 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
+import lombok.*;
 
 /**
  * Per-item quantities (item id to quantity), used for loot and supplies. Pure: no RuneLite dependencies.
@@ -15,6 +13,8 @@ import java.util.TreeMap;
  * <p>The JSON form is a plain {@code Map<Integer, Long>} (an object such as {@code {"995": 1200}}), see
  * {@link #toMap()} and {@link #fromMap(Map)}.</p>
  */
+@EqualsAndHashCode
+@ToString
 public final class ItemTally
 {
 	private final TreeMap<Integer, Long> quantities = new TreeMap<>();
@@ -146,23 +146,5 @@ public final class ItemTally
 	{
 		long sum = a + b;
 		return sum < 0 ? Long.MAX_VALUE : sum;
-	}
-
-	@Override
-	public boolean equals(Object o)
-	{
-		return o instanceof ItemTally && quantities.equals(((ItemTally) o).quantities);
-	}
-
-	@Override
-	public int hashCode()
-	{
-		return quantities.hashCode();
-	}
-
-	@Override
-	public String toString()
-	{
-		return "ItemTally" + quantities;
 	}
 }

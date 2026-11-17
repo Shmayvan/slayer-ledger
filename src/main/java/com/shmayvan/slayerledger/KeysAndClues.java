@@ -1,10 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import lombok.*;
 
 /**
  * The Slayer keys and clue scrolls among a task's loot: brimstone keys (Konar), Larran's keys (Krystilia's Wilderness
@@ -17,9 +14,11 @@ import java.util.Map;
  * them against it). Besides each key's own id, the ids the game lists under the same name (its stack-size display
  * variants) are counted too, in case loot ever reports one. Clue scroll ids are in {@link ClueScrollIds}.</p>
  */
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 final class KeysAndClues
 {
 	/** Clue scroll tiers, in display order. */
+	@AllArgsConstructor
 	enum ClueTier
 	{
 		BEGINNER("beginner", ClueScrollIds.BEGINNER),
@@ -31,12 +30,6 @@ final class KeysAndClues
 
 		private final String displayName;
 		private final int[] itemIds;
-
-		ClueTier(String displayName, int[] itemIds)
-		{
-			this.displayName = displayName;
-			this.itemIds = itemIds;
-		}
 
 		@Override
 		public String toString()
@@ -87,13 +80,6 @@ final class KeysAndClues
 	/** Clue scrolls by {@link ClueTier#ordinal()}. */
 	private final long[] clues;
 
-	private KeysAndClues(long brimstoneKeys, long larransKeys, long[] clues)
-	{
-		this.brimstoneKeys = brimstoneKeys;
-		this.larransKeys = larransKeys;
-		this.clues = clues;
-	}
-
 	/** The keys and clue scrolls in {@code loot} (item id to quantity); {@link #NONE} for {@code null}. */
 	static KeysAndClues of(Map<Integer, Long> loot)
 	{
@@ -132,21 +118,6 @@ final class KeysAndClues
 	static KeysAndClues of(ItemTally loot)
 	{
 		return loot == null ? NONE : of(loot.toMap());
-	}
-
-	long getBrimstoneKeys()
-	{
-		return brimstoneKeys;
-	}
-
-	long getLarransKeys()
-	{
-		return larransKeys;
-	}
-
-	long getClues(ClueTier tier)
-	{
-		return clues[tier.ordinal()];
 	}
 
 	boolean hasKeys()

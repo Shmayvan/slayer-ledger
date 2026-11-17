@@ -1,11 +1,8 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.regex.Pattern;
-import net.runelite.api.gameval.ItemID;
+import java.util.*;
+import java.util.regex.*;
+import net.runelite.api.gameval.*;
 
 /**
  * Charges used by the bracelet of slaughter and the expeditious bracelet. Each time a worn bracelet's effect

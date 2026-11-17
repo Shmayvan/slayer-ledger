@@ -1,11 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
+import lombok.*;
 
 /**
  * A task's variant and boss flag (V2 plan 4.4), decided from its kills per NPC name ({@link NpcKillTally}). Pure
@@ -18,7 +14,7 @@ import java.util.Objects;
  * counts once.</p>
  *
  * <p><b>Variant.</b> The kind with the most task kills in the tally, leaving out superiors
- * ({@link SlayerBosses#superiors}): a kind's kills against the task's own monsters' kills, which are the tally's other
+ * ({@link SlayerBosses#isSuperiorName}): a kind's kills against the task's own monsters' kills, which are the tally's other
  * kills, but never more than the task kills (the game's task counter) the kinds and superiors leave over. That bound
  * keeps other monsters out (an Ankou on the way, death spawns, a boss's minions, anything else caught in a barrage),
  * and the tally keeps a boss whose kill takes off two task kills (the Grotesque Guardians with the Double Trouble reward)
@@ -36,46 +32,29 @@ final class TaskVariants
 	static final String BOSS_SUFFIX = " + boss";
 
 	/** The variant and boss flag decided for one task. Immutable. */
+	@EqualsAndHashCode
+	@ToString
+	@AllArgsConstructor(access = AccessLevel.PRIVATE)
 	static final class Decision
 	{
 		/** No variant and no boss kills, for no task. */
 		static final Decision NONE = new Decision(null, null, false, false);
 
+		/** The task the decision is for, or {@code null} for {@link #NONE}. */
+		@Getter
 		private final String task;
+		/** The variant's name (a kind's), or {@code null} for the standard monster. */
+		@Getter
 		private final String variant;
 		private final boolean variantIsBoss;
+		/** Whether the kills include the task's Slayer boss. */
+		@Getter
 		private final boolean bossKills;
-
-		private Decision(String task, String variant, boolean variantIsBoss, boolean bossKills)
-		{
-			this.task = task;
-			this.variant = variant;
-			this.variantIsBoss = variantIsBoss;
-			this.bossKills = bossKills;
-		}
-
-		/** The task the decision is for, or {@code null} for {@link #NONE}. */
-		String getTask()
-		{
-			return task;
-		}
-
-		/** The variant's name (a kind's), or {@code null} for the standard monster. */
-		String getVariant()
-		{
-			return variant;
-		}
 
 		/** Whether the variant is the task's Slayer boss. */
 		boolean isVariantBoss()
 		{
 			return variantIsBoss;
-		}
-
-		/** Whether the kills include the task's Slayer boss. */
-		boolean isBossKills()
-		{
-			return bossKills;
 		}
 
 		/**
@@ -99,30 +78,6 @@ final class TaskVariants
 		{
 			final String name = CannonTasks.name(variant != null ? variant : taskName, cannon);
 			return name != null && bossKills && !variantIsBoss ? name + BOSS_SUFFIX : name;
-		}
-
-		@Override
-		public boolean equals(Object other)
-		{
-			if (!(other instanceof Decision))
-			{
-				return false;
-			}
-			final Decision that = (Decision) other;
-			return variantIsBoss == that.variantIsBoss && bossKills == that.bossKills && Objects.equals(task, that.task)
-				&& Objects.equals(variant, that.variant);
-		}
-
-		@Override
-		public int hashCode()
-		{
-			return Objects.hash(task, variant, variantIsBoss, bossKills);
-		}
-
-		@Override
-		public String toString()
-		{
-			return (variant == null ? "standard" : variant) + (bossKills ? " (boss kills)" : "");
 		}
 	}
 
@@ -247,9 +202,9 @@ final class TaskVariants
 		final List<NpcKills> tally = NpcKillTally.sanitize(record.getNpcKills());
 		if (!tally.isEmpty())
 		{
-			for (SlayerBosses.Npc npc : boss.getNpcs())
+			for (String npcName : boss.getNpcNames())
 			{
-				if (NpcKillTally.killsOf(tally, npc.getName()) > 0)
+				if (NpcKillTally.killsOf(tally, npcName) > 0)
 				{
 					return true;
 				}
@@ -335,7 +290,7 @@ final class TaskVariants
 		for (SlayerBosses.Boss boss : SlayerBosses.all())
 		{
 			byTask.computeIfAbsent(TaskStatistics.normalize(boss.getTask()), task -> new ArrayList<>(2))
-				.add(new Kind(boss.getName(), SlayerBosses.names(boss.getNpcs()), true));
+				.add(new Kind(boss.getName(), boss.getNpcNames(), true));
 		}
 		final Map<String, List<Kind>> kinds = new HashMap<>();
 		for (Map.Entry<String, List<Kind>> entry : byTask.entrySet())

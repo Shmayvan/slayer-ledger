@@ -1,8 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.Iterator;
+import java.util.*;
+import lombok.*;
 
 /**
  * The player's attacks of the last few game ticks, each with its style ({@link AttackStyles}), its target NPC and the
@@ -60,40 +59,20 @@ final class PlayerAttacks
 	static final long NO_XP = -1;
 
 	/** One attack: the tick it started on, its style and target, and when that tick began (clock millis). */
+	@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 	static final class Attack
 	{
+		@Getter
 		private final int tick;
+		@Getter
 		private final SetupStyle style;
+		/** When the attack's tick began (clock millis): before that tick's XP is read. */
+		@Getter
 		private final long at;
 		private final long target;
 		private final boolean splash;
 		/** For a splash attack: bit {@code d} is set once its hit on its target landed {@code d} ticks after it. */
 		private int landed;
-
-		Attack(int tick, SetupStyle style, long at, long target, boolean splash)
-		{
-			this.tick = tick;
-			this.style = style;
-			this.at = at;
-			this.target = target;
-			this.splash = splash;
-		}
-
-		int getTick()
-		{
-			return tick;
-		}
-
-		SetupStyle getStyle()
-		{
-			return style;
-		}
-
-		/** When the attack's tick began (clock millis): before that tick's XP is read. */
-		long getAt()
-		{
-			return at;
-		}
 
 		private boolean isMelee()
 		{

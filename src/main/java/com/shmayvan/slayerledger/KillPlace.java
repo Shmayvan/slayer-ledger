@@ -1,8 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
+import lombok.*;
 
 /**
  * Where the local player stood when the task count was read (V2 plan 4.5): the map region and the Slayer spot of
@@ -12,6 +10,7 @@ import lombok.ToString;
 @Getter
 @EqualsAndHashCode
 @ToString
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 final class KillPlace
 {
 	/** No place known: no player or scene, or the player is on a Sailing boat. */
@@ -25,12 +24,6 @@ final class KillPlace
 	 * of it matches.
 	 */
 	private final String spot;
-
-	private KillPlace(int region, String spot)
-	{
-		this.region = region;
-		this.spot = spot;
-	}
 
 	/** A place known only by its region, whose spot is decided from the region ({@link SlayerSpots#spotForRegion}). */
 	static KillPlace ofRegion(int region)

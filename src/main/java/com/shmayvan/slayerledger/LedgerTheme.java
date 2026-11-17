@@ -1,14 +1,9 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.Color;
-import java.awt.Font;
-import javax.swing.BorderFactory;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.border.Border;
-import net.runelite.client.ui.ColorScheme;
-import net.runelite.client.ui.FontManager;
-import net.runelite.client.ui.JagexColors;
+import java.awt.*;
+import javax.swing.*;
+import javax.swing.border.*;
+import net.runelite.client.ui.*;
 
 /**
  * The sidebar's colour tokens and fonts (docs/DESIGN_PRINCIPLES.md 4.1, 4.4), with the values of the visual direction

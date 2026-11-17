@@ -1,10 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
+import lombok.*;
 
 /**
  * Rules for a session's kills per place: each counted kill is added to the place (map region and Slayer
@@ -166,6 +163,7 @@ final class LocationTally
 	}
 
 	/** One spot's entries while deciding: its kills, its latest entry and its kills per region. */
+	@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 	private static final class Group
 	{
 		private final String key;
@@ -174,11 +172,6 @@ final class LocationTally
 		private int last = -1;
 		/** Kills per region, and each region's most recent entry index. */
 		private final Map<Integer, int[]> regions = new LinkedHashMap<>();
-
-		private Group(String key)
-		{
-			this.key = key;
-		}
 
 		private void add(LocationKills entry, int index)
 		{

@@ -37,7 +37,7 @@ public class OverlayFeedTest
 
 	private OverlayRows.Snapshot update(List<SupplyRunway.Supply> carried, OverlayRows.HistoricalPace pace, int tick)
 	{
-		return update(new SupplyRunway.Carrying(carried, false), pace, tick);
+		return update(new SupplyRunway.Carrying(carried, true, false), pace, tick);
 	}
 
 	private OverlayRows.Snapshot update(SupplyRunway.Carrying carried, OverlayRows.HistoricalPace pace, int tick)

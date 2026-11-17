@@ -1,15 +1,8 @@
 package com.shmayvan.slayerledger;
 
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.time.format.FormatStyle;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
+import java.time.*;
+import java.time.format.*;
+import java.util.*;
 
 /**
  * Pure rules and formatting for the assignment entries ({@link AssignmentEntry}): the bound on how many are kept, the

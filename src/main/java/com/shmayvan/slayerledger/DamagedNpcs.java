@@ -1,13 +1,8 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Predicate;
+import java.util.*;
+import java.util.function.*;
+import lombok.*;
 
 /**
  * The NPCs the player has damaged (a hitsplat of theirs, {@code Hitsplat.isMine()}) and that haven't died or despawned
@@ -65,19 +60,13 @@ final class DamagedNpcs
 	}
 
 	/** A hit noted as it arrived, put down to an attack on its tick's GameTick ({@link #applyHits}). */
+	@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 	private static final class PendingHit
 	{
 		final Run run;
 		/** Its NPC ({@link #key}). */
 		final long npc;
 		final int tick;
-
-		PendingHit(Run run, long npc, int tick)
-		{
-			this.run = run;
-			this.npc = npc;
-			this.tick = tick;
-		}
 	}
 
 	/** One death of a damaged NPC. */
@@ -130,19 +119,9 @@ final class DamagedNpcs
 	private final Deque<PendingHit> pendingHits = new ArrayDeque<>();
 
 	/**
-	 * The player hit the NPC at {@code index} in world view {@code worldViewId} at {@code now} (clock millis). A hit more
-	 * than {@code awayMillis} after the NPC's previous one starts a new engagement. The hit is never put down to an
-	 * attack (for tests of the engagement alone; the plugin uses {@link #damaged(int, int, long, long, int)}).
-	 */
-	void damaged(int worldViewId, int index, long now, long awayMillis)
-	{
-		run(worldViewId, index, now, awayMillis);
-	}
-
-	/**
 	 * The player's hit on the NPC at {@code index} in world view {@code worldViewId} arrived at {@code now} (clock
-	 * millis) on game tick {@code tick}, as {@link #damaged(int, int, long, long)}; the next {@link #applyHits} puts it
-	 * down to an attack.
+	 * millis) on game tick {@code tick}. A hit more than {@code awayMillis} after the NPC's previous one starts a new
+	 * engagement. The next {@link #applyHits} puts it down to an attack.
 	 */
 	void damaged(int worldViewId, int index, long now, long awayMillis, int tick)
 	{

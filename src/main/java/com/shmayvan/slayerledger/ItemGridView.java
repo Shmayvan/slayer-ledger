@@ -1,17 +1,11 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.GridLayout;
+import java.awt.*;
 import java.util.List;
-import java.util.function.Function;
-import javax.swing.BorderFactory;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.SwingConstants;
-import javax.swing.border.Border;
-import net.runelite.client.ui.ColorScheme;
+import java.util.function.*;
+import javax.swing.*;
+import javax.swing.border.*;
+import net.runelite.client.ui.*;
 
 /**
  * Supplies or loot as a grid of item icons, {@value #COLUMNS} to a row like RuneLite's Loot Tracker, in the

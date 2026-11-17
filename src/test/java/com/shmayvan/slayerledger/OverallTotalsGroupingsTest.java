@@ -46,7 +46,7 @@ public class OverallTotalsGroupingsTest
 		valued(untimed, 10_000L, 0L);
 		untimed.setXpGained(Collections.singletonMap(SkillXp.SLAYER, 500L));
 
-		OverallTotals.Entry group = single(OverallTotals.summarize(Arrays.asList(first, old, untimed),
+		OverallTotals.Entry group = single(TestTotals.summarize(Arrays.asList(first, old, untimed),
 			OverallTotals.Grouping.MONSTER, LootPriceMode.GE, TODAY, UTC));
 
 		assertEquals("Dust devils", group.getLabel());
@@ -65,14 +65,6 @@ public class OverallTotalsGroupingsTest
 		assertEquals(2, group.getSlayerXpSampleCount());
 		assertEquals(Long.valueOf(20_000L), group.getSlayerXpPerHour());
 		assertTrue("By monster counts no assignments", group.getAssignments().isEmpty());
-
-		// The same figures as the advisor's ranking.
-		assertEquals(TaskRanking.rank(Arrays.asList(first, old, untimed), TaskRanking.Metric.PROFIT,
-			LootPriceMode.GE, TODAY, HiddenLoot.NONE).get(0).getRatePerHour(), group.getProfitPerHour());
-		assertEquals(TaskRanking.rank(Arrays.asList(first, old, untimed), TaskRanking.Metric.PROFIT_PER_KILL,
-			LootPriceMode.GE, TODAY, HiddenLoot.NONE).get(0).getRatePerHour(), group.getProfitPerKill());
-		assertEquals(TaskRanking.rank(Arrays.asList(first, old, untimed), TaskRanking.Metric.XP,
-			LootPriceMode.GE, TODAY, HiddenLoot.NONE).get(0).getRatePerHour(), group.getSlayerXpPerHour());
 	}
 
 	@Test
@@ -82,7 +74,7 @@ public class OverallTotalsGroupingsTest
 		valued(quick, 5_000L, 0L);
 		quick.setXpGained(Collections.singletonMap(SkillXp.SLAYER, 100L));
 
-		OverallTotals.Entry group = single(OverallTotals.summarize(Collections.singletonList(quick),
+		OverallTotals.Entry group = single(TestTotals.summarize(Collections.singletonList(quick),
 			OverallTotals.Grouping.MONSTER, LootPriceMode.GE, TODAY, UTC));
 
 		assertNull(group.getProfitPerHour());
@@ -98,7 +90,7 @@ public class OverallTotalsGroupingsTest
 		// Saved before values, XP and points were tracked.
 		LedgerRecord legacy = record("Nechryael", null, 10, 10 * MINUTE);
 
-		OverallTotals.Entry group = single(OverallTotals.summarize(Collections.singletonList(legacy),
+		OverallTotals.Entry group = single(TestTotals.summarize(Collections.singletonList(legacy),
 			OverallTotals.Grouping.MONSTER, LootPriceMode.GE, TODAY, UTC));
 
 		assertEquals(10, group.getKills());
@@ -140,7 +132,7 @@ public class OverallTotalsGroupingsTest
 		deviantCannon.setSupplies(Collections.singletonMap(SupplyTracker.GRANITE_CANNONBALL, 5L));
 		records.add(deviantCannon);
 
-		List<OverallTotals.Entry> monsters = OverallTotals.summarize(records, OverallTotals.Grouping.MONSTER,
+		List<OverallTotals.Entry> monsters = TestTotals.summarize(records, OverallTotals.Grouping.MONSTER,
 			LootPriceMode.GE, TODAY, UTC);
 
 		assertEquals(Arrays.asList("Dust devils (cannon)", "Abyssal demons", "Deviant spectres", "Dust devils",
@@ -196,14 +188,14 @@ public class OverallTotalsGroupingsTest
 		for (OverallTotals.Grouping grouping : Arrays.asList(OverallTotals.Grouping.MONSTER,
 			OverallTotals.Grouping.MASTER))
 		{
-			OverallTotals.Entry entry = single(OverallTotals.summarize(Collections.singletonList(record),
+			OverallTotals.Entry entry = single(TestTotals.summarize(Collections.singletonList(record),
 				grouping, LootPriceMode.HIGH_ALCH, today, UTC));
 			// Loot at high alch, supplies at GE.
 			assertEquals(grouping.toString(), Long.valueOf(2_800L), entry.getAverageProfit());
 			assertEquals(grouping.toString(), Long.valueOf(2_800L), entry.getProfitPerHour());
 			assertEquals(grouping.toString(), Long.valueOf(2_800L), entry.getProfit());
 		}
-		OverallTotals.Entry monster = single(OverallTotals.summarize(Collections.singletonList(record),
+		OverallTotals.Entry monster = single(TestTotals.summarize(Collections.singletonList(record),
 			OverallTotals.Grouping.MONSTER, LootPriceMode.HIGH_ALCH, today, UTC));
 		assertEquals(Long.valueOf(280L), monster.getProfitPerKill());
 	}
@@ -218,7 +210,7 @@ public class OverallTotalsGroupingsTest
 		loot.put(BONES, 5L);
 		record.setLoot(loot);
 
-		OverallTotals.Entry group = single(OverallTotals.summarize(Collections.singletonList(record),
+		OverallTotals.Entry group = single(TestTotals.summarize(Collections.singletonList(record),
 			OverallTotals.Grouping.MONSTER, LootPriceMode.GE, TODAY, UTC));
 
 		assertTrue(group.isProfitApproximate());
@@ -234,7 +226,7 @@ public class OverallTotalsGroupingsTest
 		LedgerRecord incomplete = record("Kurask", SlayerMaster.KONAR, 10, MINUTE);
 		incomplete.setCompleted(false);
 
-		OverallTotals.Entry group = single(OverallTotals.summarize(Arrays.asList(done, partial, incomplete),
+		OverallTotals.Entry group = single(TestTotals.summarize(Arrays.asList(done, partial, incomplete),
 			OverallTotals.Grouping.MONSTER, LootPriceMode.GE, TODAY, UTC));
 		assertEquals(1, group.getTaskCount());
 		assertEquals(10, group.getKills());
@@ -259,7 +251,7 @@ public class OverallTotalsGroupingsTest
 		LedgerRecord older = record("Abyssal demons", SlayerMaster.KONAR, 80, 30 * MINUTE);
 		valued(older, 50_000L, 20_000L);
 
-		OverallTotals.Entry konar = single(OverallTotals.summarize(Arrays.asList(first, milestone, older),
+		OverallTotals.Entry konar = single(TestTotals.summarize(Arrays.asList(first, milestone, older),
 			OverallTotals.Grouping.MASTER, LootPriceMode.GE, TODAY, UTC));
 
 		assertEquals("Konar", konar.getLabel());
@@ -351,7 +343,7 @@ public class OverallTotalsGroupingsTest
 		fiftieth.setPointsEarned(900);
 		fiftieth.setTaskStreak(50);
 
-		OverallTotals.Entry konar = single(OverallTotals.summarize(Arrays.asList(noStreak, ninth, fiftieth),
+		OverallTotals.Entry konar = single(TestTotals.summarize(Arrays.asList(noStreak, ninth, fiftieth),
 			OverallTotals.Grouping.MASTER, LootPriceMode.GE, TODAY, UTC));
 		assertEquals(Long.valueOf(933L), konar.getPoints());
 		assertEquals(3, konar.getPointsSampleCount());
@@ -360,7 +352,7 @@ public class OverallTotalsGroupingsTest
 		assertEquals(2, konar.getAveragePointsSampleCount());
 
 		// Only bonus tasks: a total, but no average.
-		OverallTotals.Entry onlyBonus = single(OverallTotals.summarize(Collections.singletonList(fiftieth),
+		OverallTotals.Entry onlyBonus = single(TestTotals.summarize(Collections.singletonList(fiftieth),
 			OverallTotals.Grouping.MASTER, LootPriceMode.GE, TODAY, UTC));
 		assertEquals(Long.valueOf(900L), onlyBonus.getPoints());
 		assertNull(onlyBonus.getAveragePoints());

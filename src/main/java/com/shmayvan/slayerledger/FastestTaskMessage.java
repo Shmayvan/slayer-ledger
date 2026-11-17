@@ -1,9 +1,9 @@
 package com.shmayvan.slayerledger;
 
-import java.math.BigInteger;
-import java.util.Collection;
-import net.runelite.client.chat.ChatColorType;
-import net.runelite.client.chat.ChatMessageBuilder;
+import java.math.*;
+import java.util.*;
+import lombok.*;
+import net.runelite.client.chat.*;
 
 /**
  * The record-fast task chat line ({@code DESIGN_PRINCIPLES.md} 5.2, 5.3): {@code Fastest Dust devils task yet: 52 min,
@@ -36,35 +36,15 @@ final class FastestTaskMessage
 	}
 
 	/** A record found by {@link #find}: this task's active time and how far under the old best it came. Immutable. */
+	@Getter
+	@AllArgsConstructor(access = AccessLevel.PACKAGE)
 	static final class Record
 	{
+		/** The task's name as the history shows it ({@link LedgerHistory#monster}). */
 		private final String task;
 		private final long activeMillis;
-		private final long marginMillis;
-
-		Record(String task, long activeMillis, long marginMillis)
-		{
-			this.task = task;
-			this.activeMillis = activeMillis;
-			this.marginMillis = marginMillis;
-		}
-
-		/** The task's name as the history shows it ({@link LedgerHistory#monster}). */
-		String getTask()
-		{
-			return task;
-		}
-
-		long getActiveMillis()
-		{
-			return activeMillis;
-		}
-
 		/** The old best's time per kill times this task's kills, less this task's active time; more than 0. */
-		long getMarginMillis()
-		{
-			return marginMillis;
-		}
+		private final long marginMillis;
 	}
 
 	/**

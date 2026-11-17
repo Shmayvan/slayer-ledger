@@ -1,8 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
+import lombok.*;
 
 /**
  * What a session's restore needs besides its tallies (V2 plan 4.1), carried by {@link SessionTracker.Summary} into
@@ -10,16 +9,22 @@ import java.util.List;
  * when its assignment was first seen, and the end of the session before it) and its known task NPCs. Times are clock
  * millis, {@code null} when unknown. Pure and immutable.
  */
+@Getter
 final class SegmentInfo
 {
 	/** Nothing known (a summary built from a 1.x snapshot, or in tests). */
 	static final SegmentInfo NONE = new SegmentInfo(null, SessionTracker.NO_TIME, SessionTracker.NO_TIME,
 		SessionTracker.NO_TIME, null);
 
+	/** The state the session was in when this was taken, or {@code null} when unknown. */
 	private final SessionTracker.State state;
+	/** The close of the session's last segment, or {@code null} while unknown (or a segment is open). */
 	private final Long segmentClosedAt;
+	/** When the session's assignment was first seen, or {@code null}. */
 	private final Long assignedAt;
+	/** The end of the session before this one, or {@code null}. */
 	private final Long previousSessionEnd;
+	/** The session's known task NPCs, normalized (unmodifiable, possibly empty). */
 	private final List<String> taskNpcs;
 
 	/**
@@ -43,35 +48,5 @@ final class SegmentInfo
 	private static Long time(long millis)
 	{
 		return millis == SessionTracker.NO_TIME ? null : millis;
-	}
-
-	/** The state the session was in when this was taken, or {@code null} when unknown. */
-	SessionTracker.State getState()
-	{
-		return state;
-	}
-
-	/** The close of the session's last segment, or {@code null} while unknown (or a segment is open). */
-	Long getSegmentClosedAt()
-	{
-		return segmentClosedAt;
-	}
-
-	/** When the session's assignment was first seen, or {@code null}. */
-	Long getAssignedAt()
-	{
-		return assignedAt;
-	}
-
-	/** The end of the session before this one, or {@code null}. */
-	Long getPreviousSessionEnd()
-	{
-		return previousSessionEnd;
-	}
-
-	/** The session's known task NPCs, normalized (unmodifiable, possibly empty). */
-	List<String> getTaskNpcs()
-	{
-		return taskNpcs;
 	}
 }

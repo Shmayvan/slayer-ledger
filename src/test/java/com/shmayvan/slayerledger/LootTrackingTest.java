@@ -190,7 +190,7 @@ public class LootTrackingTest
 			+ "\"startedAt\":1000,\"savedAt\":2000,\"remaining\":46,\"completionCounters\":[100,2,0]}";
 		SessionSnapshot s = gson.fromJson(v1, SessionSnapshot.class);
 		assertNull(s.getLoot());
-		assertTrue(s.toSummary().getLoot().isEmpty());
+		assertTrue(s.toSummary(SlayerSpots.NONE).getLoot().isEmpty());
 
 		tracker.observe("Abyssal demons", DEMON_ID, 46, 150, false);
 		assertEquals(SessionTracker.RestoreResult.RESTORED, tracker.restore(s, COUNTERS));
@@ -241,7 +241,7 @@ public class LootTrackingTest
 		assertEquals(SessionTracker.RestoreResult.MISMATCH, later.restore(s, COUNTERS));
 		assertTrue(later.getLoot().isEmpty());
 
-		LedgerRecord record = LedgerRecord.fromSummary(s.toSummary(), true);
+		LedgerRecord record = LedgerRecord.fromSummary(s.toSummary(SlayerSpots.NONE), true);
 		assertTrue(record.isPartial());
 		assertEquals(Long.valueOf(4), record.getLoot().get(BONES));
 		assertEquals(Long.valueOf(1_000), record.getLoot().get(ItemValuation.COINS));

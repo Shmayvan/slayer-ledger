@@ -1,12 +1,8 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Locale;
-import java.util.Set;
-import java.util.regex.Pattern;
-import net.runelite.api.gameval.ItemID;
-import net.runelite.client.util.Text;
+import java.util.*;
+import java.util.regex.*;
+import net.runelite.client.util.*;
 
 /**
  * Keeps charging and emptying the blowpipe, a trident or a powered staff (Sanguinesti staff, Tumeken's shadow) out of
@@ -42,26 +38,13 @@ final class ChargeExclusions
 
 	/**
 	 * Blowpipes (empty and loaded) and tridents (charged and uncharged), with their ornament and (e) versions; the
-	 * Sanguinesti staff and holy Sanguinesti staff and Tumeken's shadow, charged and uncharged.
+	 * Sanguinesti staff and holy Sanguinesti staff and Tumeken's shadow, charged and uncharged. Read from the bundled
+	 * {@code charge-exclusions.json} ({@link BundledData}), as is {@link #MATERIALS}; empty when it can't be read.
 	 */
-	static final Set<Integer> WEAPONS = ids(
-		ItemID.TOXIC_BLOWPIPE, ItemID.TOXIC_BLOWPIPE_LOADED, ItemID.TOXIC_BLOWPIPE_ORNAMENT,
-		ItemID.TOXIC_BLOWPIPE_LOADED_ORNAMENT,
-		ItemID.TOTS, ItemID.TOTS_CHARGED, ItemID.TOTS_UNCHARGED, ItemID.TOTS_I_CHARGED, ItemID.TOTS_I_UNCHARGED,
-		ItemID.TOTS_ORN, ItemID.TOTS_CHARGED_ORN, ItemID.TOTS_UNCHARGED_ORN, ItemID.TOTS_I_CHARGED_ORN,
-		ItemID.TOTS_I_UNCHARGED_ORN,
-		ItemID.TOXIC_TOTS_CHARGED, ItemID.TOXIC_TOTS_UNCHARGED, ItemID.TOXIC_TOTS_I_CHARGED,
-		ItemID.TOXIC_TOTS_I_UNCHARGED, ItemID.TOXIC_TOTS_CHARGED_ORN, ItemID.TOXIC_TOTS_UNCHARGED_ORN,
-		ItemID.TOXIC_TOTS_I_CHARGED_ORN, ItemID.TOXIC_TOTS_I_UNCHARGED_ORN,
-		ItemID.SANGUINESTI_STAFF, ItemID.SANGUINESTI_STAFF_UNCHARGED, ItemID.SANGUINESTI_STAFF_OR,
-		ItemID.SANGUINESTI_STAFF_UNCHARGED_OR, ItemID.TUMEKENS_SHADOW, ItemID.TUMEKENS_SHADOW_UNCHARGED);
+	static final Set<Integer> WEAPONS = BundledData.idSet("charge-exclusions.json", "weapons");
 
 	/** What the weapons are charged or loaded with (aether runes can charge Tumeken's shadow in place of soul runes). */
-	static final Set<Integer> MATERIALS = ids(
-		ItemID.BRONZE_DART, ItemID.IRON_DART, ItemID.STEEL_DART, ItemID.BLACK_DART, ItemID.MITHRIL_DART,
-		ItemID.ADAMANT_DART, ItemID.RUNE_DART, ItemID.AMETHYST_DART, ItemID.DRAGON_DART,
-		ItemID.SNAKEBOSS_SCALE, ItemID.DEATHRUNE, ItemID.CHAOSRUNE, ItemID.FIRERUNE, ItemID.COINS,
-		ItemID.BLOODRUNE, ItemID.SOULRUNE, ItemID.AETHERRUNE);
+	static final Set<Integer> MATERIALS = BundledData.idSet("charge-exclusions.json", "materials");
 
 	/**
 	 * Messages and dialog texts (tags removed) that end a charge, load, unload or uncharge, as recorded by
@@ -87,16 +70,6 @@ final class ChargeExclusions
 	private int openTick = NEVER_TICK;
 	/** Last tick the window covers. */
 	private int endTick = NEVER_TICK;
-
-	private static Set<Integer> ids(int... ids)
-	{
-		final Set<Integer> set = new HashSet<>();
-		for (int id : ids)
-		{
-			set.add(id);
-		}
-		return Collections.unmodifiableSet(set);
-	}
 
 	/**
 	 * A menu option was clicked on {@code tick}.
@@ -169,12 +142,6 @@ final class ChargeExclusions
 	private boolean isOpen(int tick)
 	{
 		return tick >= openTick && tick <= endTick;
-	}
-
-	/** Whether a change of {@code itemId} on {@code tick} is left out of the supplies diff. */
-	boolean isExcluded(int itemId, int tick)
-	{
-		return MATERIALS.contains(itemId) && isOpen(tick);
 	}
 
 	/** The item ids left out of the supplies diff on {@code tick} (empty if no window is open). */

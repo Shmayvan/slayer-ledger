@@ -149,7 +149,7 @@ public class SupplyRunwayTest
 
 		// The sharks are carried now; the prayer potions are gone, so they count at none, with their icon.
 		List<SupplyRunway.Supply> now = SupplyRunway.withRunOut(new SupplyRunway.Carrying(
-			Collections.singletonList(sharks(4)), false), earlier);
+			Collections.singletonList(sharks(4)), true, false), earlier);
 		assertEquals(2, now.size());
 		assertEquals(4, now.get(0).getAmount());
 		assertEquals(PRAYER, now.get(1).getKey());
@@ -163,35 +163,35 @@ public class SupplyRunwayTest
 		assertTrue(SupplyRunway.withRunOut(SupplyRunway.Carrying.UNSEEN, earlier).isEmpty());
 		assertFalse(SupplyRunway.Carrying.UNSEEN.isSeen());
 		// Nothing carried earlier: what is carried now.
-		assertEquals(1, SupplyRunway.withRunOut(new SupplyRunway.Carrying(Collections.singletonList(sharks(4)), false),
-			Collections.emptyList()).size());
+		assertEquals(1, SupplyRunway.withRunOut(
+			new SupplyRunway.Carrying(Collections.singletonList(sharks(4)), true, false), Collections.emptyList()).size());
 
 		// Another supply of the kind carried instead: karambwans after the sharks, another dart type. Not another rune:
 		// a spell needs each of its runes.
 		SupplyRunway.Supply karambwans = new SupplyRunway.Supply(SupplyTracker.itemKey(ItemID.TBWT_COOKED_KARAMBWAN),
 			ItemID.TBWT_COOKED_KARAMBWAN, SupplyRunway.Kind.FOOD, 8);
 		assertEquals(Collections.singletonList(karambwans), SupplyRunway.withRunOut(new SupplyRunway.Carrying(
-			Collections.singletonList(karambwans), false), Collections.singletonList(sharks(10))));
+			Collections.singletonList(karambwans), true, false), Collections.singletonList(sharks(10))));
 		SupplyRunway.Supply amethyst = new SupplyRunway.Supply(SupplyTracker.itemKey(ItemID.AMETHYST_DART),
 			ItemID.AMETHYST_DART, SupplyRunway.Kind.DARTS, 900);
 		assertEquals(Collections.singletonList(amethyst), SupplyRunway.withRunOut(new SupplyRunway.Carrying(
-			Collections.singletonList(amethyst), false), Collections.singletonList(dartsEarlier)));
+			Collections.singletonList(amethyst), true, false), Collections.singletonList(dartsEarlier)));
 		SupplyRunway.Supply deaths = new SupplyRunway.Supply(SupplyTracker.itemKey(DEATH_RUNE), DEATH_RUNE,
 			SupplyRunway.Kind.RUNES, 300);
 		SupplyRunway.Supply bloods = new SupplyRunway.Supply(SupplyTracker.itemKey(ItemID.BLOODRUNE), ItemID.BLOODRUNE,
 			SupplyRunway.Kind.RUNES, 300);
 		List<SupplyRunway.Supply> runes = SupplyRunway.withRunOut(new SupplyRunway.Carrying(
-			Collections.singletonList(bloods), false), Collections.singletonList(deaths));
+			Collections.singletonList(bloods), true, false), Collections.singletonList(deaths));
 		assertEquals(2, runes.size());
 		assertEquals(DEATH_RUNE, runes.get(1).getItemId());
 		assertEquals(0, runes.get(1).getAmount());
 
 		// Darts and scales a blowpipe holds but that can't be counted never run out; the rest still can.
 		List<SupplyRunway.Supply> blowpipe = SupplyRunway.withRunOut(new SupplyRunway.Carrying(
-			Collections.emptyList(), true), Arrays.asList(prayer(20), dartsEarlier, scalesEarlier));
+			Collections.emptyList(), true, true), Arrays.asList(prayer(20), dartsEarlier, scalesEarlier));
 		assertEquals(Collections.singletonList(SupplyRunway.Kind.PRAYER), kinds(blowpipe));
 		List<SupplyRunway.Supply> counted = SupplyRunway.withRunOut(new SupplyRunway.Carrying(
-			Collections.emptyList(), false), Arrays.asList(dartsEarlier, scalesEarlier));
+			Collections.emptyList(), true, false), Arrays.asList(dartsEarlier, scalesEarlier));
 		assertEquals(Arrays.asList(SupplyRunway.Kind.DARTS, SupplyRunway.Kind.SCALES), kinds(counted));
 	}
 

@@ -1,18 +1,8 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.function.IntFunction;
-import lombok.Getter;
+import java.util.*;
+import java.util.function.*;
+import lombok.*;
 
 /**
  * The Task history's filters: Monster, Location and Slayer master, each {@link LedgerHistory#ALL} or one value.
@@ -26,7 +16,7 @@ import lombok.Getter;
  *   still groups with its spot's other tasks; each choice is shown as the location name
  *   ({@link TaskLocation#recordLocation}) of its newest record without a name of its own ({@link #locationChoices}).
  *   A record without a spot but with a name of its own (an older task named by hand, or an older Konar task with no
- *   region) groups by that name, compared as {@link TaskLocation#sameLocation} does; one with neither is
+ *   region) groups by that name, compared by {@link TaskLocation#matchKey}; one with neither is
  *   {@link #NO_LOCATION}, shown as {@link #NO_LOCATION_LABEL}.</li>
  *   <li><b>Master</b>: {@link SlayerMaster#displayName} of the master who assigned the task; {@link #UNKNOWN_MASTER}
  *   for a record without one or with a value not in {@link SlayerMaster}'s table.</li>

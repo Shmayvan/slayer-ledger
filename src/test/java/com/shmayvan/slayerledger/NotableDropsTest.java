@@ -261,7 +261,7 @@ public class NotableDropsTest
 		SessionSnapshot snapshot = SessionSnapshot.fromSummary(tracker.summary(), null, now[0]);
 		SessionSnapshot read = gson.fromJson(gson.toJson(snapshot), SessionSnapshot.class);
 		assertEquals(Arrays.asList(whip, pet), read.getNotableDrops());
-		assertEquals(Arrays.asList(whip, pet), read.toSummary().getNotableDrops());
+		assertEquals(Arrays.asList(whip, pet), read.toSummary(SlayerSpots.NONE).getNotableDrops());
 		SessionTracker restored = new SessionTracker(() -> now[0]);
 		restored.observe("Kraken", 42, 10, 10, TaskContext.NONE, false);
 		assertEquals(SessionTracker.RestoreResult.RESTORED, restored.restore(read, null));

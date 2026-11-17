@@ -1,19 +1,10 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.awt.*;
+import java.util.*;
 import java.util.List;
-import java.util.Objects;
-import java.util.function.Supplier;
-import javax.swing.BoxLayout;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.SwingConstants;
+import java.util.function.*;
+import javax.swing.*;
 
 /**
  * The header of the live task card (DESIGN_PRINCIPLES.md 3.4): the task's icon (36 by 32) beside its lines.
@@ -30,7 +21,6 @@ import javax.swing.SwingConstants;
  * End task) and the next bonus, in Small: {@code Konar · 201 left · bonus in 3}; its tooltip has each part,
  * the location too, in full.</li>
  * </ol>
- * The task advisor's skip / block badge is on the advisor card ({@link AdvisorCardSection}).
  * The lines are cut short with {@code …} when they don't fit the card ({@link FitLabel}); the optional ones are added
  * or removed only when they appear or go, and the icon is asked for only when the task changes. EDT only.
  */

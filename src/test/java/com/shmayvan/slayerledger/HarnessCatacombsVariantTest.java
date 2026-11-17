@@ -37,8 +37,6 @@ public class HarnessCatacombsVariantTest
 	@Before
 	public void setUp()
 	{
-		// The saved tasks below have profit and no Slayer XP: the advice compares profit/h under this metric.
-		harness.config.advisorMetric = AdvisorMetric.PROFIT_PER_HOUR;
 		harness.startUp();
 		harness.setInventory();
 		harness.setTrackerClock(now::get);
@@ -290,7 +288,7 @@ public class HarnessCatacombsVariantTest
 	public void theStatisticsPoolBothVersionsUntilTheKillsDecide()
 	{
 		List<LedgerRecord> history = new java.util.ArrayList<>();
-		for (int i = 0; i < TaskAdvisor.MIN_TASKS; i++)
+		for (int i = 0; i < 3; i++)
 		{
 			history.add(saved(null, 100_000L));
 			history.add(saved(DEVIANT, 400_000L));
@@ -298,8 +296,8 @@ public class HarnessCatacombsVariantTest
 		harness.onEdt(() -> harness.historyModel().setRecords(ACCOUNT, history));
 		harness.drain();
 
-		// Before any kill both versions count. One monster only: no main advice. No master known: the master line has
-		// only the task's size; since the advisor card the task box no longer compares the versions.
+		// Before any kill both versions count. No master known: the master line has only the task's size; since the
+		// advisor card the task box no longer compares the versions.
 		assertEquals(6, statisticsTasks());
 		assertEquals(Arrays.asList(SPECTRES, "5 left"), taskBoxRows());
 

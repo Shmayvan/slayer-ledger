@@ -1,9 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Objects;
-import java.util.TreeMap;
+import java.util.*;
+import lombok.*;
 
 /**
  * A session's setup kill contexts, as counts (V2 plan 4.3): how many task kills were cannon kills, how many were
@@ -19,15 +17,21 @@ import java.util.TreeMap;
  * {@code null} (unknown) until a first kill context is counted: a migrated record, or one saved before setup detection,
  * has no counts, which is not the same as counts of 0.</p>
  */
+@Value
 final class SetupKills
 {
 	/** No kill context counted. */
 	static final SetupKills NONE = new SetupKills(null, null, null, null, null);
 
+	/** Cannon kills, or {@code null} when no kill context was counted. */
 	private final Integer cannonKills;
+	/** Kills per style name ({@link SetupStyle#name()}); never {@code null}, unmodifiable. */
 	private final Map<String, Integer> styleKills;
+	/** Kills per gear focus name ({@link GearFocus#name()}); never {@code null}, unmodifiable. */
 	private final Map<String, Integer> gearKills;
+	/** The lowest prayer bonus seen at a kill, or {@code null}. */
 	private final Integer prayerBonusMin;
+	/** The highest prayer bonus seen at a kill, or {@code null}. */
 	private final Integer prayerBonusMax;
 
 	private SetupKills(Integer cannonKills, Map<String, Integer> styleKills, Map<String, Integer> gearKills,
@@ -91,24 +95,6 @@ final class SetupKills
 		return cannonKills == null && styleKills.isEmpty() && gearKills.isEmpty() && prayerBonusMin == null;
 	}
 
-	/** Cannon kills, or {@code null} when no kill context was counted. */
-	Integer getCannonKills()
-	{
-		return cannonKills;
-	}
-
-	/** Kills per style name ({@link SetupStyle#name()}); never {@code null}, unmodifiable. */
-	Map<String, Integer> getStyleKills()
-	{
-		return styleKills;
-	}
-
-	/** Kills per gear focus name ({@link GearFocus#name()}); never {@code null}, unmodifiable. */
-	Map<String, Integer> getGearKills()
-	{
-		return gearKills;
-	}
-
 	/** Kills made with {@code style}; 0 for none. */
 	int styleKills(SetupStyle style)
 	{
@@ -119,18 +105,6 @@ final class SetupKills
 	int gearKills(GearFocus gear)
 	{
 		return gear == null ? 0 : gearKills.getOrDefault(gear.name(), 0);
-	}
-
-	/** The lowest prayer bonus seen at a kill, or {@code null}. */
-	Integer getPrayerBonusMin()
-	{
-		return prayerBonusMin;
-	}
-
-	/** The highest prayer bonus seen at a kill, or {@code null}. */
-	Integer getPrayerBonusMax()
-	{
-		return prayerBonusMax;
 	}
 
 	/** The record's counts as stored. */
@@ -192,31 +166,5 @@ final class SetupKills
 	{
 		final long sum = (long) a + b;
 		return sum > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) sum;
-	}
-
-	@Override
-	public boolean equals(Object other)
-	{
-		if (!(other instanceof SetupKills))
-		{
-			return false;
-		}
-		final SetupKills that = (SetupKills) other;
-		return Objects.equals(cannonKills, that.cannonKills) && styleKills.equals(that.styleKills)
-			&& gearKills.equals(that.gearKills) && Objects.equals(prayerBonusMin, that.prayerBonusMin)
-			&& Objects.equals(prayerBonusMax, that.prayerBonusMax);
-	}
-
-	@Override
-	public int hashCode()
-	{
-		return Objects.hash(cannonKills, styleKills, gearKills, prayerBonusMin, prayerBonusMax);
-	}
-
-	@Override
-	public String toString()
-	{
-		return "SetupKills(cannon=" + cannonKills + ", styles=" + styleKills + ", gear=" + gearKills
-			+ ", prayerBonus=" + prayerBonusMin + ".." + prayerBonusMax + ")";
 	}
 }

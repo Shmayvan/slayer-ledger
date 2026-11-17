@@ -85,7 +85,7 @@ public class SessionValuationTest
 		// 3 sharks + 5 doses of a 4-dose potion (8,000 * 5 / 4).
 		assertEquals(3_000 + 10_000, v.getSuppliesGe());
 		assertEquals(540, v.getSuppliesHa());
-		assertEquals("a loss", 1_500 - 13_000, v.getProfitGe());
+		assertEquals("a loss", 1_500 - 13_000, v.getProfit());
 		assertEquals(0, v.getLootUnpriced());
 		assertEquals(0, v.getSuppliesUnpriced());
 	}
@@ -94,7 +94,7 @@ public class SessionValuationTest
 	public void emptySessionIsZero()
 	{
 		SessionValuation.Values v = valuation.update("s1", null, null, null, lookup, 0);
-		assertEquals(new SessionValuation.Values("s1", 0, 0, 0, 0, 0, 0), v);
+		assertEquals(SessionValuation.Values.builder().sessionId("s1").build(), v);
 	}
 
 	@Test
@@ -176,8 +176,9 @@ public class SessionValuationTest
 	@Test
 	public void profitSaturates()
 	{
-		SessionValuation.Values v = new SessionValuation.Values("s1", Long.MAX_VALUE, 0, -1, 0, 0, 0);
-		assertEquals(Long.MAX_VALUE, v.getProfitGe());
+		SessionValuation.Values v = SessionValuation.Values.builder().sessionId("s1").lootValue(Long.MAX_VALUE)
+			.lootGe(Long.MAX_VALUE).suppliesGe(-1).build();
+		assertEquals(Long.MAX_VALUE, v.getProfit());
 	}
 
 	// ---- Loot price mode ----
@@ -201,7 +202,8 @@ public class SessionValuationTest
 		assertEquals("supplies stay at GE", 100, ha.getSuppliesGe());
 		assertEquals(260, ha.getProfit());
 		assertEquals("the GE figures are kept", 300, ha.getLootGe());
-		assertEquals(200, ha.getProfitGe());
+		assertEquals("so is the GE profit", Long.valueOf(200),
+			LedgerHistory.profit(ha.getLootGe(), ha.getSuppliesGe()));
 
 		SessionValuation.Values back = valuation.update("s1", loot, supplies, null, LootPriceMode.GE, lookup, 2);
 		assertEquals(LootPriceMode.GE, back.getLootPriceMode());

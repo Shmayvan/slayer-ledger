@@ -2,11 +2,11 @@
 
 Slayer Ledger is a RuneLite plugin that keeps a record of your Slayer tasks. It starts tracking on your first kill of a task, with nothing to press. It counts your kills, active time, loot, supplies and XP, notes how you did the task (cannon, attack style, gear) and where, and saves the task to a local history when you finish it.
 
-When a master gives you a new task, it looks at your own completed tasks of that monster and tells you which setup has done it best, how long the kills left should take and what to bring.
+When a master gives you a new task, it looks at your own completed tasks of that monster and tells you which setup has finished it fastest, how long the kills left should take and what to bring.
 
 It only reads the game. It never plays, clicks, skips or blocks anything for you.
 
-<!-- screenshot: the sidebar with a live task running (status strip, live task card with its setup tags, progress bar and stats, supplies and loot grids) -->
+<!-- screenshot: the sidebar with a live task running (status strip, live task card with its setup tags, progress bar and stats, supplies and loot grids), retaken from the client during the playtest -->
 
 For exactly what each feature counts and its edge cases, see [Counting rules and details](docs/COUNTING_RULES.md).
 
@@ -18,8 +18,8 @@ If you used Slayer Ledger 1.x, this is what changed.
 - **Your history is migrated.** Your saved tasks, notes, location names, Skipped / blocked entries and settings carry over. Reading them changes nothing: the file is rewritten in the 2.0 format the next time it changes anyway (a task saved, edited or deleted, or a skip or block recorded).
 - **Setup tags.** Every task now has a Cannon, Style and Gear tag, detected from your kills. Tasks saved by 1.x get estimated tags, shown with `~`: Cannon from the cannonballs they fired, Style from the XP they gained. Their Gear is Unknown, because 1.x kept no equipment. You can change any tag.
 - **Locations are automatic.** The plugin names the place from a bundled list of Slayer spots. The **Name this location** box is gone; the names you gave in it are still used.
-- **The advisor** replaces the History estimate, What to bring and the new-task chat preview. It is a card in the sidebar and one chat line when a task is assigned.
-- **Removed:** Trends and its charts, the Luck meter, the History estimate, What to bring, the location naming prompt and the "Not tracking" reminder, with their settings. The Task advisor goal setting is gone too: the **Advisor metric** replaces it.
+- **The advisor** replaces the History estimate and What to bring. It is a card in the sidebar.
+- **Removed:** Trends and its charts, the Luck meter, the History estimate, What to bring, the new-task chat preview, the location naming prompt and the "Not tracking" reminder, with their settings. The Task advisor's Consider skip / Consider block advice and its settings are gone too.
 - **Overlay settings.** The overlay's rows are now four groups, each with one setting: Progress and identity, Pace, Haul and Supply runway. Your 1.x **Show task row** carries over to Progress and identity, and **Show profit row** to Haul.
 - **No way back.** Once 2.0 has saved your tasks, 1.x can still show them but can't save new ones to that file. Don't switch back to 1.x on that account.
 
@@ -81,35 +81,21 @@ The live task card shows the tags as small game icons. Click one to choose its v
 
 ### Advisor
 
-When a task is assigned, the advisor groups your completed tasks of that monster by setup: spot, cannon or not, attack style, and whether you fought the boss. It picks the best setup by the **Advisor metric**:
+When a task is assigned, the advisor groups your completed tasks of that monster by setup: spot, cannon or not, attack style, and whether you fought the boss. It picks the setup with the least time for the kills left.
 
-- **Fastest finish** (the default): the least time for the kills left.
-- **Profit per hour.**
-- **Cheapest:** the least supply cost for the kills left.
+Only a setup with at least 3 tasks can win. When none has 3, the one with the most tasks wins and says so (`based on 1 task`), so one lucky task doesn't decide. On a Konar task, only the setups at the assigned area count, when you have tasks there.
 
-Only a setup with at least 3 tasks can win. When none has 3, the one with the most tasks wins and says so (`based on 1 task`), so one lucky task doesn't decide.
+**Advisor card.** In the sidebar, below the live task. Under its title (`Based on 6 Dust devils tasks`) it shows the pick:
 
-**Chat line.** One line when the task is assigned, for example:
+- its setup and spot, with the number of tasks it is based on (and `estimated` when some of them are tasks from 1.x with estimated tags);
+- the time for the kills left;
+- the items to bring as icons, with safe amounts (more than a typical task needed): up to 8, then `+N more`.
 
-`Dust devils x142: barrage, Catacombs, ~24 min; ~440 death, ~220 blood (3 tasks). Cannon, Smoke Dungeon: ~41 min (2).`
-
-It names the setup and its spot, then its time for the kills left, the two most valuable items to bring, the number of tasks it is based on, and the best setup with the other cannon choice.
-
-**Advisor card.** In the sidebar, below the live task. It shows the recommendation and the best setup with the other cannon choice, one above the other. Each has:
-
-- the time for the kills left, with a range;
-- Slayer XP per hour and profit per hour;
-- the supply cost;
-- the gear most of its tasks used;
-- the items to bring as icons, with safe amounts (more than a typical task needed).
-
-Tabs switch the metric. **More setups** lists the rest. The card is open from the assignment to your first kill, then folds to one line, for example `Plan: barrage, ~1 h (3 tasks)`. Click it to open it again.
+Under the pick, **All setups** gives the time for the kills left from all your completed tasks of the monster. The card stays as it is for the whole task.
 
 With no completed task of the monster, the card says `No completed Dust devils tasks yet, so no estimate.`
 
-**Consider skip / Consider block.** Shown under the card's title, for a task that ranks near the bottom of your own monsters by Slayer XP per hour (by profit per hour when the metric is Profit per hour or Cheapest). It needs at least 3 tasks and 30 minutes on the monster, and 6 such monsters to compare. It is advice only.
-
-<!-- screenshot: the advisor card open on a new task, showing the recommendation, the other cannon choice and its Bring icons -->
+<!-- screenshot: the advisor card on a new task, showing the pick and its Bring icons, retaken from the client during the playtest -->
 
 ### Task history
 
@@ -156,7 +142,7 @@ A compact on-screen box in the game's own style. It uses your RuneLite overlay c
 
 Each group can be turned off. The state line can't, so a stopped clock is never silent.
 
-<!-- screenshot: the overlay in game during a task, with a supply runway warning showing -->
+<!-- screenshot: the overlay in game during a task, with a supply runway warning showing, retaken from the client during the playtest -->
 
 ### Chat lines
 
@@ -165,7 +151,6 @@ Short lines in your chat colours, facts first. Every line except the waiting lin
 - **Task complete:** `Dust devils done: 201 kills in 1 h 1 min, +412K. Gz.`
 - **Record task**, when it was your fastest of that monster per kill, against at least 3 earlier tasks with the same variant and cannon use: `Fastest Dust devils task yet: 52 min, 4 min under your old best.`
 - **Notable drop:** `Dragon chainbody (148K) from a dust devil.` or `Abyssal whip (1.4M) at kill 140 of 201.` The first drop in a task that covers the supplies used so far adds `That's the task paid for.`
-- **Advisor:** the line above, when a task is assigned.
 - **Waiting:** `Slayer Ledger: waiting for your next kill`, after you log in with a session waiting. This one is always on.
 
 ## Settings
@@ -174,9 +159,8 @@ The plugin's configuration has these sections:
 
 - **Tracking:** Confirm before saving incomplete tasks; Bonecrusher handling (Auto, Always exclude, Never exclude); Ignored loot (names, `*` wildcards or item ids, separated by commas); Away after (1 to 60 minutes, default 10).
 - **Values:** Loot price (GE or High alch; supplies are always at GE); Notable drop value (default 100,000 gp); Hide Ground Items' hidden items (on by default; see [Counting rules](docs/COUNTING_RULES.md#ground-items-hidden-items)).
-- **Chat:** Task-complete line, Record task line, Notable drop line and Advisor chat line (all on by default); Task-complete notification, a RuneLite notification with the task-complete line's text (off by default).
+- **Chat:** Task-complete line, Record task line and Notable drop line (all on by default); Task-complete notification, a RuneLite notification with the task-complete line's text (off by default).
 - **Task overlay:** Show task overlay, and the four groups: Progress and identity, Pace, Haul and Supply runway. All on by default.
-- **Task advisor:** Task advisor turns the Consider skip / Consider block advice on or off. Advisor metric: Fastest finish (default), Profit per hour or Cheapest. The advisor card's tabs change the same setting.
 - **Panel sections:** hide Overall totals or Skipped / blocked if you don't use them.
 - **Charged weapons:** Ranging/max cape has Vorkath's head upgrade, for blowpipe dart estimates.
 

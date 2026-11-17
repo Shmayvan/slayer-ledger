@@ -1,12 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
+import java.util.*;
+import lombok.*;
 
 /**
  * Pure valuation of a saved {@link LedgerRecord} for the task history, in a {@link LootPriceMode} and at today's GE
@@ -53,93 +48,39 @@ final class HistoryPricing
 	/** A record's values as shown in the history. Immutable; build one with {@link #builder()}. */
 	@Builder
 	@AllArgsConstructor(access = AccessLevel.PRIVATE)
+	@Getter
 	static final class Values
 	{
 		private final LootPriceMode mode;
+		/**
+		 * Whether the GE values use today's prices: always, but for a {@code null} {@code currentGe} and a record
+		 * that can't be revalued ({@link #isSavedTotals()}).
+		 */
 		private final boolean currentPrices;
+		/**
+		 * Whether today's prices were asked for but the record kept no loot or supply items to value, only a non-zero
+		 * saved GE total, so its saved totals are used instead; a non-zero one is marked approximate ({@code ~}).
+		 */
 		private final boolean savedTotals;
+		/** Loot value in {@link #getMode()}, or {@code null} when not valued. */
 		private final Long lootValue;
+		/** Loot value in {@link LootPriceMode#GE} ({@link LootPricing}), or {@code null} when not valued. */
 		private final Long lootGe;
 		private final Long lootHa;
+		/** Supplies GE value: 0 for a valued record without supplies, {@code null} when not valued. */
 		private final Long suppliesGe;
 		private final Long suppliesHa;
+		/** Distinct loot items whose price in {@link #getMode()} was unavailable. */
 		private final int lootUnpriced;
+		/** Distinct loot items whose GE price was unavailable, so {@link #getLootGe()} is approximate. */
 		private final int lootGeUnpriced;
+		/** Distinct supply items whose GE price was unavailable. */
 		private final int suppliesUnpriced;
 
 		/** Whether the record has values at all (it was saved after values were tracked). */
 		boolean isValued()
 		{
 			return lootValue != null;
-		}
-
-		LootPriceMode getMode()
-		{
-			return mode;
-		}
-
-		/**
-		 * Whether the GE values use today's prices: always, but for a {@code null} {@code currentGe} and a record
-		 * that can't be revalued ({@link #isSavedTotals()}).
-		 */
-		boolean isCurrentPrices()
-		{
-			return currentPrices;
-		}
-
-		/**
-		 * Whether today's prices were asked for but the record kept no loot or supply items to value, only a non-zero
-		 * saved GE total, so its saved totals are used instead; a non-zero one is marked approximate ({@code ~}).
-		 */
-		boolean isSavedTotals()
-		{
-			return savedTotals;
-		}
-
-		/** Loot value in {@link #getMode()}, or {@code null} when not valued. */
-		Long getLootValue()
-		{
-			return lootValue;
-		}
-
-		/** Loot value in {@link LootPriceMode#GE} ({@link LootPricing}), or {@code null} when not valued. */
-		Long getLootGe()
-		{
-			return lootGe;
-		}
-
-		Long getLootHa()
-		{
-			return lootHa;
-		}
-
-		/** Supplies GE value: 0 for a valued record without supplies, {@code null} when not valued. */
-		Long getSuppliesGe()
-		{
-			return suppliesGe;
-		}
-
-		Long getSuppliesHa()
-		{
-			return suppliesHa;
-		}
-
-		/** Distinct loot items whose price in {@link #getMode()} was unavailable. */
-		int getLootUnpriced()
-		{
-			return lootUnpriced;
-		}
-
-		/** Distinct loot items whose GE price was unavailable, so {@link #getLootGe()} is approximate. */
-		int getLootGeUnpriced()
-		{
-			return lootGeUnpriced;
-		}
-
-		/** Distinct supply items whose GE price was unavailable. */
-		int getSuppliesUnpriced()
-		{
-			return suppliesUnpriced;
 		}
 
 		/**

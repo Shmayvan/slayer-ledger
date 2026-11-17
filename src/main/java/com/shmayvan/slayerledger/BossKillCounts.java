@@ -1,11 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Rules for a task's boss kill counts ({@link BossKillCount}), from the game's kill count messages

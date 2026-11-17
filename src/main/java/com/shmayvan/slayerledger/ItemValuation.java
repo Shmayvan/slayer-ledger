@@ -1,9 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.*;
+import lombok.*;
 
 /**
  * Pure item valuation: captures per-item unit prices through a {@link PriceLookup} and totals a tally against them.
@@ -56,29 +54,15 @@ final class ItemValuation
 	}
 
 	/** Unit prices for a set of items, keyed by the id as tallied. */
+	@Getter
 	static final class UnitPrices
 	{
-		private final Map<Integer, Long> ge = new TreeMap<>();
-		private final Map<Integer, Long> ha = new TreeMap<>();
-		private final Set<Integer> geMissing = new TreeSet<>();
-
 		/** GE unit prices of the ids whose price was available. */
-		Map<Integer, Long> getGe()
-		{
-			return ge;
-		}
-
+		private final Map<Integer, Long> ge = new TreeMap<>();
 		/** High-alchemy unit values of the ids whose value was available. */
-		Map<Integer, Long> getHa()
-		{
-			return ha;
-		}
-
+		private final Map<Integer, Long> ha = new TreeMap<>();
 		/** Ids looked up whose GE price was unavailable (absent from {@link #getGe()}). */
-		Set<Integer> getGeMissing()
-		{
-			return geMissing;
-		}
+		private final Set<Integer> geMissing = new TreeSet<>();
 	}
 
 	private ItemValuation()
@@ -200,14 +184,6 @@ final class ItemValuation
 			}
 		}
 		return count;
-	}
-
-	/** Captures unit prices for one tally. */
-	static UnitPrices capturePrices(ItemTally tally, PriceLookup lookup)
-	{
-		UnitPrices prices = new UnitPrices();
-		capturePrices(tally, lookup, prices);
-		return prices;
 	}
 
 	/**

@@ -10,7 +10,6 @@ import java.util.Map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
@@ -18,9 +17,8 @@ import org.junit.Test;
 
 /**
  * Cannon tasks: detection from the supplies used ({@link CannonTasks}), in the session and the saved record
- * (also records saved before supplies were tracked), the grouping name with and without a Catacombs variant, the
- * per-task statistics' selection, the monster ranking split and pooled, and the task advisor's badge pooling cannon
- * tasks. {@link HarnessCannonTaskTest} covers the wiring.
+ * (also records saved before supplies were tracked), the grouping name with and without a Catacombs variant and the
+ * per-task statistics' selection. {@link HarnessCannonTaskTest} covers the wiring.
  */
 public class CannonTaskGroupingTest
 {
@@ -215,45 +213,6 @@ public class CannonTaskGroupingTest
 		assertEquals(DEVIANT, TaskSelection.of(DEVIANT).displayName(SPECTRE_TASK));
 	}
 
-	@Test
-	public void theAdvisorRankingPoolsCannonTasks()
-	{
-		List<LedgerRecord> records = new ArrayList<>();
-		records.add(profit(DUST_DEVILS, DEVILS, null, false, 100_000L));
-		records.add(profit(DUST_DEVILS, DEVILS, null, true, 300_000L));
-		records.add(profit(DUST_DEVILS, DEVILS, null, true, 300_000L));
-		records.add(profit(SPECTRES, SPECTRE_TASK, DEVIANT, true, 200_000L));
-
-		List<TaskRanking.Entry> pooled = TaskRanking.rank(records, TaskRanking.Metric.PROFIT, LootPriceMode.GE, null,
-			HiddenLoot.NONE);
-		assertEquals(Arrays.asList(DEVILS, SPECTRE_TASK), names(pooled));
-		assertEquals(3, pooled.get(0).getSampleCount());
-	}
-
-	// ---- Task advisor ----
-
-	@Test
-	public void theMainAdvicePoolsCannonTasks()
-	{
-		// Six monsters of 3 tasks each; the dust devils' tasks are split 2 + 1 by cannon use.
-		List<LedgerRecord> records = new ArrayList<>();
-		for (int creature = 1; creature <= 5; creature++)
-		{
-			for (int task = 0; task < TaskAdvisor.MIN_TASKS; task++)
-			{
-				records.add(profit(100 + creature, "Monster " + creature, null, false, (creature + 1) * 100_000L));
-			}
-		}
-		records.add(profit(DUST_DEVILS, DEVILS, null, false, 50_000L));
-		records.add(profit(DUST_DEVILS, DEVILS, null, false, 50_000L));
-		records.add(profit(DUST_DEVILS, DEVILS, null, true, 50_000L));
-		TaskAdvisor.Result advice = TaskAdvisor.advise(records, DUST_DEVILS, DEVILS, TaskRanking.Metric.PROFIT,
-			LootPriceMode.GE, null, HiddenLoot.NONE);
-		assertNotNull("pooled, the dust devils have 3 tasks and qualify", advice);
-		assertEquals(3, advice.getTasks());
-		assertEquals(TaskAdvisor.Advice.CONSIDER_SKIP, advice.getAdvice());
-	}
-
 	// ---- Per-task statistics and overlay text ----
 
 	@Test
@@ -334,16 +293,6 @@ public class CannonTaskGroupingTest
 		return supplies;
 	}
 
-	private static List<String> names(List<TaskRanking.Entry> ranking)
-	{
-		List<String> names = new ArrayList<>();
-		for (TaskRanking.Entry entry : ranking)
-		{
-			names.add(entry.getMonster());
-		}
-		return names;
-	}
-
 	private static TaskStatistics devilStats(List<LedgerRecord> records, TaskSelection selection)
 	{
 		return TaskStatistics.forTask(records, DUST_DEVILS, DEVILS, selection, null, null);
@@ -352,15 +301,6 @@ public class CannonTaskGroupingTest
 	private static TaskStatistics spectreStats(List<LedgerRecord> records, TaskSelection selection)
 	{
 		return TaskStatistics.forTask(records, SPECTRES, SPECTRE_TASK, selection, null, null);
-	}
-
-	/** An hour-long completed task making {@code profit} (loot at GE, supplies valued at 0). */
-	private static LedgerRecord profit(int creatureId, String monster, String variant, boolean cannon, long profit)
-	{
-		LedgerRecord record = record(creatureId, monster, variant, cannon, 10, HOUR);
-		record.setLootGeValue(profit);
-		record.setSuppliesGeValue(0L);
-		return record;
 	}
 
 	/** A completed task; a cannon task fired 50 cannonballs. */

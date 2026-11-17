@@ -1,6 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Map;
+import java.util.*;
 
 /**
  * Cannon tasks (owner decision): a task counts as a <b>cannon task</b> when its effective Cannon tag is Yes

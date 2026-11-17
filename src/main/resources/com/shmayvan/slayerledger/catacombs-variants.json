@@ -1,0 +1,13 @@
+{
+  "description": "The Catacombs of Kourend variant of each Slayer task that has one (CatacombsVariants), keyed by the NPC id the game uses in the Catacombs (NpcID.KOUREND_*). \"npcName\" is the NPC's name as the game gives it; \"name\" is the name a task done on the variant is shown and grouped under, as 1.x saved it. The same names outside the Catacombs (other ids) are not the variant. Ids are RuneLite 1.13.6 gameval constants (net.runelite.api.gameval); \"constant\" names the constant each id was taken from.",
+  "variants": [
+    {"task": "Aberrant spectres", "npcId": 7279, "constant": "NpcID.KOUREND_SPECTRE", "npcName": "Deviant spectre", "name": "Deviant spectres"},
+    {"task": "Nechryael", "npcId": 7278, "constant": "NpcID.KOUREND_NECHRYAEL", "npcName": "Greater Nechryael", "name": "Greater nechryael"},
+    {"task": "Bloodveld", "npcId": 7276, "constant": "NpcID.KOUREND_BLOODVELD", "npcName": "Mutated Bloodveld", "name": "Mutated bloodveld"},
+    {"task": "Jellies", "npcId": 7277, "constant": "NpcID.KOUREND_JELLY", "npcName": "Warped Jelly", "name": "Warped jellies"},
+    {"task": "Banshees", "npcId": 7272, "constant": "NpcID.KOUREND_BANSHEE", "npcName": "Twisted Banshee", "name": "Twisted banshees"},
+    {"task": "Black dragons", "npcId": 7275, "constant": "NpcID.KOUREND_BLACK_DRAGON", "npcName": "Brutal black dragon", "name": "Brutal black dragons"},
+    {"task": "Blue dragons", "npcId": 7273, "constant": "NpcID.KOUREND_BLUE_DRAGON", "npcName": "Brutal blue dragon", "name": "Brutal blue dragons"},
+    {"task": "Red dragons", "npcId": 7274, "constant": "NpcID.KOUREND_RED_DRAGON", "npcName": "Brutal red dragon", "name": "Brutal red dragons"}
+  ]
+}

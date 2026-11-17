@@ -181,7 +181,7 @@ public class SessionRestoreTest
 	public void mismatchSummaryIsIncompleteWithSnapshotValues()
 	{
 		SessionSnapshot s = snapshotOfSession();
-		SessionTracker.Summary summary = s.toSummary();
+		SessionTracker.Summary summary = s.toSummary(SlayerSpots.NONE);
 		assertTrue(summary.hasTask());
 		assertFalse(summary.isCompleted());
 		assertEquals(7, summary.getKills());

@@ -1,11 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
+import lombok.*;
 
 /**
  * Watches Slayer assignments on the plugin's settled ticks and reports each one that ended without a session as an
@@ -34,10 +30,6 @@ import java.util.UUID;
  * not ended): if the task after the login is the same one, it keeps its played flag; otherwise the old one ended while
  * the plugin wasn't watching and is forgotten without an entry. While the count still reads 0 after a login, the
  * baseline waits up to {@link #SYNC_MAX_TICKS} ticks for the task, like the restore check.</p>
- *
- * <p><b>New assignments</b> ({@link #takeStarted()}, for the advisor's chat line): an assignment counts as new
- * only when it is first seen outside a baseline, i.e. watched from its start. One read by a baseline (plugin start,
- * login, hop, account change) or that comes back after a transient or long zero is never new.</p>
  */
 final class AssignmentWatch
 {
@@ -167,30 +159,16 @@ final class AssignmentWatch
 	}
 
 	/** An ended assignment to store. */
+	@Getter
+	@AllArgsConstructor(access = AccessLevel.PRIVATE)
 	static final class Ended
 	{
 		private final AssignmentEntry entry;
-		private final boolean checkRecords;
-
-		private Ended(AssignmentEntry entry, boolean checkRecords)
-		{
-			this.entry = entry;
-			this.checkRecords = checkRecords;
-		}
-
-		AssignmentEntry getEntry()
-		{
-			return entry;
-		}
-
 		/**
 		 * Whether the assignment wasn't watched from its start, so a session in an earlier plugin run can't be ruled
 		 * out: store it only if {@link AssignmentLog#playedBefore} says the saved records don't show one.
 		 */
-		boolean isCheckRecords()
-		{
-			return checkRecords;
-		}
+		private final boolean checkRecords;
 	}
 
 	/** Points, completion counters and blocked-task values at one reading. */
@@ -296,8 +274,6 @@ final class AssignmentWatch
 	private boolean syncing = true;
 	/** Zero-count readings while syncing. */
 	private int syncTicks;
-	/** The current assignment watched from its start, until {@link #takeStarted()} takes it; else {@code null}. */
-	private Assignment started;
 
 	/** After a login, hop or lost connection: drops an undecided end, keeps the current assignment; see the class. */
 	void reset()
@@ -305,7 +281,6 @@ final class AssignmentWatch
 		pending = null;
 		syncing = true;
 		syncTicks = 0;
-		started = null;
 	}
 
 	/** After an account change: forgets everything, including the current assignment. */
@@ -357,14 +332,12 @@ final class AssignmentWatch
 			}
 			pending = new Pending(current, now, !r.hasTask(), current.completionOnLastActive || r.completionSignaled);
 			current = r.hasTask() ? new Assignment(r, true) : null;
-			started = current;
 			markPlayed(sessionTaskKeys);
 			return ended;
 		}
 		else if (r.hasTask())
 		{
 			current = new Assignment(r, true);
-			started = current;
 			if (pending != null && pending.frozen != null)
 			{
 				// Another task after a long zero: the old one ended, reason unknown.
@@ -471,18 +444,6 @@ final class AssignmentWatch
 		ended.add(new Ended(entry, !a.witnessedStart));
 	}
 
-	/**
-	 * Whether the last {@link #update} saw a new assignment (one watched from its start; see the class), once: the
-	 * flag is cleared by this call, by a later assignment replacing it, and by {@link #reset()}.
-	 *
-	 * @return {@code true} at most once per new assignment
-	 */
-	boolean takeStarted()
-	{
-		final boolean isNew = started != null && started == current;
-		started = null;
-		return isNew;
-	}
 
 	/** Test seam: whether an assignment is being watched now. */
 	boolean hasCurrent()

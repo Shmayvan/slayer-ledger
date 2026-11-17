@@ -71,7 +71,7 @@ public class TaskTimeEstimateTest
 			TaskTimeEstimate.remainingMillis(1_000 * hour, 1_000, Integer.MAX_VALUE));
 		assertTrue(TaskTimeEstimate.averageKillMillis(Long.MAX_VALUE, TaskTimeEstimate.MIN_KILLS).getAsLong() > 0);
 		// The panel still formats a saturated estimate.
-		assertTrue(LiveSessionSection.timeLeftText(Long.MAX_VALUE, TaskTimeEstimate.MIN_KILLS, Integer.MAX_VALUE)
+		assertTrue(LiveSessionSection.timeLeftText(Long.MAX_VALUE, TaskTimeEstimate.MIN_KILLS, Integer.MAX_VALUE, null)
 			.startsWith("~"));
 	}
 
@@ -95,18 +95,18 @@ public class TaskTimeEstimateTest
 	@Test
 	public void panelTextEstimatesThenCountsDown()
 	{
-		assertEquals(LiveSessionSection.TIME_LEFT_UNKNOWN, LiveSessionSection.timeLeftText(MINUTE, 2, 50));
-		assertEquals(LiveSessionSection.TIME_LEFT_UNKNOWN, LiveSessionSection.timeLeftText(30_000, 5, 50));
-		assertEquals("~20m", LiveSessionSection.timeLeftText(5 * MINUTE, 10, 40));
-		assertEquals("~1h 08m", LiveSessionSection.timeLeftText(45 * MINUTE, 60, 90));
+		assertEquals(LiveSessionSection.TIME_LEFT_UNKNOWN, LiveSessionSection.timeLeftText(MINUTE, 2, 50, null));
+		assertEquals(LiveSessionSection.TIME_LEFT_UNKNOWN, LiveSessionSection.timeLeftText(30_000, 5, 50, null));
+		assertEquals("~20m", LiveSessionSection.timeLeftText(5 * MINUTE, 10, 40, null));
+		assertEquals("~1h 08m", LiveSessionSection.timeLeftText(45 * MINUTE, 60, 90, null));
 	}
 
 	@Test
 	public void panelTextAfterCompletionOrWithoutTask()
 	{
-		assertEquals(LedgerHistory.NO_VALUE, LiveSessionSection.timeLeftText(10 * MINUTE, 40, 0));
+		assertEquals(LedgerHistory.NO_VALUE, LiveSessionSection.timeLeftText(10 * MINUTE, 40, 0, null));
 		assertEquals("no task: nothing to estimate even with no kills", LedgerHistory.NO_VALUE,
-			LiveSessionSection.timeLeftText(0, 0, 0));
+			LiveSessionSection.timeLeftText(0, 0, 0, null));
 	}
 
 	@Test

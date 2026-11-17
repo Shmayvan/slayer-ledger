@@ -188,7 +188,7 @@ public class SessionTrackerLocationTest
 		Gson gson = new Gson();
 		SessionSnapshot read = gson.fromJson(gson.toJson(snapshot), SessionSnapshot.class);
 		assertEquals(snapshot, read);
-		LedgerRecord partial = LedgerRecord.fromSummary(read.toSummary(), true);
+		LedgerRecord partial = LedgerRecord.fromSummary(read.toSummary(SlayerSpots.NONE), true);
 		assertEquals("a partial from the snapshot keeps its spot", CATACOMBS_ID, partial.getSpotId());
 		assertEquals(Integer.valueOf(CATACOMBS), partial.getLocationRegion());
 

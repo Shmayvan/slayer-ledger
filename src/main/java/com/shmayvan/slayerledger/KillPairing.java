@@ -1,9 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.*;
+import lombok.*;
 
 /**
  * What the plugin knows about a task kill (a drop of the Slayer count, or a bracelet of slaughter's activation) from
@@ -13,6 +11,8 @@ import java.util.Set;
  * ({@link #getTickStart()}): the plugin reads that tick's XP just before it sees the kill, so a (re)start counts it.
  * Pure and immutable.
  */
+@Getter
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 final class KillPairing
 {
 	/** {@link #getEarliestStart()} when no damaged NPC died around the kill (for example a cannon-only kill). */
@@ -21,18 +21,14 @@ final class KillPairing
 	/** Nothing paired; a kill may start a session; its tick's start unknown. */
 	static final KillPairing NONE = new KillPairing(NO_START, Collections.emptySet(), true, NO_START);
 
+	/** The earliest engagement start of the paired NPCs (clock millis), or {@link #NO_START}. */
 	private final long earliestStart;
+	/** The paired NPCs' names as the game gives them (unmodifiable, possibly empty). */
 	private final Set<String> names;
+	/** Whether a kill may start a new session now (see {@link #withStartBlocked()}). */
 	private final boolean startAllowed;
+	/** When the kill's game tick began (see {@link #withTickStart}), or {@link #NO_START} when not known. */
 	private final long tickStart;
-
-	private KillPairing(long earliestStart, Set<String> names, boolean startAllowed, long tickStart)
-	{
-		this.earliestStart = earliestStart;
-		this.names = names;
-		this.startAllowed = startAllowed;
-		this.tickStart = tickStart;
-	}
 
 	/**
 	 * A pairing of NPCs whose earliest engagement started at {@code earliestStart} ({@link #NO_START} for none), with
@@ -73,33 +69,9 @@ final class KillPairing
 		return new KillPairing(earliestStart, names, startAllowed, tickStart);
 	}
 
-	/** The earliest engagement start of the paired NPCs (clock millis), or {@link #NO_START}. */
-	long getEarliestStart()
-	{
-		return earliestStart;
-	}
-
 	/** Whether any paired NPC's engagement start is known. */
 	boolean hasStart()
 	{
 		return earliestStart != NO_START;
-	}
-
-	/** The paired NPCs' names as the game gives them (unmodifiable, possibly empty). */
-	Set<String> getNames()
-	{
-		return names;
-	}
-
-	/** Whether a kill may start a new session now (see {@link #withStartBlocked()}). */
-	boolean isStartAllowed()
-	{
-		return startAllowed;
-	}
-
-	/** When the kill's game tick began (see {@link #withTickStart}), or {@link #NO_START} when not known. */
-	long getTickStart()
-	{
-		return tickStart;
 	}
 }

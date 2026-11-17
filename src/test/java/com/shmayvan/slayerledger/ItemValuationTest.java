@@ -81,11 +81,19 @@ public class ItemValuationTest
 		return t;
 	}
 
+	/** The tally's unit prices from {@code lookup}, captured into new {@link ItemValuation.UnitPrices}. */
+	static ItemValuation.UnitPrices capturePrices(ItemTally tally, ItemValuation.PriceLookup lookup)
+	{
+		ItemValuation.UnitPrices prices = new ItemValuation.UnitPrices();
+		ItemValuation.capturePrices(tally, lookup, prices);
+		return prices;
+	}
+
 	@Test
 	public void totalsGeAndHa()
 	{
 		ItemTally loot = tally(BONES, 10, RUNE_SCIMITAR, 2);
-		ItemValuation.UnitPrices prices = ItemValuation.capturePrices(loot, new FakeLookup());
+		ItemValuation.UnitPrices prices = capturePrices(loot, new FakeLookup());
 		assertEquals(Long.valueOf(100), prices.getGe().get(BONES));
 		assertEquals(Long.valueOf(15_360), prices.getHa().get(RUNE_SCIMITAR));
 		assertEquals(10 * 100 + 2 * 15_000, ItemValuation.total(loot, prices.getGe()));
@@ -96,7 +104,7 @@ public class ItemValuationTest
 	public void coinsAndPlatinumAreFaceValue()
 	{
 		ItemTally loot = tally(ItemValuation.COINS, 5_000, ItemValuation.PLATINUM, 3);
-		ItemValuation.UnitPrices prices = ItemValuation.capturePrices(loot, new FakeLookup());
+		ItemValuation.UnitPrices prices = capturePrices(loot, new FakeLookup());
 		assertEquals(5_000 + 3_000, ItemValuation.total(loot, prices.getGe()));
 		assertEquals(5_000 + 3_000, ItemValuation.total(loot, prices.getHa()));
 	}
@@ -105,7 +113,7 @@ public class ItemValuationTest
 	public void notedItemsUseUnnotedPricesButKeepTheirId()
 	{
 		ItemTally loot = tally(RUNE_SCIMITAR_NOTED, 4);
-		ItemValuation.UnitPrices prices = ItemValuation.capturePrices(loot, new FakeLookup());
+		ItemValuation.UnitPrices prices = capturePrices(loot, new FakeLookup());
 		assertEquals(Long.valueOf(15_000), prices.getGe().get(RUNE_SCIMITAR_NOTED));
 		assertEquals(Long.valueOf(15_360), prices.getHa().get(RUNE_SCIMITAR_NOTED));
 		assertEquals(60_000, ItemValuation.total(loot, prices.getGe()));
@@ -116,7 +124,7 @@ public class ItemValuationTest
 	public void untradeableIsZeroButTradeableWithoutPriceIsMissing()
 	{
 		ItemTally loot = tally(UNTRADEABLE, 2, UNKNOWN, 7, BONES, 1);
-		ItemValuation.UnitPrices prices = ItemValuation.capturePrices(loot, new FakeLookup());
+		ItemValuation.UnitPrices prices = capturePrices(loot, new FakeLookup());
 		// Untradeable: a known GE value of 0, alchemy value still counts.
 		assertEquals(Long.valueOf(0), prices.getGe().get(UNTRADEABLE));
 		// Tradeable at 0: the price is unavailable (not loaded, or not in the price list), not worthless.
@@ -166,7 +174,7 @@ public class ItemValuationTest
 			}
 		};
 		ItemTally loot = tally(UNKNOWN, 1, BONES, 2);
-		ItemValuation.UnitPrices prices = ItemValuation.capturePrices(loot, broken);
+		ItemValuation.UnitPrices prices = capturePrices(loot, broken);
 		// A negative GE price of a tradeable item and a failing definition lookup are both unavailable.
 		assertNull(prices.getGe().get(BONES));
 		assertNull(prices.getGe().get(UNKNOWN));
@@ -200,7 +208,7 @@ public class ItemValuationTest
 	public void unloadedPricesAreMissingButCoinsAndPlatinumAreKnown()
 	{
 		ItemTally loot = tally(BONES, 3, RUNE_SCIMITAR, 1, ItemValuation.COINS, 500, ItemValuation.PLATINUM, 2);
-		ItemValuation.UnitPrices prices = ItemValuation.capturePrices(loot, new UnloadedLookup());
+		ItemValuation.UnitPrices prices = capturePrices(loot, new UnloadedLookup());
 		assertEquals(2, prices.getGe().size());
 		assertEquals(Long.valueOf(1), prices.getGe().get(ItemValuation.COINS));
 		assertEquals(Long.valueOf(ItemValuation.PLATINUM_VALUE), prices.getGe().get(ItemValuation.PLATINUM));
@@ -216,7 +224,7 @@ public class ItemValuationTest
 	public void recapturingReplacesAMissingPrice()
 	{
 		ItemTally loot = tally(BONES, 3);
-		ItemValuation.UnitPrices prices = ItemValuation.capturePrices(loot, new UnloadedLookup());
+		ItemValuation.UnitPrices prices = capturePrices(loot, new UnloadedLookup());
 		assertTrue(prices.getGeMissing().contains(BONES));
 		ItemValuation.capturePrices(loot, new FakeLookup(), prices);
 		assertEquals(Long.valueOf(100), prices.getGe().get(BONES));

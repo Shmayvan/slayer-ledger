@@ -1,36 +1,13 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.AWTEvent;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.EventQueue;
-import java.awt.FontMetrics;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Image;
-import java.awt.RenderingHints;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.util.ArrayList;
-import java.util.EnumMap;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.*;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.function.Consumer;
-import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.ButtonGroup;
-import javax.swing.ImageIcon;
-import javax.swing.JButton;
-import javax.swing.JComponent;
-import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
-import javax.swing.JRadioButtonMenuItem;
-import javax.swing.SwingConstants;
-import javax.swing.event.PopupMenuEvent;
-import javax.swing.event.PopupMenuListener;
+import java.util.function.*;
+import javax.swing.*;
+import javax.swing.event.*;
+import lombok.*;
 
 /**
  * The live task card's setup tags (DESIGN_PRINCIPLES.md 3.4, V2 plan 4.3, sprite toggles): Cannon,
@@ -67,24 +44,16 @@ final class SetupToggles
 	private static final int TOGGLE_GAP = 4;
 
 	/** A setup tag: its name, and how its value, override, image, choices and details are read. */
+	@Getter
+	@RequiredArgsConstructor
 	enum Tag
 	{
 		CANNON("Cannon"),
 		STYLE("Style"),
 		GEAR("Gear");
 
-		private final String label;
-
-		Tag(String label)
-		{
-			this.label = label;
-		}
-
 		/** The tag as shown: {@code Cannon}, {@code Style}, {@code Gear}. */
-		String getLabel()
-		{
-			return label;
-		}
+		private final String label;
 
 		/** The name of its toggle's parts ({@code setup.cannon}, ...), for tests; no visible effect. */
 		String key()

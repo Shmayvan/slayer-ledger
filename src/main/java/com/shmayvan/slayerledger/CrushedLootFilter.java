@@ -1,10 +1,8 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-import net.runelite.api.gameval.ItemID;
+import java.util.*;
+import lombok.*;
+import net.runelite.api.gameval.*;
 
 /**
  * Leaves out of kill loot the items a bonecrusher or ash sanctifier destroys. The game's NPC loot (ServerNpcLoot)
@@ -19,9 +17,11 @@ import net.runelite.api.gameval.ItemID;
  * count crushed bones. Auto therefore assumes the item is charged; {@link BonecrusherMode#NEVER_EXCLUDE} covers an
  * uncharged one.</p>
  *
- * <p>Item ids are the RuneLite 1.13.4 {@code net.runelite.api.gameval.ItemID} constants. Only unnoted ids are listed:
- * the crushers do not crush noted bones.</p>
+ * <p>Item ids are the RuneLite 1.13.6 {@code net.runelite.api.gameval.ItemID} constants; the bones and ashes are the
+ * bundled {@code crushed-loot.json} ({@link BundledData}; none when it can't be read). Only unnoted ids are listed: the
+ * crushers do not crush noted bones.</p>
  */
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 final class CrushedLootFilter
 {
 	/** The bonecrusher (inventory) and the bonecrusher necklace (inventory or worn). */
@@ -32,32 +32,16 @@ final class CrushedLootFilter
 	 * Buryable bones that monsters drop, which a bonecrusher crushes. Bones only obtained otherwise (blessed bones, quest
 	 * and minigame bones) are not listed; they are not kill loot.
 	 */
-	static final Set<Integer> BONES = ids(
-		ItemID.BONES, ItemID.BAT_BONES, ItemID.BIG_BONES, ItemID.BABYDRAGON_BONES, ItemID.DRAGON_BONES,
-		ItemID.WOLF_BONES, ItemID.TBWT_BEAST_BONES, ItemID.TBWT_JOGRE_BONES,
-		ItemID.MM_SMALL_NINJA_MONKEY_BONES, ItemID.MM_MEDIUM_NINJA_MONKEY_BONES, ItemID.MM_NORMAL_GORILLA_MONKEY_BONES,
-		ItemID.MM_BEARDED_GORILLA_MONKEY_BONES, ItemID.MM_NORMAL_MONKEY_BONES, ItemID.MM_SMALL_ZOMBIE_MONKEY_BONES,
-		ItemID.MM_LARGE_ZOMBIE_MONKEY_BONES,
-		ItemID.ZOGRE_BONES, ItemID.ZOGRE_ANCESTRAL_BONES_FAYG, ItemID.ZOGRE_ANCESTRAL_BONES_RAURG,
-		ItemID.ZOGRE_ANCESTRAL_BONES_OURG, ItemID.DAGANNOTH_KING_BONES, ItemID.WYVERN_BONES, ItemID.LAVA_DRAGON_BONES,
-		ItemID.DRAGON_BONES_SUPERIOR, ItemID.WYRM_BONES, ItemID.DRAKE_BONES, ItemID.HYDRA_BONES,
-		ItemID.BABYWYRM_BONES, ItemID.STRYKEWYRM_BONES, ItemID.FROST_DRAGON_BONES);
+	static final Set<Integer> BONES = BundledData.idSet("crushed-loot.json", "bones");
 
 	/** Demonic ashes, which an ash sanctifier scatters. Plain ashes are not demonic and are always kept. */
-	static final Set<Integer> DEMONIC_ASHES = ids(
-		ItemID.FIENDISH_ASHES, ItemID.VILE_ASHES, ItemID.MALICIOUS_ASHES, ItemID.ABYSSAL_ASHES, ItemID.INFERNAL_ASHES);
+	static final Set<Integer> DEMONIC_ASHES = BundledData.idSet("crushed-loot.json", "demonicAshes");
 
 	/** Keeps everything. */
 	static final CrushedLootFilter KEEP_ALL = new CrushedLootFilter(false, false);
 
 	private final boolean excludeBones;
 	private final boolean excludeAshes;
-
-	private CrushedLootFilter(boolean excludeBones, boolean excludeAshes)
-	{
-		this.excludeBones = excludeBones;
-		this.excludeAshes = excludeAshes;
-	}
 
 	/**
 	 * The filter for one loot drop.
@@ -98,16 +82,6 @@ final class CrushedLootFilter
 	boolean keeps(int itemId)
 	{
 		return !(excludeBones && BONES.contains(itemId)) && !(excludeAshes && DEMONIC_ASHES.contains(itemId));
-	}
-
-	boolean excludesBones()
-	{
-		return excludeBones;
-	}
-
-	boolean excludesAshes()
-	{
-		return excludeAshes;
 	}
 
 	/** A copy of {@code loot} without the items this filter leaves out. */

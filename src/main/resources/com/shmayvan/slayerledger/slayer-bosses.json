@@ -1,0 +1,113 @@
+{
+  "description": "Each Slayer task that has a Slayer boss, the boss, and the name of every NPC that dies in one of its kills, as the game's NPC definitions give it (SlayerBosses), so a task done on its boss can be told from one done on the task's own monsters. Also the superior Slayer monsters of the tasks with a boss or a Catacombs variant, which that decision leaves out. The list of Slayer bosses is listSource's: the bosses that each require a task for the boss itself or the equivalent monster, fought on a regular task; bosses only assigned as boss tasks, and bosses that count for a task without needing one, are not rows. Each row cites the boss's own article, which names the task. The Kraken lies as a \"Whirlpool\" until disturbed and dies as the \"Kraken\"; the whirlpool's name is left out, since cave kraken lie as whirlpools too. Each NPC keeps one id that has its name, to show where the name came from; only the names are read. Ids are RuneLite 1.13.6 gameval constants (net.runelite.api.gameval); \"constant\" names the constant each id was taken from.",
+  "source": "Old School RuneScape Wiki",
+  "license": "CC BY-NC-SA 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-nc-sa/3.0/",
+  "contributors": "Old School RuneScape Wiki contributors",
+  "retrieved": "2026-11-09",
+  "attribution": "Slayer bosses, the tasks they are fought on and superior Slayer monster names adapted from the listed Old School RuneScape Wiki articles (revisions given per row) by Old School RuneScape Wiki contributors. This dataset is a modified, partial snapshot (only task, boss and NPC names kept) and is shared under the same CC BY-NC-SA 3.0 license.",
+  "listSource": {
+    "article": "Boss",
+    "page": "https://oldschool.runescape.wiki/w/Boss#Slayer_bosses",
+    "revision": 15390364
+  },
+  "checkedAgainst": "The \"Bosses\" section of the Slayer article (revision 15396824) and its main article, Boss Slayer (the boss task list, revision 15390553).",
+  "superiorsSource": {
+    "article": "Superior slayer monster",
+    "page": "https://oldschool.runescape.wiki/w/Superior_slayer_monster",
+    "revision": 15389037
+  },
+  "bosses": [
+    {
+      "task": "Gargoyles",
+      "name": "Grotesque Guardians",
+      "source": {"article": "Grotesque Guardians", "page": "https://oldschool.runescape.wiki/w/Grotesque_Guardians", "revision": 15387555},
+      "npcs": [
+        {"id": 7889, "constant": "NpcID.GARGBOSS_DUSK_DEATH", "name": "Dusk"},
+        {"id": 7885, "constant": "NpcID.GARGBOSS_DAWN_DEATH", "name": "Dawn"}
+      ]
+    },
+    {
+      "task": "Cave kraken",
+      "name": "Kraken",
+      "source": {"article": "Kraken", "page": "https://oldschool.runescape.wiki/w/Kraken", "revision": 15383981},
+      "npcs": [
+        {"id": 494, "constant": "NpcID.SLAYER_KRAKEN_BOSS", "name": "Kraken"}
+      ]
+    },
+    {
+      "task": "Hellhounds",
+      "name": "Cerberus",
+      "source": {"article": "Cerberus", "page": "https://oldschool.runescape.wiki/w/Cerberus", "revision": 15397004},
+      "npcs": [
+        {"id": 5862, "constant": "NpcID.CERBERUS_ATTACKING", "name": "Cerberus"}
+      ]
+    },
+    {
+      "task": "Smoke devils",
+      "name": "Thermonuclear smoke devil",
+      "source": {"article": "Thermonuclear smoke devil", "page": "https://oldschool.runescape.wiki/w/Thermonuclear_smoke_devil", "revision": 15369525},
+      "npcs": [
+        {"id": 499, "constant": "NpcID.SMOKE_DEVIL_BOSS", "name": "Thermonuclear smoke devil"}
+      ]
+    },
+    {
+      "task": "Abyssal demons",
+      "name": "Abyssal Sire",
+      "source": {"article": "Abyssal Sire", "page": "https://oldschool.runescape.wiki/w/Abyssal_Sire", "revision": 15392068},
+      "npcs": [
+        {"id": 5908, "constant": "NpcID.ABYSSALSIRE_SIRE_APOCALYPSE", "name": "Abyssal Sire"}
+      ]
+    },
+    {
+      "task": "Hydras",
+      "name": "Alchemical Hydra",
+      "source": {"article": "Alchemical Hydra", "page": "https://oldschool.runescape.wiki/w/Alchemical_Hydra", "revision": 15375803},
+      "npcs": [
+        {"id": 8622, "constant": "NpcID.HYDRABOSS_FINALDEATH", "name": "Alchemical Hydra"}
+      ]
+    },
+    {
+      "task": "Araxytes",
+      "name": "Araxxor",
+      "source": {"article": "Araxxor", "page": "https://oldschool.runescape.wiki/w/Araxxor", "revision": 15396994},
+      "npcs": [
+        {"id": 13668, "constant": "NpcID.ARAXXOR", "name": "Araxxor"}
+      ]
+    },
+    {
+      "task": "Spiders",
+      "name": "Araxxor",
+      "source": {"article": "Araxxor", "page": "https://oldschool.runescape.wiki/w/Araxxor", "revision": 15396994},
+      "npcs": [
+        {"id": 13668, "constant": "NpcID.ARAXXOR", "name": "Araxxor"}
+      ]
+    },
+    {
+      "task": "Gryphons",
+      "name": "Shellbane gryphon",
+      "source": {"article": "Shellbane gryphon", "page": "https://oldschool.runescape.wiki/w/Shellbane_gryphon", "revision": 15387213},
+      "npcs": [
+        {"id": 14860, "constant": "NpcID.GRYPHON_BOSS", "name": "Shellbane gryphon"}
+      ]
+    }
+  ],
+  "superiors": [
+    {"id": 7407, "constant": "NpcID.SUPERIOR_GARGOYLE", "name": "Marble gargoyle"},
+    {"id": 7406, "constant": "NpcID.SUPERIOR_SMOKE_DEVIL", "name": "Nuclear smoke devil"},
+    {"id": 7410, "constant": "NpcID.SUPERIOR_ABYSSAL_DEMON", "name": "Greater abyssal demon"},
+    {"id": 10402, "constant": "NpcID.SUPERIOR_HYDRA", "name": "Colossal Hydra"},
+    {"id": 13680, "constant": "NpcID.SUPERIOR_ARAXYTE", "name": "Dreadborn Araxyte"},
+    {"id": 14859, "constant": "NpcID.SUPERIOR_GRYPHON", "name": "Dire gryphon"},
+    {"id": 7402, "constant": "NpcID.SUPERIOR_ABBERANT_SPECTRE", "name": "Abhorrent spectre"},
+    {"id": 7403, "constant": "NpcID.SUPERIOR_KOUREND_SPECTRE", "name": "Repugnant spectre"},
+    {"id": 7411, "constant": "NpcID.SUPERIOR_NECHRYAEL", "name": "Nechryarch"},
+    {"id": 7397, "constant": "NpcID.SUPERIOR_BLOODVELD", "name": "Insatiable Bloodveld"},
+    {"id": 7398, "constant": "NpcID.SUPERIOR_KOUREND_BLOODVELD", "name": "Insatiable mutated Bloodveld"},
+    {"id": 7399, "constant": "NpcID.SUPERIOR_JELLY", "name": "Vitreous Jelly"},
+    {"id": 7400, "constant": "NpcID.SUPERIOR_KOUREND_JELLY", "name": "Vitreous Warped Jelly"},
+    {"id": 15501, "constant": "NpcID.SUPERIOR_CHILLED_JELLY", "name": "Vitreous Chilled Jelly"},
+    {"id": 7390, "constant": "NpcID.SUPERIOR_BANSHEE", "name": "Screaming banshee"},
+    {"id": 7391, "constant": "NpcID.SUPERIOR_KOUREND_BANSHEE", "name": "Screaming twisted banshee"}
+  ]
+}

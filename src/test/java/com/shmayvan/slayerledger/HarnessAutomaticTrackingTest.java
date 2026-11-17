@@ -187,7 +187,8 @@ public class HarnessAutomaticTrackingTest
 		assertEquals(SessionTracker.State.RUNNING, harness.sessionState());
 		assertEquals(1, harness.tracker().getKills());
 		assertEquals("the whole first fight counts", 50_000, active());
-		assertEquals(Collections.singletonList("abyssal demon"), harness.tracker().getTaskNpcNames());
+		assertEquals(Collections.singletonList("abyssal demon"),
+			harness.tracker().summary().getSegments().getTaskNpcs());
 		assertEquals("Running | Pause | End task", panel());
 		assertEquals("the elapsed clock beside Running", "0:50", clock());
 		assertEquals("no state line while running", TASK_NAME + " / ", overlayFirstRow());
@@ -217,7 +218,7 @@ public class HarnessAutomaticTrackingTest
 		assertEquals(3, harness.tracker().getKills());
 		assertEquals("from the earliest engagement start", 60_000, active());
 		assertEquals("in the order they died", java.util.Arrays.asList("abyssal demon", "greater abyssal demon"),
-			harness.tracker().getTaskNpcNames());
+			harness.tracker().summary().getSegments().getTaskNpcs());
 	}
 
 	@Test

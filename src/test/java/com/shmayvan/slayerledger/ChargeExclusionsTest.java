@@ -21,7 +21,7 @@ public class ChargeExclusionsTest
 	@Test
 	public void nothingIsExcludedByDefault()
 	{
-		assertFalse(exclusions.isExcluded(ItemID.RUNE_DART, 0));
+		assertFalse(exclusions.excludedItems(0).contains(ItemID.RUNE_DART));
 		assertTrue(exclusions.excludedItems(0).isEmpty());
 	}
 
@@ -29,15 +29,15 @@ public class ChargeExclusionsTest
 	public void usingDartsOnTheBlowpipeExcludesMaterialsOnly()
 	{
 		exclusions.menuOptionClicked("Use", new int[]{ItemID.RUNE_DART, BLOWPIPE}, 100);
-		assertTrue(exclusions.isExcluded(ItemID.RUNE_DART, 100));
-		assertTrue(exclusions.isExcluded(ItemID.SNAKEBOSS_SCALE, 100));
-		assertTrue(exclusions.isExcluded(ItemID.DEATHRUNE, 101));
-		assertTrue(exclusions.isExcluded(ItemID.CHAOSRUNE, 101));
-		assertTrue(exclusions.isExcluded(ItemID.FIRERUNE, 101));
-		assertTrue(exclusions.isExcluded(ItemID.COINS, 101));
-		assertFalse(exclusions.isExcluded(SHARK, 100));
-		assertFalse(exclusions.isExcluded(BLOWPIPE, 100));
-		assertFalse(exclusions.isExcluded(ItemID.NATURERUNE, 100));
+		assertTrue(exclusions.excludedItems(100).contains(ItemID.RUNE_DART));
+		assertTrue(exclusions.excludedItems(100).contains(ItemID.SNAKEBOSS_SCALE));
+		assertTrue(exclusions.excludedItems(101).contains(ItemID.DEATHRUNE));
+		assertTrue(exclusions.excludedItems(101).contains(ItemID.CHAOSRUNE));
+		assertTrue(exclusions.excludedItems(101).contains(ItemID.FIRERUNE));
+		assertTrue(exclusions.excludedItems(101).contains(ItemID.COINS));
+		assertFalse(exclusions.excludedItems(100).contains(SHARK));
+		assertFalse(exclusions.excludedItems(100).contains(BLOWPIPE));
+		assertFalse(exclusions.excludedItems(100).contains(ItemID.NATURERUNE));
 		assertEquals(ChargeExclusions.MATERIALS, exclusions.excludedItems(100));
 	}
 
@@ -45,20 +45,20 @@ public class ChargeExclusionsTest
 	public void eitherOrderOfUseCounts()
 	{
 		exclusions.menuOptionClicked("Use", new int[]{TRIDENT, ItemID.FIRERUNE}, 10);
-		assertTrue(exclusions.isExcluded(ItemID.FIRERUNE, 10));
+		assertTrue(exclusions.excludedItems(10).contains(ItemID.FIRERUNE));
 	}
 
 	@Test
 	public void unloadAndUnchargeOpenTheWindow()
 	{
 		exclusions.menuOptionClicked("Unload", new int[]{BLOWPIPE}, 10);
-		assertTrue(exclusions.isExcluded(ItemID.RUNE_DART, 11));
+		assertTrue(exclusions.excludedItems(11).contains(ItemID.RUNE_DART));
 		exclusions.reset();
 		exclusions.menuOptionClicked("<col=ff9040>Uncharge</col>", new int[]{ItemID.TOTS_CHARGED_ORN}, 20);
-		assertTrue(exclusions.isExcluded(ItemID.COINS, 21));
+		assertTrue(exclusions.excludedItems(21).contains(ItemID.COINS));
 		exclusions.reset();
 		exclusions.menuOptionClicked("UNCHARGE", new int[]{ItemID.TOXIC_BLOWPIPE_ORNAMENT}, 30);
-		assertTrue(exclusions.isExcluded(ItemID.SNAKEBOSS_SCALE, 30));
+		assertTrue(exclusions.excludedItems(30).contains(ItemID.SNAKEBOSS_SCALE));
 	}
 
 	@Test
@@ -71,17 +71,17 @@ public class ChargeExclusionsTest
 		exclusions.menuOptionClicked("Use", new int[]{ItemID.RUNE_DART}, 10);
 		exclusions.menuOptionClicked(null, new int[]{BLOWPIPE}, 10);
 		exclusions.menuOptionClicked("Use", null, 10);
-		assertFalse(exclusions.isExcluded(ItemID.RUNE_DART, 10));
-		assertFalse(exclusions.isExcluded(ItemID.RUNE_DART, 11));
+		assertFalse(exclusions.excludedItems(10).contains(ItemID.RUNE_DART));
+		assertFalse(exclusions.excludedItems(11).contains(ItemID.RUNE_DART));
 	}
 
 	@Test
 	public void timesOut()
 	{
 		exclusions.menuOptionClicked("Use", new int[]{ItemID.CHAOSRUNE, TRIDENT}, 100);
-		assertFalse("before", exclusions.isExcluded(ItemID.CHAOSRUNE, 99));
-		assertTrue(exclusions.isExcluded(ItemID.CHAOSRUNE, 100 + ChargeExclusions.TIMEOUT_TICKS));
-		assertFalse(exclusions.isExcluded(ItemID.CHAOSRUNE, 101 + ChargeExclusions.TIMEOUT_TICKS));
+		assertFalse("before", exclusions.excludedItems(99).contains(ItemID.CHAOSRUNE));
+		assertTrue(exclusions.excludedItems(100 + ChargeExclusions.TIMEOUT_TICKS).contains(ItemID.CHAOSRUNE));
+		assertFalse(exclusions.excludedItems(101 + ChargeExclusions.TIMEOUT_TICKS).contains(ItemID.CHAOSRUNE));
 	}
 
 	@Test
@@ -89,9 +89,9 @@ public class ChargeExclusionsTest
 	{
 		exclusions.menuOptionClicked("Use", new int[]{ItemID.DEATHRUNE, TRIDENT}, 100);
 		exclusions.messageSeen("You add 123 charges to the weapon.<br>New total: 246", 110);
-		assertTrue(exclusions.isExcluded(ItemID.DEATHRUNE, 110));
-		assertTrue(exclusions.isExcluded(ItemID.DEATHRUNE, 112));
-		assertFalse(exclusions.isExcluded(ItemID.DEATHRUNE, 113));
+		assertTrue(exclusions.excludedItems(110).contains(ItemID.DEATHRUNE));
+		assertTrue(exclusions.excludedItems(112).contains(ItemID.DEATHRUNE));
+		assertFalse(exclusions.excludedItems(113).contains(ItemID.DEATHRUNE));
 		assertTrue(exclusions.excludedItems(113).isEmpty());
 	}
 
@@ -101,17 +101,17 @@ public class ChargeExclusionsTest
 		exclusions.menuOptionClicked("Use", new int[]{ItemID.RUNE_DART, BLOWPIPE}, 100);
 		exclusions.messageSeen("You eat the shark.", 101);
 		exclusions.messageSeen(null, 101);
-		assertTrue(exclusions.isExcluded(ItemID.RUNE_DART, 120));
+		assertTrue(exclusions.excludedItems(120).contains(ItemID.RUNE_DART));
 	}
 
 	@Test
 	public void confirmationWithoutAWindowDoesNothing()
 	{
 		exclusions.messageSeen("You uncharge your weapon.", 5);
-		assertFalse(exclusions.isExcluded(ItemID.COINS, 5));
+		assertFalse(exclusions.excludedItems(5).contains(ItemID.COINS));
 		exclusions.menuOptionClicked("Uncharge", new int[]{TRIDENT}, 10);
 		// The earlier confirmation didn't shorten the new window.
-		assertTrue(exclusions.isExcluded(ItemID.COINS, 20));
+		assertTrue(exclusions.excludedItems(20).contains(ItemID.COINS));
 	}
 
 	@Test
@@ -120,7 +120,7 @@ public class ChargeExclusionsTest
 		exclusions.menuOptionClicked("Use", new int[]{ItemID.RUNE_DART, BLOWPIPE}, 100);
 		exclusions.messageSeen("Darts: Rune dart x 50. Scales: 0 (0.0%).", 100);
 		exclusions.menuOptionClicked("Use", new int[]{ItemID.SNAKEBOSS_SCALE, BLOWPIPE}, 140);
-		assertTrue(exclusions.isExcluded(ItemID.SNAKEBOSS_SCALE, 140 + ChargeExclusions.TIMEOUT_TICKS));
+		assertTrue(exclusions.excludedItems(140 + ChargeExclusions.TIMEOUT_TICKS).contains(ItemID.SNAKEBOSS_SCALE));
 	}
 
 	@Test
@@ -157,24 +157,24 @@ public class ChargeExclusionsTest
 	public void chargingAndUnchargingAPoweredStaffExcludesItsRunes()
 	{
 		exclusions.menuOptionClicked("Use", new int[]{ItemID.BLOODRUNE, ItemID.SANGUINESTI_STAFF_UNCHARGED}, 100);
-		assertTrue(exclusions.isExcluded(ItemID.BLOODRUNE, 100));
-		assertFalse(exclusions.isExcluded(SHARK, 100));
+		assertTrue(exclusions.excludedItems(100).contains(ItemID.BLOODRUNE));
+		assertFalse(exclusions.excludedItems(100).contains(SHARK));
 		exclusions.messageSeen("You apply 500 charges to your Sanguinesti staff.", 103);
-		assertTrue(exclusions.isExcluded(ItemID.BLOODRUNE, 105));
-		assertFalse(exclusions.isExcluded(ItemID.BLOODRUNE, 106));
+		assertTrue(exclusions.excludedItems(105).contains(ItemID.BLOODRUNE));
+		assertFalse(exclusions.excludedItems(106).contains(ItemID.BLOODRUNE));
 
 		// The staves' own "Charge" option opens the charge prompt.
 		exclusions.menuOptionClicked("Charge", new int[]{ItemID.TUMEKENS_SHADOW}, 200);
-		assertTrue(exclusions.isExcluded(ItemID.SOULRUNE, 200));
-		assertTrue(exclusions.isExcluded(ItemID.AETHERRUNE, 201));
-		assertTrue(exclusions.isExcluded(ItemID.CHAOSRUNE, 201));
+		assertTrue(exclusions.excludedItems(200).contains(ItemID.SOULRUNE));
+		assertTrue(exclusions.excludedItems(201).contains(ItemID.AETHERRUNE));
+		assertTrue(exclusions.excludedItems(201).contains(ItemID.CHAOSRUNE));
 		exclusions.reset();
 		exclusions.menuOptionClicked("Uncharge", new int[]{ItemID.SANGUINESTI_STAFF_OR}, 300);
-		assertTrue(exclusions.isExcluded(ItemID.BLOODRUNE, 301));
+		assertTrue(exclusions.excludedItems(301).contains(ItemID.BLOODRUNE));
 		exclusions.reset();
 		// "Charge" on anything else opens nothing.
 		exclusions.menuOptionClicked("Charge", new int[]{ItemID.BLOODRUNE}, 400);
-		assertFalse(exclusions.isExcluded(ItemID.BLOODRUNE, 400));
+		assertFalse(exclusions.excludedItems(400).contains(ItemID.BLOODRUNE));
 	}
 
 	@Test
@@ -182,7 +182,7 @@ public class ChargeExclusionsTest
 	{
 		exclusions.menuOptionClicked("Use", new int[]{ItemID.RUNE_DART, BLOWPIPE}, 100);
 		exclusions.reset();
-		assertFalse(exclusions.isExcluded(ItemID.RUNE_DART, 100));
+		assertFalse(exclusions.excludedItems(100).contains(ItemID.RUNE_DART));
 	}
 
 	@Test
@@ -190,10 +190,10 @@ public class ChargeExclusionsTest
 	{
 		// a window opened before the tick count restarted must not cover the ticks after the restart.
 		exclusions.menuOptionClicked("Use", new int[]{ItemID.RUNE_DART, BLOWPIPE}, 5_000);
-		assertFalse(exclusions.isExcluded(ItemID.RUNE_DART, 10));
+		assertFalse(exclusions.excludedItems(10).contains(ItemID.RUNE_DART));
 		assertTrue(exclusions.excludedItems(10).isEmpty());
 		exclusions.messageSeen("The blowpipe has no darts in it.", 10);
-		assertTrue("the window itself is unchanged", exclusions.isExcluded(ItemID.RUNE_DART, 5_000));
+		assertTrue("the window itself is unchanged", exclusions.excludedItems(5_000).contains(ItemID.RUNE_DART));
 	}
 
 	@Test

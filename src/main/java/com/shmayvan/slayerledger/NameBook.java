@@ -1,11 +1,8 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Consumer;
+import java.util.*;
+import java.util.function.*;
+import lombok.*;
 
 /**
  * The names the shown history needs from the plugin (split from {@link LedgerHistoryModel}): the player's region
@@ -13,9 +10,10 @@ import java.util.function.Consumer;
  * hint (it comes with the item names); with the bundled Slayer spot table, the locations they name.
  *
  * <p>Threading: EDT only, like the model that owns it. It only keeps the names and asks for missing ones, each once;
- * the model decides what an arrival means (dropping the statistics, re-checking the assignment chat line) and tells
+ * the model decides what an arrival means (dropping the statistics, asking for the advisor's plan again) and tells
  * its listener. Callers write through the model.</p>
  */
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 final class NameBook
 {
 	/** Asks the plugin for the names of regions (EDT). */
@@ -54,16 +52,6 @@ final class NameBook
 	/** Bumped whenever item names arrive, so views that show them are worked out again. */
 	private long itemNamesVersion;
 
-	/**
-	 * @param locationNameRequests asks the plugin for the names of regions (EDT)
-	 * @param itemNameRequests     asks the plugin for the names of item ids, and the nature rune's price (EDT)
-	 */
-	NameBook(Consumer<Set<Integer>> locationNameRequests, Consumer<Set<Integer>> itemNameRequests)
-	{
-		this.locationNameRequests = locationNameRequests;
-		this.itemNameRequests = itemNameRequests;
-	}
-
 	/** The plugin stopped: nothing is asked for again. */
 	void close()
 	{
@@ -97,12 +85,6 @@ final class NameBook
 	String recordLocation(LedgerRecord record)
 	{
 		return TaskLocation.recordLocation(record, this::locationName, spots);
-	}
-
-	/** Whether the name of {@code region} is known. */
-	boolean hasLocationName(Integer region)
-	{
-		return locationNames.containsKey(region);
 	}
 
 	/** Asks the plugin (once, in one batch) for the names of {@code regions} not known, asked for or missing yet. */
@@ -161,18 +143,6 @@ final class NameBook
 		locationNamesMissing.clear();
 	}
 
-	/** Whether some region names asked for have not arrived yet. */
-	boolean isLocationNamePending()
-	{
-		return !locationNamesPending.isEmpty();
-	}
-
-	/** Whether the name of {@code region} was asked for and has not arrived yet. */
-	boolean isLocationNamePending(Integer region)
-	{
-		return locationNamesPending.contains(region);
-	}
-
 	// ---- Item names ----
 
 	/** The name of item {@code id} (as tallied), or {@code null} when it is not known (yet). */
@@ -203,12 +173,6 @@ final class NameBook
 	Long natureRunePrice()
 	{
 		return natureRunePrice;
-	}
-
-	/** Whether the name of {@code id} was asked for and has not arrived yet. */
-	boolean isItemNamePending(Integer id)
-	{
-		return itemNamesPending.contains(id);
 	}
 
 	/** Whether the plugin could not name {@code id}. */

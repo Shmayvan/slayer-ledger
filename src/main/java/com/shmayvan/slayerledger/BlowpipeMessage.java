@@ -1,15 +1,9 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import lombok.Value;
-import net.runelite.api.gameval.ItemID;
+import java.util.*;
+import java.util.regex.*;
+import lombok.*;
+import net.runelite.api.gameval.*;
 
 /**
  * Reads the toxic blowpipe's dart type from game messages. Pure; tags and markup are stripped by

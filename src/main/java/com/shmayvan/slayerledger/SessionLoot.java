@@ -1,11 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-import lombok.Builder;
+import java.util.*;
+import lombok.*;
 
 /**
  * What a session received and used: its loot, supplies (with their doses), notable drops and boss kill counts. Shared by
@@ -21,7 +17,11 @@ public final class SessionLoot
 	private final ItemTally loot;
 	private final ItemTally supplies;
 	private final Map<Integer, Integer> supplyDoses;
+	/** Notable drops in the order they arrived (never {@code null}; unmodifiable). */
+	@Getter
 	private final List<NotableDrop> notableDrops;
+	/** Boss kill counts in the order first seen (never {@code null}; unmodifiable). */
+	@Getter
 	private final List<BossKillCount> bossKillCounts;
 
 	/**
@@ -63,18 +63,6 @@ public final class SessionLoot
 	public Map<Integer, Integer> getSupplyDoses()
 	{
 		return new TreeMap<>(supplyDoses);
-	}
-
-	/** Notable drops in the order they arrived (never {@code null}; unmodifiable). */
-	public List<NotableDrop> getNotableDrops()
-	{
-		return notableDrops;
-	}
-
-	/** Boss kill counts in the order first seen (never {@code null}; unmodifiable). */
-	public List<BossKillCount> getBossKillCounts()
-	{
-		return bossKillCounts;
 	}
 
 	/** A copy with extra loot (may be {@code null}) merged in and extra notable drops (likewise) added. */

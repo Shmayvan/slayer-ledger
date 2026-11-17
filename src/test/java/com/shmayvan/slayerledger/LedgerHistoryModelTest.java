@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -18,7 +17,7 @@ import org.junit.Test;
 
 /**
  * {@link LedgerHistoryModel} without the panel or the plugin: the history it holds, its version, and the
- * decisions it makes on its own (the assignment chat line, and the overlay's historical time per kill).
+ * decisions it makes on its own (when the advisor's plan is worked out, and the overlay's historical time per kill).
  * {@link HarnessHistoryModelTest} covers the wiring.
  */
 public class LedgerHistoryModelTest
@@ -28,9 +27,7 @@ public class LedgerHistoryModelTest
 	private static final int DEMONS = 42;
 	private static final long MINUTE = 60_000L;
 	private static final int SHARK = 385;
-	private static final int DEATH_RUNE = 560;
 
-	private final List<String> posted = new ArrayList<>();
 	private final List<OverlayRows.HistoricalPace> published = new ArrayList<>();
 	private final List<Set<Integer>> priceRequests = new ArrayList<>();
 	private long now = 1_000_000L;
@@ -45,8 +42,7 @@ public class LedgerHistoryModelTest
 		{
 		}, priceRequests::add, ids ->
 		{
-		}, posted::add, published::add,
-			Runnable::run, Runnable::run);
+		}, published::add, Runnable::run, Runnable::run);
 	}
 
 	/**
@@ -153,148 +149,7 @@ public class LedgerHistoryModelTest
 	}
 
 	@Test
-	public void theChatLineWaitsForTheRecordsThenPostsOnce()
-	{
-		demons(20);
-		model.requestAssignmentLine(ACCOUNT, DEMONS, "Abyssal demons");
-		assertTrue("another account's (none) history is held", posted.isEmpty());
-		assertFalse("dropped: the history held is not the account's", model.isAssignmentLinePending());
-
-		model.clearRecords(ACCOUNT, null);
-		model.requestAssignmentLine(ACCOUNT, DEMONS, "Abyssal demons");
-		model.checkAssignmentLine();
-		assertTrue("waits while the records load", model.isAssignmentLinePending());
-		assertTrue(posted.isEmpty());
-
-		model.setRecords(ACCOUNT, Arrays.asList(SavedItems.withItems(task("a", 1)), SavedItems.withItems(task("b", 2)),
-			SavedItems.withItems(task("c", 3))));
-		model.checkAssignmentLine();
-		assertTrue("waits for today's prices", posted.isEmpty());
-		model.addCurrentPrices(priceRequests.get(priceRequests.size() - 1), SavedItems.todaysPrices());
-		model.checkAssignmentLine();
-		model.refreshLive();
-		model.checkAssignmentLine();
-		// The tasks have no spot or style, so they are in no setup: their time for the 20 kills left.
-		assertEquals(Collections.singletonList(UNKNOWN_SETUP_LINE), posted);
-		assertFalse(model.isAssignmentLinePending());
-	}
-
-	/** The chat line for 20 Abyssal demons from three {@link #task}s, which have no spot or style. */
-	private static final String UNKNOWN_SETUP_LINE =
-		"<colHIGHLIGHT>Abyssal demons x20:<colNORMAL> ~20 min (3 tasks, setup unknown).";
-
-	/**
-	 * A {@link #task} at the Smoke Dungeon done with barrage, using 400 death runes; {@code cannon} for a cannon task
-	 * that took twice as long.
-	 */
-	private static LedgerRecord barrage(String id, boolean cannon)
-	{
-		LedgerRecord record = task(id, 1);
-		record.setActiveMillis((cannon ? 20 : 10) * MINUTE);
-		record.setSpotId(TestSpots.SMOKE_ID);
-		record.setSupplies(Collections.singletonMap(DEATH_RUNE, 400L));
-		SetupTags.detected(cannon, SetupStyle.BARRAGE, GearFocus.UNKNOWN, SetupOverrides.NONE).copyTo(record);
-		return record;
-	}
-
-	@Test
-	public void theChatLineNamesTheRecommendationItsItemsAndTheCounterpartOnceTheNamesArrive()
-	{
-		final List<Set<Integer>> nameRequests = new ArrayList<>();
-		model = new LedgerHistoryModel(tracker, LootPriceMode.GE, regions ->
-		{
-		}, priceRequests::add, nameRequests::add, posted::add, published::add, Runnable::run, Runnable::run);
-		model.setSpots(TestSpots.TABLE);
-		model.setRecords(ACCOUNT, Arrays.asList(barrage("a", false), barrage("b", false), barrage("c", false),
-			barrage("d", true)));
-		demons(20);
-		model.requestAssignmentLine(ACCOUNT, DEMONS, "Abyssal demons");
-		assertTrue("waits for the death rune's name", posted.isEmpty());
-		assertTrue(nameRequests.get(nameRequests.size() - 1).contains(DEATH_RUNE));
-
-		model.addItemNames(Collections.singleton(DEATH_RUNE), Collections.singletonMap(DEATH_RUNE, "Death rune"), null);
-		assertEquals(Collections.singletonList("<colHIGHLIGHT>Abyssal demons x20:<colNORMAL> barrage, Smoke Dungeon,"
-			+ " ~20 min; ~800 death (3 tasks). Cannon: ~40 min (1)."), posted);
-		assertFalse(model.isAssignmentLinePending());
-		model.refreshLive();
-		assertEquals("once", 1, posted.size());
-	}
-
-	@Test
-	public void withNoCompletedTaskTheChatLineSaysSo()
-	{
-		model.setRecords(ACCOUNT, Collections.emptyList());
-		tracker.observe("Gargoyles", 46, 15, false);
-		model.requestAssignmentLine(ACCOUNT, 46, "Gargoyles");
-		assertEquals(Collections.singletonList("<colHIGHLIGHT>Gargoyles x15:<colNORMAL> no completed tasks yet."),
-			posted);
-	}
-
-	@Test
-	public void theChatLineWaitsForTheNamesThatDecideTheHiddenLoot()
-	{
-		final int bones = 526;
-		final int coins = ItemValuation.COINS;
-		// Ground Items' built-in list hides both; only the bones leave the value (coins always count).
-		model.setGroundItemsHidden(GroundItemsHidden.parse("Coins, Bones", ""));
-		List<LedgerRecord> records = new ArrayList<>();
-		for (String id : Arrays.asList("a", "b", "c"))
-		{
-			// 50K of bones and 50K of coins: the 100K GE of task().
-			LedgerRecord record = task(id, 1);
-			Map<Integer, Long> loot = new HashMap<>();
-			loot.put(bones, 10L);
-			loot.put(coins, 50_000L);
-			Map<Integer, Long> prices = new HashMap<>();
-			prices.put(bones, 5_000L);
-			prices.put(coins, 1L);
-			record.setLoot(loot);
-			record.setUnitGePrices(prices);
-			record.setUnitHaPrices(prices);
-			// Supplies are valued per item at today's prices too: 10K of supplies, as task() saved.
-			record.setSupplies(Collections.singletonMap(SHARK, 10L));
-			records.add(record);
-		}
-		model.clearRecords(ACCOUNT, null);
-		demons(20);
-		model.requestAssignmentLine(ACCOUNT, DEMONS, "Abyssal demons");
-
-		model.setRecords(ACCOUNT, records);
-		model.refreshLive();
-		assertTrue("waits for today's prices", posted.isEmpty());
-		Map<Integer, Long> today = new HashMap<>(prices(bones, coins));
-		today.put(SHARK, 1_000L);
-		model.addCurrentPrices(priceRequests.get(priceRequests.size() - 1), today);
-		model.refreshLive();
-		assertTrue("waits for the loot items' names", posted.isEmpty());
-		assertTrue(model.isAssignmentLinePending());
-
-		Map<Integer, String> names = new HashMap<>();
-		names.put(bones, "Bones");
-		names.put(coins, "Coins");
-		model.addItemNames(new HashSet<>(Arrays.asList(bones, coins)), names, null);
-		assertEquals("posted once the hidden loot is known", Collections.singletonList(UNKNOWN_SETUP_LINE), posted);
-		assertFalse(model.isAssignmentLinePending());
-	}
-
-	@Test
-	public void theChatLineIsDroppedWhenTheTaskChanges()
-	{
-		model.setRecords(ACCOUNT, Collections.singletonList(task("a", 1)));
-		model.clearRecords(ACCOUNT, null);
-		demons(20);
-		model.requestAssignmentLine(ACCOUNT, DEMONS, "Abyssal demons");
-		tracker.observe("Gargoyles", 46, 15, false);
-		model.checkAssignmentLine();
-
-		assertFalse(model.isAssignmentLinePending());
-		model.setRecords(ACCOUNT, Collections.singletonList(task("a", 1)));
-		model.checkAssignmentLine();
-		assertTrue(posted.isEmpty());
-	}
-
-	@Test
-	public void theChatLineWaitsForTodaysPrices()
+	public void thePlanWaitsForTodaysPrices()
 	{
 		LedgerRecord record = task("a", 1);
 		record.setLoot(Collections.singletonMap(995, 1L));
@@ -304,22 +159,20 @@ public class LedgerHistoryModelTest
 		assertTrue(model.isWaitingForCurrentPrices());
 
 		demons(20);
-		model.requestAssignmentLine(ACCOUNT, DEMONS, "Abyssal demons");
-		assertTrue(model.isAssignmentLinePending());
+		model.refreshLive();
 		assertNull("no plan while the views wait for today's prices", model.plan());
 		assertEquals(0, model.getPlanBuildCount());
 
 		model.addCurrentPrices(priceRequests.get(0), Collections.singletonMap(995, 1L));
 		assertEquals("the last price asked for ends the wait, and the plan is worked out at once", 1,
 			model.getPlanBuildCount());
-		assertEquals(1, posted.size());
+		assertNotNull(model.plan());
 		model.endCurrentPricesWait();
-		model.checkAssignmentLine();
-		assertEquals(1, posted.size());
+		assertEquals("the same inputs: nothing worked out again", 1, model.getPlanBuildCount());
 	}
 
 	@Test
-	public void anExpiredWaitForTodaysPricesEndsInTheModelAndPostsTheChatLine()
+	public void anExpiredWaitForTodaysPricesEndsInTheModel()
 	{
 		final int[] redraws = new int[1];
 		model.setListener(change ->
@@ -336,22 +189,20 @@ public class LedgerHistoryModelTest
 		model.setRecords(ACCOUNT, Collections.singletonList(record));
 		assertTrue(model.isWaitingForCurrentPrices());
 		demons(20);
-		model.requestAssignmentLine(ACCOUNT, DEMONS, "Abyssal demons");
 
 		assertFalse("not run out yet", model.endExpiredCurrentPricesWait());
 		model.refreshLive();
-		assertTrue(posted.isEmpty());
+		assertNull("no plan yet", model.plan());
 		assertEquals(0, redraws[0]);
 
 		// The answer never comes.
 		model.expireCurrentPricesWait();
 		model.refreshLive();
 		assertFalse(model.isWaitingForCurrentPrices());
-		assertEquals(1, posted.size());
+		assertNotNull("the plan at the prices there are", model.plan());
 		assertEquals("the panel is told to redraw once", 1, redraws[0]);
 		assertFalse("nothing more to end", model.endExpiredCurrentPricesWait());
 		model.refreshLive();
-		assertEquals("posted once", 1, posted.size());
 		assertEquals(1, redraws[0]);
 	}
 
@@ -393,223 +244,6 @@ public class LedgerHistoryModelTest
 		assertTrue(changes.toString(), changes.isEmpty());
 	}
 
-	/** Region names asked for by the model built with {@link #modelAskingForNames}. */
-	private final List<Set<Integer>> regionRequests = new ArrayList<>();
-	/** Item names asked for by the model built with {@link #modelAskingForNames}. */
-	private final List<Set<Integer>> nameRequests = new ArrayList<>();
-
-	/** A model that records the region and item names it asks for (never answered), with the spot table set. */
-	private void modelAskingForNames()
-	{
-		model = new LedgerHistoryModel(tracker, LootPriceMode.GE, regionRequests::add, priceRequests::add,
-			nameRequests::add, posted::add, published::add, Runnable::run, Runnable::run);
-		model.setSpots(TestSpots.TABLE);
-	}
-
-	/** Three {@link #barrage} tasks (no cannon) at {@code spot}. */
-	private static List<LedgerRecord> barrageAt(String spot)
-	{
-		List<LedgerRecord> records = new ArrayList<>();
-		for (String id : Arrays.asList("a", "b", "c"))
-		{
-			LedgerRecord record = barrage(id, false);
-			record.setSpotId(spot);
-			records.add(record);
-		}
-		return records;
-	}
-
-	@Test
-	public void theChatLineWaitsForARegionsNameThatArrivesAfterThePlan()
-	{
-		modelAskingForNames();
-		model.setRecords(ACCOUNT, barrageAt(SlayerSpots.regionKey(TestSpots.UNLISTED)));
-		demons(20);
-		model.requestAssignmentLine(ACCOUNT, DEMONS, "Abyssal demons");
-		assertNotNull("the plan is here", model.exactPlan());
-		assertTrue("the line asked for the region's name", regionRequests.stream()
-			.anyMatch(regions -> regions.contains(TestSpots.UNLISTED)));
-
-		model.addItemNames(Collections.singleton(DEATH_RUNE), Collections.singletonMap(DEATH_RUNE, "Death rune"), null);
-		assertTrue("waits for the region's name", posted.isEmpty());
-		assertTrue(model.isAssignmentLinePending());
-
-		model.addLocationNames(Collections.singleton(TestSpots.UNLISTED),
-			Collections.singletonMap(TestSpots.UNLISTED, "Cave"));
-		assertEquals(Collections.singletonList("<colHIGHLIGHT>Abyssal demons x20:<colNORMAL> barrage, Cave, ~20 min;"
-			+ " ~800 death (3 tasks)."), posted);
-		assertFalse(model.isAssignmentLinePending());
-	}
-
-	@Test
-	public void theChatLineWaitsForItsCreaturesPotionNamesThatArriveAfterThePlan()
-	{
-		final int bloodRune = 565;
-		final int prayer4 = 2_434;
-		final int prayer3 = 139;
-		final int superRestore4 = 3_024;
-		modelAskingForNames();
-		List<LedgerRecord> records = new ArrayList<>();
-		for (LedgerRecord record : barrageAt(TestSpots.SMOKE_ID))
-		{
-			// 400 death and 200 blood runes, and prayer potions under two ids: worth less than the runes.
-			Map<Integer, Long> supplies = new HashMap<>();
-			supplies.put(DEATH_RUNE, 400L);
-			supplies.put(bloodRune, 200L);
-			supplies.put(prayer4, 8L);
-			supplies.put(prayer3, 3L);
-			record.setSupplies(supplies);
-			Map<Integer, Integer> doses = new HashMap<>();
-			doses.put(prayer4, 4);
-			doses.put(prayer3, 3);
-			record.setSupplyDoses(doses);
-			records.add(record);
-		}
-		// Another creature's task with a potion whose name never comes: it doesn't hold this task's line.
-		LedgerRecord gargoyles = task("g", 2);
-		gargoyles.setCreatureId(46);
-		gargoyles.setMonster("Gargoyles");
-		gargoyles.setSupplies(Collections.singletonMap(superRestore4, 4L));
-		gargoyles.setSupplyDoses(Collections.singletonMap(superRestore4, 4));
-		records.add(gargoyles);
-		model.setRecords(ACCOUNT, records);
-		Map<Integer, Long> today = new HashMap<>();
-		today.put(DEATH_RUNE, 200L);
-		today.put(bloodRune, 300L);
-		model.addCurrentPrices(priceRequests.get(priceRequests.size() - 1), today);
-		demons(20);
-		model.requestAssignmentLine(ACCOUNT, DEMONS, "Abyssal demons");
-		assertNotNull("the plan is here", model.exactPlan());
-		assertTrue("the potions' names are asked for", nameRequests.stream()
-			.anyMatch(ids -> ids.containsAll(Arrays.asList(prayer4, prayer3, superRestore4))));
-
-		// The two items the line shows are named, but a prayer potion's name may still join its doses.
-		Map<Integer, String> runes = new HashMap<>();
-		runes.put(DEATH_RUNE, "Death rune");
-		runes.put(bloodRune, "Blood rune");
-		model.addItemNames(new HashSet<>(runes.keySet()), runes, null);
-		assertTrue("waits for the potions' names", posted.isEmpty());
-		assertTrue(model.isAssignmentLinePending());
-
-		Map<Integer, String> potions = new HashMap<>();
-		potions.put(prayer4, "Prayer potion(4)");
-		potions.put(prayer3, "Prayer potion(3)");
-		model.addItemNames(new HashSet<>(potions.keySet()), potions, null);
-		assertEquals(Collections.singletonList("<colHIGHLIGHT>Abyssal demons x20:<colNORMAL> barrage, Smoke Dungeon,"
-			+ " ~20 min; ~800 death, ~400 blood (3 tasks)."), posted);
-		assertTrue("the Gargoyles' potion is still on its way", model.isItemNamePending(superRestore4));
-		assertEquals("joined in the plan the line came from", 1, model.exactPlan().getRecommendation().getBring()
-			.stream().filter(item -> item.getItemId() == prayer4 || item.getItemId() == prayer3).count());
-	}
-
-	@Test
-	public void anAccountSwitchWhileTheChatLineWaitsDropsIt()
-	{
-		model.setSpots(TestSpots.TABLE);
-		List<LedgerRecord> records = barrageAt(TestSpots.SMOKE_ID);
-		model.setRecords(ACCOUNT, records);
-		demons(20);
-		model.requestAssignmentLine(ACCOUNT, DEMONS, "Abyssal demons");
-		assertTrue("waits for the death rune's name", model.isAssignmentLinePending());
-
-		// Another account logs in before it arrives, and the first one again before the other's history has loaded.
-		model.clearRecords(OTHER_ACCOUNT, null);
-		assertFalse("dropped at once", model.isAssignmentLinePending());
-		model.clearRecords(ACCOUNT, null);
-		model.setRecords(ACCOUNT, records);
-		answerPrices();
-		model.addItemNames(Collections.singleton(DEATH_RUNE), Collections.singletonMap(DEATH_RUNE, "Death rune"), null);
-		model.refreshLive();
-		assertNotNull("everything a line needs is here", model.exactPlan());
-		assertTrue(posted.isEmpty());
-	}
-
-	/** Answers every price asked for so far, with none found, so no wait for today's prices holds anything. */
-	private void answerPrices()
-	{
-		for (Set<Integer> requested : new ArrayList<>(priceRequests))
-		{
-			model.addCurrentPrices(requested, Collections.emptyMap());
-		}
-		assertFalse(model.isWaitingForCurrentPrices());
-	}
-
-	@Test
-	public void aLogoutWhileTheChatLineWaitsDropsIt()
-	{
-		model.setSpots(TestSpots.TABLE);
-		List<LedgerRecord> records = barrageAt(TestSpots.SMOKE_ID);
-		// The history still loading at the assignment.
-		model.clearRecords(ACCOUNT, null);
-		demons(20);
-		model.requestAssignmentLine(ACCOUNT, DEMONS, "Abyssal demons");
-		assertTrue("waits for the records", model.isAssignmentLinePending());
-
-		// A logout, and a login to the same account with the same task: a task there at a login gets no line.
-		model.clearRecords(SessionTracker.NO_ACCOUNT, null);
-		assertFalse("dropped at once", model.isAssignmentLinePending());
-		assertFalse(model.isAssignmentLineOverdue());
-		model.clearRecords(ACCOUNT, null);
-		model.setRecords(ACCOUNT, records);
-		answerPrices();
-		model.addItemNames(Collections.singleton(DEATH_RUNE), Collections.singletonMap(DEATH_RUNE, "Death rune"), null);
-		model.refreshLive();
-		assertNotNull("everything a line needs is here", model.exactPlan());
-		assertTrue(posted.isEmpty());
-	}
-
-	@Test
-	public void afterFiveSecondsTheChatLineIsPostedWithTheNamesThereAre()
-	{
-		modelAskingForNames();
-		model.setRecords(ACCOUNT, barrageAt(SlayerSpots.regionKey(TestSpots.UNLISTED)));
-		demons(20);
-		model.requestAssignmentLine(ACCOUNT, DEMONS, "Abyssal demons");
-		assertTrue("waits for the item's and the region's names", model.isAssignmentLinePending());
-		assertFalse(model.isAssignmentLineOverdue());
-
-		now += LedgerHistoryModel.ASSIGNMENT_LINE_NAMES_WAIT_MILLIS - 1;
-		assertFalse(model.isAssignmentLineOverdue());
-		model.checkAssignmentLine();
-		assertTrue("still waits", posted.isEmpty());
-
-		// The names never come: the settled tick asks for a check once the 5 seconds are over.
-		now += 1;
-		assertTrue(model.isAssignmentLineOverdue());
-		model.checkAssignmentLine();
-		assertEquals(Collections.singletonList("<colHIGHLIGHT>Abyssal demons x20:<colNORMAL> barrage, Region "
-			+ TestSpots.UNLISTED + ", ~20 min; ~800 item " + DEATH_RUNE + " (3 tasks)."), posted);
-		assertFalse(model.isAssignmentLinePending());
-		assertFalse("nothing more for the ticks to check", model.isAssignmentLineOverdue());
-
-		// Names arriving later post nothing more.
-		model.addItemNames(Collections.singleton(DEATH_RUNE), Collections.singletonMap(DEATH_RUNE, "Death rune"), null);
-		model.addLocationNames(Collections.singleton(TestSpots.UNLISTED),
-			Collections.singletonMap(TestSpots.UNLISTED, "Cave"));
-		assertEquals(1, posted.size());
-	}
-
-	@Test
-	public void aLineStillWaitingForItsRecordsAfterTheNamesWaitIsLeftToThem()
-	{
-		model.setSpots(TestSpots.TABLE);
-		model.clearRecords(ACCOUNT, null);
-		demons(20);
-		model.requestAssignmentLine(ACCOUNT, DEMONS, "Abyssal demons");
-
-		now += LedgerHistoryModel.ASSIGNMENT_LINE_NAMES_WAIT_MILLIS;
-		assertTrue(model.isAssignmentLineOverdue());
-		model.checkAssignmentLine();
-		assertTrue("the records are still loading", model.isAssignmentLinePending());
-		assertFalse("the ticks stop asking: setRecords checks it", model.isAssignmentLineOverdue());
-
-		// The records load, then today's prices; the names wait is over, so the death rune is named by its id.
-		model.setRecords(ACCOUNT, barrageAt(TestSpots.SMOKE_ID));
-		assertTrue("waits for today's prices", posted.isEmpty());
-		answerPrices();
-		assertEquals(Collections.singletonList("<colHIGHLIGHT>Abyssal demons x20:<colNORMAL> barrage, Smoke Dungeon,"
-			+ " ~20 min; ~800 item " + DEATH_RUNE + " (3 tasks)."), posted);
-	}
 
 	@Test
 	public void theOverlayPaceFollowsTheRecordsAndTheSession()
@@ -619,7 +253,7 @@ public class LedgerHistoryModelTest
 		model.setRecords(ACCOUNT, Collections.singletonList(task("a", 1)));
 		OverlayRows.HistoricalPace pace = published.get(published.size() - 1);
 		assertNotNull("published when the records arrive", pace);
-		assertEquals(new OverlayRows.HistoricalPace(tracker.getSessionId(), MINUTE), pace);
+		assertEquals(new OverlayRows.HistoricalPace(tracker.getSessionId(), MINUTE, null), pace);
 		assertEquals(pace, model.historicalPace());
 
 		model.clearRecords(ACCOUNT, null);
@@ -648,23 +282,23 @@ public class LedgerHistoryModelTest
 		assertEquals("asked once, without a box to tick", 1, priceRequests.size());
 		demons(20);
 
-		model.advice();
+		model.plan();
 		model.overallTotals(OverallTotals.Grouping.ALL);
 		long valuation = model.valuationVersion();
-		int adviceBuilds = model.getAdviceBuildCount();
+		int planBuilds = model.getPlanBuildCount();
 		int totalsBuilds = model.getOverallTotalsBuildCount();
-		model.advice();
-		assertEquals("cached until the prices arrive", adviceBuilds, model.getAdviceBuildCount());
+		model.plan();
+		assertEquals("cached until the prices arrive", planBuilds, model.getPlanBuildCount());
 
 		model.addCurrentPrices(priceRequests.get(0), Collections.singletonMap(995, 1L));
 		assertTrue("today's prices revalue the history", model.valuationVersion() > valuation);
-		model.advice();
+		model.plan();
 		model.overallTotals(OverallTotals.Grouping.ALL);
-		assertEquals(adviceBuilds + 1, model.getAdviceBuildCount());
+		assertEquals(planBuilds + 1, model.getPlanBuildCount());
 		assertEquals(totalsBuilds + 1, model.getOverallTotalsBuildCount());
-		model.advice();
+		model.plan();
 		model.overallTotals(OverallTotals.Grouping.ALL);
-		assertEquals("then cached again", adviceBuilds + 1, model.getAdviceBuildCount());
+		assertEquals("then cached again", planBuilds + 1, model.getPlanBuildCount());
 		assertEquals(totalsBuilds + 1, model.getOverallTotalsBuildCount());
 	}
 

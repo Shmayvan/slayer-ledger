@@ -119,10 +119,11 @@ public class HarnessLiveValuesTest
 		final String current = harness.tracker().getSessionId();
 		assertNotNull(current);
 		harness.onEdt(() -> harness.panel().setSessionValues(
-			new SessionValuation.Values("an-ended-session", 1_000, 0, 0, 0, 0, 0)));
+			SessionValuation.Values.builder().sessionId("an-ended-session").lootValue(1_000).lootGe(1_000).build()));
 		assertFalse("values of another session are not shown", valuesShown());
 
-		harness.onEdt(() -> harness.panel().setSessionValues(new SessionValuation.Values(current, 1_000, 0, 0, 0, 0, 0)));
+		harness.onEdt(() -> harness.panel().setSessionValues(
+			SessionValuation.Values.builder().sessionId(current).lootValue(1_000).lootGe(1_000).build()));
 		assertTrue(valuesShown());
 	}
 
@@ -146,7 +147,7 @@ public class HarnessLiveValuesTest
 	@Test
 	public void shownValuesFilter()
 	{
-		SessionValuation.Values values = new SessionValuation.Values("s1", 0, 0, 0, 0, 0, 0);
+		SessionValuation.Values values = SessionValuation.Values.builder().sessionId("s1").build();
 		assertSame(values, LiveSessionSection.shownValues(values, SessionTracker.State.RUNNING, "s1"));
 		assertSame(values, LiveSessionSection.shownValues(values, SessionTracker.State.PAUSED, "s1"));
 		assertNull(LiveSessionSection.shownValues(values, SessionTracker.State.RUNNING, "s2"));

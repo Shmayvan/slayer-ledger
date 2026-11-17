@@ -1,10 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.Dimension;
-import java.awt.FontMetrics;
-import java.awt.Insets;
-import javax.swing.Icon;
-import javax.swing.JLabel;
+import java.awt.*;
+import javax.swing.*;
 
 /**
  * A sidebar label that never widens the sidebar (DESIGN_PRINCIPLES.md 3.1): it asks for no width of its own, takes

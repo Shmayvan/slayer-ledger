@@ -1,24 +1,12 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.Container;
-import java.awt.GridLayout;
-import java.awt.event.HierarchyEvent;
+import java.awt.*;
+import java.awt.event.*;
 import java.util.List;
-import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.JButton;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
+import javax.swing.*;
 import javax.swing.Timer;
-import javax.swing.border.EmptyBorder;
-import net.runelite.client.ui.ColorScheme;
-import net.runelite.client.ui.FontManager;
-import net.runelite.client.ui.PluginPanel;
+import javax.swing.border.*;
+import net.runelite.client.ui.*;
 
 /**
  * Sidebar panel. All methods must be called on the Swing event dispatch thread.
@@ -75,7 +63,7 @@ class SlayerLedgerPanel extends PluginPanel
 
 	/** The live task card's header: the task's icon and name, its location, master and next bonus. */
 	private final TaskBoxView taskBox;
-	/** The advisor card: the plan for the task, its metric tabs and the skip / block badge. */
+	/** The advisor card: the plan for the task. */
 	private final AdvisorCardSection advisor;
 	/** Task history: the filter and the saved tasks. */
 	private final HistoryListSection history;
@@ -126,9 +114,7 @@ class SlayerLedgerPanel extends PluginPanel
 		SidebarIcons icons = new SidebarIcons(plugin::applyItemIcon, plugin::applySkillIcon,
 			new SetupImages(plugin::loadSetupIcon));
 		taskBox = new TaskBoxView(historyModel, tracker, plugin::currentTaskStreak, this::relayout, icons.getItems());
-		// A tab click saves the "Advisor metric" setting; the plan follows through the plugin's config change.
-		advisor = new AdvisorCardSection(historyModel, tracker, plugin::setAdvisorMetric, this::relayout,
-			icons.getItems());
+		advisor = new AdvisorCardSection(historyModel, tracker, this::relayout, icons.getItems());
 		history = new HistoryListSection(historyModel, (account, recordId) ->
 		{
 			if (account == noticeAccount && recordId.equals(noticeRecordId))
@@ -492,9 +478,6 @@ class SlayerLedgerPanel extends PluginPanel
 			case ITEM_NAMES:
 				itemNamesChanged();
 				break;
-			case TASK_ADVISOR:
-				advisor.modelChanged();
-				break;
 			case VIEWS:
 				// A view worked out off the EDT is ready; each redraws only if its own result is new.
 				advisor.modelChanged();
@@ -502,7 +485,7 @@ class SlayerLedgerPanel extends PluginPanel
 				break;
 			case LIVE:
 				// The task, its kills left or the session changed: only the advisor card reads them outside the
-				// panel's refresh (a restored session collapses it), and it reads only the tracker.
+				// panel's refresh, and it reads only the tracker.
 				advisor.refresh();
 				break;
 			default:

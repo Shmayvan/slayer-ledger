@@ -39,8 +39,6 @@ public class LedgerHistoryModelViewsTest
 	private final List<Set<Integer>> priceRequests = new ArrayList<>();
 	private final List<Set<Integer>> nameRequests = new ArrayList<>();
 	private final List<LedgerHistoryModel.Change> changes = new ArrayList<>();
-	/** The assignment chat lines posted. */
-	private final List<String> posted = new ArrayList<>();
 	/** Background views queued here while {@link #holdBackground}; otherwise worked out at once. */
 	private final Deque<Runnable> backgroundTasks = new ArrayDeque<>();
 	private boolean holdBackground;
@@ -64,11 +62,9 @@ public class LedgerHistoryModelViewsTest
 		tracker = new SessionTracker(() -> 1_000_000L);
 		model = new LedgerHistoryModel(tracker, LootPriceMode.GE, regions ->
 		{
-		}, priceRequests::add, nameRequests::add, posted::add, pace ->
+		}, priceRequests::add, nameRequests::add, pace ->
 		{
 		}, background, Runnable::run);
-		// The records below have profit but no XP: the badge ranks by profit/h under this metric.
-		model.setTaskAdvisor(true, AdvisorMetric.PROFIT_PER_HOUR);
 		model.setListener(changes::add);
 	}
 
@@ -110,11 +106,10 @@ public class LedgerHistoryModelViewsTest
 		model.setLootPriceMode(LootPriceMode.HIGH_ALCH);
 		model.setLootPriceMode(LootPriceMode.HIGH_ALCH);
 		model.addItemNames(Collections.singleton(WHIP), Collections.singletonMap(WHIP, "Abyssal whip"), null);
-		model.setTaskAdvisor(true, AdvisorMetric.FASTEST_FINISH);
 		model.clearRecords(ACCOUNT, "Loading");
 		assertEquals(Arrays.asList(LedgerHistoryModel.Change.RECORDS, LedgerHistoryModel.Change.ASSIGNMENTS,
 			LedgerHistoryModel.Change.LOOT_PRICE_MODE, LedgerHistoryModel.Change.ITEM_NAMES,
-			LedgerHistoryModel.Change.TASK_ADVISOR, LedgerHistoryModel.Change.HISTORY_CLEARED), changes);
+			LedgerHistoryModel.Change.HISTORY_CLEARED), changes);
 		assertEquals("Loading", model.historyMessage());
 
 		changes.clear();
@@ -246,53 +241,25 @@ public class LedgerHistoryModelViewsTest
 		assertNotNull(model.overallTotals(OverallTotals.Grouping.MASTER));
 	}
 
-	/**
-	 * Enough completed tasks for the advisor to rank ({@link TaskAdvisor#MIN_MONSTERS} monsters with
-	 * {@link TaskAdvisor#MIN_TASKS} tasks each), Abyssal demons among them, plus {@code extra} more demons tasks.
-	 */
-	private static List<LedgerRecord> board(int extra)
-	{
-		List<LedgerRecord> records = new ArrayList<>();
-		for (int monster = 0; monster < TaskAdvisor.MIN_MONSTERS; monster++)
-		{
-			for (int task = 0; task < TaskAdvisor.MIN_TASKS + (monster == 0 ? extra : 0); task++)
-			{
-				LedgerRecord record = demons("m" + monster + "t" + task, monster * 100L + task);
-				if (monster > 0)
-				{
-					record.setCreatureId(DEMONS + monster);
-					record.setMonster("Monster " + monster);
-					record.setLootGeValue(50_000L * monster);
-				}
-				records.add(record);
-			}
-		}
-		return records;
-	}
-
 	@Test
-	public void theSameTasksAdviceStaysWhileItIsWorkedOutAgainAndNothingIsKeptAfterShutDown()
+	public void theSameTasksPlanStaysWhileItIsWorkedOutAgainAndNothingIsKeptAfterShutDown()
 	{
-		model.setRecords(ACCOUNT, board(0));
 		tracker.observe("Abyssal demons", DEMONS, 20, false);
-		TaskAdvisor.Result advice = model.advice();
-		assertNotNull(advice);
+		model.setRecords(ACCOUNT, setups());
+		model.addCurrentPrices(priceRequests.get(priceRequests.size() - 1), SavedItems.todaysPrices());
+		TaskPlan plan = model.plan();
+		assertNotNull(plan);
 
 		holdBackground = true;
-		model.setRecords(ACCOUNT, board(1));
-		assertSame("the same task's advice stays until the new one is ready", advice, model.advice());
+		model.setRecords(ACCOUNT, setups());
+		assertSame("the same task's plan stays until the new one is ready", plan, model.plan());
 		runBackground();
-		TaskAdvisor.Result again = model.advice();
+		TaskPlan again = model.plan();
 		assertNotNull(again);
-		assertNotSame(advice, again);
-
-		// Another goal: the previous goal's advice is not shown meanwhile.
-		model.setTaskAdvisor(true, AdvisorMetric.FASTEST_FINISH);
-		assertNull(model.advice());
-		runBackground();
+		assertNotSame(plan, again);
 
 		// After shutDown, results still on their way are dropped and nothing new is queued.
-		model.setRecords(ACCOUNT, board(2));
+		model.setRecords(ACCOUNT, setups());
 		assertNull(model.overallTotals(OverallTotals.Grouping.ALL));
 		model.shutDown();
 		changes.clear();
@@ -303,36 +270,27 @@ public class LedgerHistoryModelViewsTest
 	}
 
 	@Test
-	public void anotherAccountOrModeNeverShowsThePreviousAdviceWhileItIsWorkedOut()
+	public void anotherAccountNeverShowsThePreviousPlanWhileItIsWorkedOut()
 	{
-		model.setRecords(ACCOUNT, board(0));
 		tracker.observe("Abyssal demons", DEMONS, 20, false);
-		TaskAdvisor.Result first = model.advice();
+		model.setRecords(ACCOUNT, setups());
+		model.addCurrentPrices(priceRequests.get(priceRequests.size() - 1), SavedItems.todaysPrices());
+		TaskPlan first = model.plan();
 		assertNotNull(first);
 
-		// Another "Loot price" mode: the GE advice is not shown while the HA one is worked out.
+		// Another account with the same current task: the first account's plan is never shown, while its history
+		// loads or after, before the new plan is ready; and a result still on its way for the first is dropped.
 		holdBackground = true;
-		model.setLootPriceMode(LootPriceMode.HIGH_ALCH);
-		assertNull(model.advice());
-		runBackground();
-		assertNotNull(model.advice());
-		model.setLootPriceMode(LootPriceMode.GE);
-		model.advice();
-		runBackground();
-		assertNotNull(model.advice());
-
-		// Another account with the same current task: the first account's advice is never shown, while its history
-		// loads or after, before the new advice is ready; and a result still on its way for the first is dropped.
-		model.setRecords(ACCOUNT, board(1));
-		assertNotNull("the same account's advice stays", model.advice());
+		model.setRecords(ACCOUNT, setups());
+		assertSame("the same account's plan stays", first, model.plan());
 		model.clearRecords(ACCOUNT + 1, "Loading...");
-		assertNull(model.advice());
-		model.setRecords(ACCOUNT + 1, board(2));
-		assertNull(model.advice());
+		assertNull(model.plan());
+		model.setRecords(ACCOUNT + 1, setups().subList(0, 2));
+		assertNull(model.plan());
 		runBackground();
-		TaskAdvisor.Result other = model.advice();
+		TaskPlan other = model.plan();
 		assertNotNull(other);
-		assertNotSame(first, other);
+		assertEquals(2, other.getAllSetups().getTasks());
 	}
 
 	@Test
@@ -355,41 +313,6 @@ public class LedgerHistoryModelViewsTest
 		assertTrue(backgroundTasks.isEmpty());
 	}
 
-	@Test
-	public void theAdviceIsWorkedOutOncePerTaskRecordsPricingAndGoal()
-	{
-		model.setRecords(ACCOUNT, Collections.singletonList(demons("a", 1)));
-		assertNull("no task", model.advice());
-		assertEquals(0, model.getAdviceBuildCount());
-
-		tracker.observe("Abyssal demons", DEMONS, 20, false);
-		model.advice();
-		model.advice();
-		assertEquals(1, model.getAdviceBuildCount());
-
-		// Fastest finish ranks by Slayer XP/h: another goal.
-		model.setTaskAdvisor(true, AdvisorMetric.FASTEST_FINISH);
-		model.advice();
-		assertEquals("another goal", 2, model.getAdviceBuildCount());
-		model.setLootPriceMode(LootPriceMode.HIGH_ALCH);
-		model.advice();
-		assertEquals("the mode changed", 3, model.getAdviceBuildCount());
-		model.setRecords(ACCOUNT, Arrays.asList(demons("a", 1), demons("b", 2)));
-		model.advice();
-		assertEquals("the records changed", 4, model.getAdviceBuildCount());
-
-		// Profit per hour and Cheapest both rank by profit/h: one goal, worked out once.
-		model.setTaskAdvisor(true, AdvisorMetric.PROFIT_PER_HOUR);
-		model.advice();
-		assertEquals(5, model.getAdviceBuildCount());
-		model.setTaskAdvisor(true, AdvisorMetric.CHEAPEST);
-		model.advice();
-		assertEquals("the same goal", 5, model.getAdviceBuildCount());
-
-		model.setTaskAdvisor(false, AdvisorMetric.CHEAPEST);
-		assertNull("off", model.advice());
-		assertEquals(5, model.getAdviceBuildCount());
-	}
 
 	/**
 	 * A completed task of 10 Abyssal demons at the Smoke Dungeon with melee: with a cannon in 5 minutes for 50K of
@@ -429,7 +352,6 @@ public class LedgerHistoryModelViewsTest
 	public void thePlanIsWorkedOutInTheBackgroundOncePerInputsThenTellsTheListener()
 	{
 		model.setSpots(TestSpots.TABLE);
-		model.setTaskAdvisor(true, AdvisorMetric.FASTEST_FINISH);
 		tracker.observe("Abyssal demons", DEMONS, 20, false);
 		assertNull("no records loaded", model.plan());
 		assertEquals(0, model.getPlanBuildCount());
@@ -451,34 +373,25 @@ public class LedgerHistoryModelViewsTest
 			changes);
 		TaskPlan plan = model.plan();
 		assertEquals(20, plan.getKillsLeft());
-		assertEquals(AdvisorMetric.FASTEST_FINISH, plan.getMetric());
 		assertTrue("the faster setup", plan.getRecommendation().isCannon());
-		assertFalse(plan.getCounterpart().isCannon());
 		assertEquals(TestSpots.SMOKE_ID, plan.getRecommendation().getSpot());
 		assertSame("nothing changed", plan, model.plan());
 		model.refreshLive();
 		assertSame(plan, model.plan());
 		assertEquals(2, model.getPlanBuildCount());
 
-		// The metric: the plan by profit per hour picks the other setup.
-		model.setTaskAdvisor(true, AdvisorMetric.PROFIT_PER_HOUR);
-		assertNull("the other metric's plan is worked out", model.plan());
-		runBackground();
-		assertFalse("1.2M an hour against 600K", model.plan().getRecommendation().isCannon());
-		assertEquals(3, model.getPlanBuildCount());
-
 		// A kill: the plan for the kills left, asked for by the live check.
 		tracker.observe("Abyssal demons", DEMONS, 19, false);
 		model.refreshLive();
 		runBackground();
 		assertEquals(19, model.plan().getKillsLeft());
-		assertEquals(4, model.getPlanBuildCount());
+		assertEquals(3, model.getPlanBuildCount());
 
 		// No task: no plan, and nothing is worked out.
 		tracker.observe(null, SessionTracker.NO_CREATURE, 0, false);
 		model.refreshLive();
 		assertNull(model.plan());
-		assertEquals(4, model.getPlanBuildCount());
+		assertEquals(3, model.getPlanBuildCount());
 	}
 
 	@Test
@@ -509,7 +422,7 @@ public class LedgerHistoryModelViewsTest
 	}
 
 	@Test
-	public void thePlanShownStaysThroughAKillButTheChatLineWaitsForTheExactOne()
+	public void thePlanShownStaysThroughAKillAndAnotherLootPriceMode()
 	{
 		model.setSpots(TestSpots.TABLE);
 		tracker.observe("Abyssal demons", DEMONS, 20, false);
@@ -517,31 +430,20 @@ public class LedgerHistoryModelViewsTest
 		model.addCurrentPrices(priceRequests.get(priceRequests.size() - 1), SavedItems.todaysPrices());
 		TaskPlan twenty = model.plan();
 		assertEquals(20, twenty.getKillsLeft());
-		assertSame(twenty, model.exactPlan());
 
 		// A kill: the plan for 19 kills left is worked out in the background, and the one for 20 is still shown.
 		holdBackground = true;
 		tracker.observe("Abyssal demons", DEMONS, 19, false);
 		model.refreshLive();
 		assertSame("kept while the new one is worked out", twenty, model.plan());
-		assertNull("no plan for 19 kills left yet", model.exactPlan());
-
-		// A chat line waits for the exact plan, so it never names the older kills left.
-		model.requestAssignmentLine(ACCOUNT, DEMONS, "Abyssal demons");
-		assertTrue(posted.isEmpty());
-		assertTrue(model.isAssignmentLinePending());
 		runBackground();
-		assertEquals(1, posted.size());
-		assertTrue(posted.get(0), posted.get(0).startsWith("<colHIGHLIGHT>Abyssal demons x19:<colNORMAL>"));
-		assertEquals(19, model.plan().getKillsLeft());
+		TaskPlan nineteen = model.plan();
+		assertEquals(19, nineteen.getKillsLeft());
 
-		// Another metric, "Loot price" mode or task keeps nothing: no plan is shown until its own is back.
-		model.setTaskAdvisor(true, AdvisorMetric.FASTEST_FINISH);
-		assertNull("another metric", model.plan());
-		runBackground();
-		assertNotNull(model.plan());
+		// Another "Loot price" mode: the plan values nothing in it, so the one shown stays until it is worked out
+		// again. Another task keeps nothing: no plan is shown until its own is back.
 		model.setLootPriceMode(LootPriceMode.HIGH_ALCH);
-		assertNull("another mode", model.plan());
+		assertSame("another mode", nineteen, model.plan());
 		runBackground();
 		assertNotNull(model.plan());
 		tracker.observe("Gargoyles", 46, 20, false);
@@ -563,7 +465,6 @@ public class LedgerHistoryModelViewsTest
 		// The entries are no input of the plan: the same plan, and nothing worked out.
 		assertTrue(model.setAssignments(ACCOUNT, Collections.singletonList(skipped("s", 2))));
 		assertSame(plan, model.plan());
-		assertSame(plan, model.exactPlan());
 		model.refreshLive();
 		assertEquals(builds, model.getPlanBuildCount());
 
@@ -679,8 +580,9 @@ public class LedgerHistoryModelViewsTest
 
 		model.requestItemNames(Collections.singleton(WHIP));
 		model.requestItemNames(Collections.singleton(WHIP));
-		assertEquals(2, nameRequests.size());
-		assertTrue(model.isItemNamePending(WHIP));
+		assertEquals("a pending name is not asked for again", 2, nameRequests.size());
+		assertNull("pending: not named yet", model.itemName(WHIP));
+		assertFalse("pending: not failed yet", model.isItemNameFailed(WHIP));
 
 		model.addItemNames(Collections.singleton(WHIP), Collections.emptyMap(), 150L);
 		assertTrue(model.isItemNameFailed(WHIP));

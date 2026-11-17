@@ -1,8 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
+import lombok.*;
 
 /**
  * A task's location as its kills decide it (V2 plan 4.5, {@link LocationTally#decide}): its Slayer spot and the
@@ -11,6 +9,7 @@ import lombok.ToString;
 @Getter
 @EqualsAndHashCode
 @ToString
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 final class TaskSpot
 {
 	/** No kill was tallied: no spot and no region. */
@@ -26,10 +25,4 @@ final class TaskSpot
 	 * an Unknown spot the region with the most kills of all; {@code null} when no kill was tallied.
 	 */
 	private final Integer region;
-
-	TaskSpot(String spotId, Integer region)
-	{
-		this.spotId = spotId;
-		this.region = region;
-	}
 }

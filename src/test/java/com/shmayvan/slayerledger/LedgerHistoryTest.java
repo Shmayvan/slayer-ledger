@@ -324,13 +324,19 @@ public class LedgerHistoryTest
 		assertEquals(Long.valueOf(Long.MAX_VALUE), LedgerHistory.profit(Long.MAX_VALUE, -1L));
 	}
 
+	/** The record's stored loot GE minus its stored supplies GE, or {@code null} when it was not valued. */
+	private static Long storedProfitGe(LedgerRecord record)
+	{
+		return LedgerHistory.profit(LedgerHistory.lootGe(record), LedgerHistory.suppliesGe(record));
+	}
+
 	@Test
 	public void recordSavedBeforeValuesShowsDashesNeverZero()
 	{
 		LedgerRecord old = record("old", "Kurask", 1_000L);
 		assertFalse(LedgerHistory.isValued(old));
 		assertNull(LedgerHistory.suppliesGe(old));
-		assertNull(LedgerHistory.profitGe(old));
+		assertNull(storedProfitGe(old));
 		HistoryPricing.Values today = HistoryPricing.value(old, LootPriceMode.GE, Collections.emptyMap());
 		assertEquals("-", loot(today));
 		assertEquals("-", supplies(today));
@@ -343,7 +349,7 @@ public class LedgerHistoryTest
 	{
 		LedgerRecord r = valued(1_234_567L, null);
 		assertEquals(Long.valueOf(0), LedgerHistory.suppliesGe(r));
-		assertEquals(Long.valueOf(1_234_567), LedgerHistory.profitGe(r));
+		assertEquals(Long.valueOf(1_234_567), storedProfitGe(r));
 		assertEquals("1.23M", loot(saved(r)));
 		assertEquals("0", supplies(saved(r)));
 		assertEquals("+1.23M", profit(saved(r)));
@@ -353,7 +359,7 @@ public class LedgerHistoryTest
 	public void negativeProfit()
 	{
 		LedgerRecord r = valued(50_000L, 400_000L);
-		assertEquals(Long.valueOf(-350_000), LedgerHistory.profitGe(r));
+		assertEquals(Long.valueOf(-350_000), storedProfitGe(r));
 		assertEquals("-350K", profit(saved(r)));
 		assertEquals("400K", supplies(saved(r)));
 	}
@@ -594,7 +600,6 @@ public class LedgerHistoryTest
 	public void timeLeftEarlyInATaskWithoutHistoryIsEstimating()
 	{
 		assertEquals(LedgerHistory.TIME_LEFT_ESTIMATING, LedgerHistory.formatTimeLeft(30_000, 1, 40, null));
-		assertEquals(LedgerHistory.TIME_LEFT_ESTIMATING, LedgerHistory.formatTimeLeft(30_000, 1, 40));
 		assertFalse(LedgerHistory.isHistoricalTimeLeft(30_000, 1, 40, null));
 	}
 
@@ -603,7 +608,8 @@ public class LedgerHistoryTest
 	{
 		// 3 kills in 1 minute: 20 seconds a kill, 40 left; the history's 45 seconds a kill is no longer used.
 		assertEquals("~13m", LedgerHistory.formatTimeLeft(60_000, 3, 40, 45_000L));
-		assertEquals(LedgerHistory.formatTimeLeft(60_000, 3, 40), LedgerHistory.formatTimeLeft(60_000, 3, 40, 45_000L));
+		assertEquals("as without history", LedgerHistory.formatTimeLeft(60_000, 3, 40, null),
+			LedgerHistory.formatTimeLeft(60_000, 3, 40, 45_000L));
 		assertFalse(LedgerHistory.isHistoricalTimeLeft(60_000, 3, 40, 45_000L));
 	}
 

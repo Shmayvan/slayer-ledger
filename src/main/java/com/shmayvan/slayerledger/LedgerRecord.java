@@ -1,11 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.UUID;
-import lombok.Data;
+import java.util.*;
+import lombok.*;
 
 /**
  * One saved Slayer task session. Serialized to JSON with Gson; optional fields can be added without breaking older

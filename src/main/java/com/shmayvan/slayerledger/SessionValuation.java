@@ -1,8 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Map;
-import java.util.Objects;
-import java.util.TreeMap;
+import java.util.*;
+import lombok.*;
 
 /**
  * Values the live session's loot and supplies for the panel. Pure: prices come from a {@link ItemValuation.PriceLookup}
@@ -25,29 +24,39 @@ class SessionValuation
 	static final int RETRY_TICKS = 10;
 
 	/** Loot and supplies values of a session at one moment. Immutable. */
+	@Value
 	static final class Values
 	{
+		/** Id of the session these values belong to. */
 		private final String sessionId;
+		/** The price mode {@link #getLootValue()} uses. */
 		private final LootPriceMode lootPriceMode;
+		/** Loot value in {@link #getLootPriceMode()}. */
 		private final long lootValue;
+		/**
+		 * Distinct loot items whose price in {@link #getLootPriceMode()} was unavailable, so {@link #getLootValue()} is
+		 * approximate; see {@link LootPricing#countUnpriced}.
+		 */
 		private final int lootValueUnpriced;
+		/** Loot value in {@link LootPriceMode#GE}: GE prices, with a GE price of 0 at high alch ({@link LootPricing}). */
 		private final long lootGe;
 		private final long lootHa;
 		private final long suppliesGe;
 		private final long suppliesHa;
+		/** Distinct loot items whose GE price was unavailable (left out of {@link #getLootGe()}). */
 		private final int lootUnpriced;
+		/** Distinct supply items whose GE price was unavailable (left out of {@link #getSuppliesGe()}). */
 		private final int suppliesUnpriced;
+		/**
+		 * The session's loot and supplies item by item, with the unit prices these values use, for the panel's item
+		 * lists.
+		 */
 		private final ItemDetails items;
+		/**
+		 * The loot items left out of these values, which the "Loot received" grid leaves out too; never
+		 * {@code null}. {@link #getItems()} still lists them.
+		 */
 		private final HiddenLoot hiddenLoot;
-
-		/** Values with the loot valued at GE prices, without item details. */
-		Values(String sessionId, long lootGe, long lootHa, long suppliesGe, long suppliesHa, int lootUnpriced,
-			int suppliesUnpriced)
-		{
-			this(builder().sessionId(sessionId).lootValue(lootGe).lootValueUnpriced(lootUnpriced).lootGe(lootGe)
-				.lootHa(lootHa).suppliesGe(suppliesGe).suppliesHa(suppliesHa).lootUnpriced(lootUnpriced)
-				.suppliesUnpriced(suppliesUnpriced));
-		}
 
 		private Values(Builder b)
 		{
@@ -169,129 +178,10 @@ class SessionValuation
 			}
 		}
 
-		/** Id of the session these values belong to. */
-		String getSessionId()
-		{
-			return sessionId;
-		}
-
-		/** The price mode {@link #getLootValue()} uses. */
-		LootPriceMode getLootPriceMode()
-		{
-			return lootPriceMode;
-		}
-
-		/** Loot value in {@link #getLootPriceMode()}. */
-		long getLootValue()
-		{
-			return lootValue;
-		}
-
-		/**
-		 * Distinct loot items whose price in {@link #getLootPriceMode()} was unavailable, so {@link #getLootValue()} is
-		 * approximate; see {@link LootPricing#countUnpriced}.
-		 */
-		int getLootValueUnpriced()
-		{
-			return lootValueUnpriced;
-		}
-
-		/** Loot value in {@link LootPriceMode#GE}: GE prices, with a GE price of 0 at high alch ({@link LootPricing}). */
-		long getLootGe()
-		{
-			return lootGe;
-		}
-
-		long getLootHa()
-		{
-			return lootHa;
-		}
-
-		long getSuppliesGe()
-		{
-			return suppliesGe;
-		}
-
-		long getSuppliesHa()
-		{
-			return suppliesHa;
-		}
-
-		/** Distinct loot items whose GE price was unavailable (left out of {@link #getLootGe()}). */
-		int getLootUnpriced()
-		{
-			return lootUnpriced;
-		}
-
-		/** Distinct supply items whose GE price was unavailable (left out of {@link #getSuppliesGe()}). */
-		int getSuppliesUnpriced()
-		{
-			return suppliesUnpriced;
-		}
-
-		/**
-		 * The session's loot and supplies item by item, with the unit prices these values use, for the panel's item
-		 * lists.
-		 */
-		ItemDetails getItems()
-		{
-			return items;
-		}
-
-		/**
-		 * The loot items left out of these values, which the "Loot received" grid leaves out too; never
-		 * {@code null}. {@link #getItems()} still lists them.
-		 */
-		HiddenLoot getHiddenLoot()
-		{
-			return hiddenLoot;
-		}
-
-		/** Loot GE value minus supplies GE value. */
-		long getProfitGe()
-		{
-			return LedgerHistory.profit(lootGe, suppliesGe);
-		}
-
 		/** Loot value in {@link #getLootPriceMode()} minus supplies GE value. */
 		long getProfit()
 		{
 			return LedgerHistory.profit(lootValue, suppliesGe);
-		}
-
-		@Override
-		public boolean equals(Object o)
-		{
-			if (this == o)
-			{
-				return true;
-			}
-			if (!(o instanceof Values))
-			{
-				return false;
-			}
-			Values v = (Values) o;
-			return Objects.equals(sessionId, v.sessionId) && lootPriceMode == v.lootPriceMode
-				&& lootValue == v.lootValue && lootValueUnpriced == v.lootValueUnpriced && lootGe == v.lootGe && lootHa == v.lootHa
-				&& suppliesGe == v.suppliesGe && suppliesHa == v.suppliesHa
-				&& lootUnpriced == v.lootUnpriced && suppliesUnpriced == v.suppliesUnpriced && items.equals(v.items)
-				&& hiddenLoot.equals(v.hiddenLoot);
-		}
-
-		@Override
-		public int hashCode()
-		{
-			return Objects.hash(sessionId, lootPriceMode, lootValue, lootValueUnpriced, lootGe, lootHa, suppliesGe,
-				suppliesHa, lootUnpriced, suppliesUnpriced, items, hiddenLoot);
-		}
-
-		@Override
-		public String toString()
-		{
-			return "Values{sessionId=" + sessionId + ", lootPriceMode=" + lootPriceMode + ", lootValue=" + lootValue
-				+ ", lootValueUnpriced=" + lootValueUnpriced + ", lootGe=" + lootGe + ", lootHa=" + lootHa + ", suppliesGe=" + suppliesGe
-				+ ", suppliesHa=" + suppliesHa + ", lootUnpriced=" + lootUnpriced
-				+ ", suppliesUnpriced=" + suppliesUnpriced + "}";
 		}
 	}
 

@@ -1,12 +1,8 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
-import net.runelite.client.util.WildcardMatcher;
+import java.util.*;
+import lombok.*;
+import net.runelite.client.util.*;
 
 /**
  * The player's "Ignored loot" setting, parsed: items left out of kill loot when it is captured. Pure: names are passed
@@ -19,6 +15,7 @@ import net.runelite.client.util.WildcardMatcher;
  *
  * <p>Immutable, so a parsed list can be shared between threads.</p>
  */
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 final class IgnoredLoot
 {
 	/** Ignores nothing. */
@@ -27,12 +24,6 @@ final class IgnoredLoot
 	private final Set<Integer> ids;
 	/** Name patterns, lower-cased and trimmed. */
 	private final List<String> names;
-
-	private IgnoredLoot(Set<Integer> ids, List<String> names)
-	{
-		this.ids = ids;
-		this.names = names;
-	}
 
 	/**
 	 * Parses the setting.

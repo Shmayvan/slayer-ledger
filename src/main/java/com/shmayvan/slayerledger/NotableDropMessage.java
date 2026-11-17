@@ -1,10 +1,8 @@
 package com.shmayvan.slayerledger;
 
-import java.util.List;
-import java.util.Locale;
-import net.runelite.client.chat.ChatColorType;
-import net.runelite.client.chat.ChatMessageBuilder;
-import net.runelite.client.util.Text;
+import java.util.*;
+import net.runelite.client.chat.*;
+import net.runelite.client.util.*;
 
 /**
  * The notable drop chat line ({@code DESIGN_PRINCIPLES.md} 5.2, 5.3): {@code Dragon chainbody (148K) from a dust

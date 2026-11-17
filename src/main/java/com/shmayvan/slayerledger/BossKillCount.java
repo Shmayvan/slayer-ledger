@@ -1,8 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
+import lombok.*;
 
 /**
  * One boss's kill count during a task, from the game's kill count messages ({@link KillCountMessage}). Serialized with
@@ -12,6 +10,7 @@ import lombok.ToString;
 @Getter
 @EqualsAndHashCode
 @ToString
+@AllArgsConstructor(access = AccessLevel.PACKAGE)
 final class BossKillCount
 {
 	/** The boss's name as the first counted message gave it, without colour tags. */
@@ -26,13 +25,5 @@ final class BossKillCount
 	/** For Gson. */
 	private BossKillCount()
 	{
-	}
-
-	BossKillCount(String boss, int firstKc, int lastKc, int kills)
-	{
-		this.boss = boss;
-		this.firstKc = firstKc;
-		this.lastKc = lastKc;
-		this.kills = kills;
 	}
 }

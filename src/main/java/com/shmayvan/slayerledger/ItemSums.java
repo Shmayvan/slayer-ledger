@@ -1,11 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import lombok.*;
 
 /**
  * Pure: the supplies or the loot of several saved tasks added up item by item, for the item grids of Overall totals
@@ -54,6 +50,7 @@ final class ItemSums
 	}
 
 	/** One item's running sum. */
+	@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 	private static final class Sum
 	{
 		private final ItemDetails.Row first;
@@ -64,11 +61,6 @@ final class ItemSums
 		private Long unitGe;
 		private Long unitHa;
 		private Integer dosesPerItem;
-
-		private Sum(ItemDetails.Row first)
-		{
-			this.first = first;
-		}
 
 		private void add(ItemDetails.Row row)
 		{

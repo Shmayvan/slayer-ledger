@@ -1,5 +1,7 @@
 package com.shmayvan.slayerledger;
 
+import lombok.*;
+
 /**
  * Works out what a task completion gave: the Slayer points earned (the SLAYER_POINTS varbit, 4068) and the streak the
  * completion raised. Read on the same settled ticks as {@link CompletionSignal}. Pure (no RuneLite types) and not
@@ -24,6 +26,7 @@ final class TaskRewards
 	/** Latest reading, or {@code null} after {@link #reset()}. */
 	private Integer latest;
 	/** Session whose completion is being followed, or {@code null} when none is. */
+	@Getter
 	private String sessionId;
 	/** Points before the followed completion, or {@code null} when unknown. */
 	private Integer completionBaseline;
@@ -63,12 +66,6 @@ final class TaskRewards
 	boolean isFollowing()
 	{
 		return sessionId != null;
-	}
-
-	/** The session whose completion is being followed, or {@code null}. */
-	String getSessionId()
-	{
-		return sessionId;
 	}
 
 	/** Points earned by the followed completion as of the latest reading, or {@code null}; see the class comment. */

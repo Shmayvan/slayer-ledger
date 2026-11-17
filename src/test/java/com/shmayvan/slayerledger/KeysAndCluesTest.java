@@ -156,13 +156,8 @@ public class KeysAndCluesTest
 		KeysAndClues k = KeysAndClues.of(loot(ItemID.KONAR_KEY, 2, ItemID.SLAYER_WILDERNESS_KEY, 1,
 			ItemID.TRAIL_CLUE_HARD_MAP001, 1, ClueScrollIds.HARD[5], 1, ItemID.TRAIL_ELITE_EMOTE_EXP1, 2,
 			ItemID.TRAIL_CLUE_BEGINNER, 1, ItemID.COINS, 5000, ItemID.TRAIL_CLUE_HARD_SEXTANT001_CASKET, 1));
-		assertEquals(2, k.getBrimstoneKeys());
-		assertEquals(1, k.getLarransKeys());
-		assertEquals(1, k.getClues(KeysAndClues.ClueTier.BEGINNER));
-		assertEquals("a casket is not a clue scroll", 2, k.getClues(KeysAndClues.ClueTier.HARD));
-		assertEquals(2, k.getClues(KeysAndClues.ClueTier.ELITE));
-		assertEquals(0, k.getClues(KeysAndClues.ClueTier.MASTER));
 		assertEquals("Keys: 2 brimstone, 1 Larran's", k.keysText());
+		// A casket is not a clue scroll (2 hard); no master clue, so no master tier.
 		assertEquals("Clues: 1 beginner, 2 hard, 2 elite", k.cluesText());
 	}
 
@@ -170,8 +165,7 @@ public class KeysAndCluesTest
 	public void stackSizeVariantsCountAsTheKey()
 	{
 		KeysAndClues k = KeysAndClues.of(loot(ItemID.KONAR_KEY_COUNTVIEW3, 1, ItemID.SLAYER_WILDERNESS_KEY_5, 1));
-		assertEquals(1, k.getBrimstoneKeys());
-		assertEquals(1, k.getLarransKeys());
+		assertEquals("Keys: 1 brimstone, 1 Larran's", k.keysText());
 	}
 
 	@Test
@@ -198,8 +192,7 @@ public class KeysAndCluesTest
 		loot.put(null, 4L);
 		loot.put(ItemID.TRAIL_CLUE_MASTER, null);
 		KeysAndClues k = KeysAndClues.of(loot);
-		assertEquals(Long.MAX_VALUE, k.getBrimstoneKeys());
-		assertEquals(0, k.getLarransKeys());
+		assertEquals("saturated, and no Larran's", "Keys: " + Long.MAX_VALUE + " brimstone", k.keysText());
 		assertFalse(k.hasClues());
 	}
 

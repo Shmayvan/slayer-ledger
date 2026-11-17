@@ -23,16 +23,14 @@ import org.junit.Rule;
 import org.junit.Test;
 
 /**
- * The advisor card as wired in the plugin ({@link PluginHarness}), read through {@link PanelProbe}:
- * after an assignment with history its title, metric tabs, the recommendation and counterpart blocks with their times
- * and bring items, All setups and More setups; no history, thin data (labelled {@code based on 1 task}) and a Konar
- * area with no task; a tab click saving the "Advisor metric" and the plan following, the old tab kept until it does;
- * collapsed after the first kill (a drop of the count, a task already started at login, an active or restored
- * session, a Konar task), opened and closed by clicks, open again for a new assignment (with or without a no-task
- * gap); a count reading 0 for a tick only hiding it; another Konar area's plan never shown; the skip / block badge on
- * the card and no longer in the task box; nothing rebuilt by the refresh or idle ticks; and the title and option names
- * on two lines without widening the sidebar. Every refresh here is called by the test; nothing waits for the panel's
- * refresh timer, and the first-kill rules are read without one ({@link #card}), as with the panel hidden.
+ * The advisor card (slimmed to bundle C) as wired in the plugin ({@link PluginHarness}), read
+ * through {@link PanelProbe}: after an assignment with history its title, the recommendation with its time and bring
+ * items (8, then {@code +N more}) and All setups; no history, thin data (labelled {@code based on 1 task}), estimated
+ * setups and a Konar area with no task; the card staying as it is through the kills and showing a new assignment's
+ * plan (with or without a no-task gap, at a login, after a restore); a count reading 0 for a tick only hiding it;
+ * another Konar area's plan never shown; nothing rebuilt by the refresh, idle ticks or a session's start; and the
+ * title and option names on two lines without widening the sidebar. Every refresh here is called by the test; nothing
+ * waits for the panel's refresh timer ({@link #card}), as with the panel hidden.
  */
 public class HarnessAdvisorCardTest
 {
@@ -130,8 +128,8 @@ public class HarnessAdvisorCardTest
 	}
 
 	/**
-	 * Three barrage tasks (27, 30 and 33 minutes: 3 minutes a kill, 2.82 to 3.18 at the 20th and 80th percentiles),
-	 * three cannon tasks (2 minutes a kill) and one 50-minute melee task in the Stronghold Slayer Cave.
+	 * Three barrage tasks (27, 30 and 33 minutes: 3 minutes a kill), three cannon tasks (2 minutes a kill) and one
+	 * 50-minute melee task in the Stronghold Slayer Cave.
 	 */
 	private static List<LedgerRecord> history()
 	{
@@ -203,11 +201,10 @@ public class HarnessAdvisorCardTest
 		return result.get(0);
 	}
 
-	/** Clicks on the card, then lets what the click queued run. */
-	private void click(java.util.function.Consumer<PanelProbe.AdvisorCardProbe> action)
+	/** Three barrage tasks in the Catacombs (27, 30 and 33 minutes: 3 minutes a kill), and nothing else. */
+	private static List<LedgerRecord> barrageHistory()
 	{
-		harness.onEdt(() -> action.accept(harness.ui().getAdvisor()));
-		harness.drain();
+		return Arrays.asList(barrage(27), barrage(30), barrage(33));
 	}
 
 	@Test
@@ -216,62 +213,22 @@ public class HarnessAdvisorCardTest
 		start(history());
 
 		assertTrue(card(PanelProbe.AdvisorCardProbe::isShown));
-		assertTrue("open until the first kill", card(PanelProbe.AdvisorCardProbe::isOpen));
 		assertEquals("Based on 7 Abyssal demons tasks", card(PanelProbe.AdvisorCardProbe::getTitle));
-		assertEquals("[Fastest] | Profit/h | Cheapest", card(PanelProbe.AdvisorCardProbe::getTabs));
-		assertTrue(card(PanelProbe.AdvisorCardProbe::areTabsFocusableLinks));
+		assertEquals("<html>Based on 7 Abyssal demons tasks</html>",
+			card(PanelProbe.AdvisorCardProbe::getTitleTooltip));
 
 		// Fastest finish: the cannon tasks, at 2 minutes a kill; the most valuable things to bring first.
 		assertEquals(Arrays.asList(
 			"Cannon, melee, Smoke Dungeon | 3 tasks",
 			"~40 min",
-			"Slayer XP/h | 30K",
-			"Profit/h | -70.5K",
-			"Supplies | 49K",
-			"Gear | -",
 			"Bring",
 			"Cannonball | " + SupplyTracker.CANNONBALL + " x200",
 			"Shark | " + ItemID.SHARK + " x10"), card(probe -> probe.getBlock("recommendation")));
-		// The sign says it's a loss; red ink adds to it.
-		assertEquals(LedgerTheme.RED_INK, card(probe -> probe.getRowValueColor("recommendation", "profit")));
-
-		// The counterpart, without a cannon, in the same block after a rule: 8 items, then the rest counted.
-		assertTrue(card(PanelProbe.AdvisorCardProbe::hasRule));
-		assertEquals("Without cannon", card(PanelProbe.AdvisorCardProbe::getCounterpartLabel));
-		assertEquals(Arrays.asList(
-			"Barrage, Catacombs | 3 tasks",
-			"~1 h | 56 min to 1 h 4 min",
-			"Slayer XP/h | 60K",
-			"Profit/h | +124K",
-			"Supplies | 475K",
-			"Gear | mostly Prayer",
-			"Bring",
-			"Blood rune | " + ItemID.BLOODRUNE + " x440",
-			"Death rune | " + ItemID.DEATHRUNE + " x880",
-			"Prayer potion(4) | " + ItemID._4DOSEPRAYERRESTORE + " x6",
-			"Dragon bones | " + ItemID.DRAGON_BONES + " x4",
-			"Manta ray | " + ItemID.MANTARAY + " x6",
-			"Shark | " + ItemID.SHARK + " x10",
-			"Chaos rune | " + ItemID.CHAOSRUNE + " x100",
-			"Water rune | " + ItemID.WATERRUNE + " x1320",
-			"+2 more"), card(probe -> probe.getBlock("counterpart")));
-		assertEquals(LedgerTheme.INK, card(probe -> probe.getRowValueColor("counterpart", "profit")));
-		assertEquals("<html>Prayer potion(4)<br>Bring: 6<br>GE value: 54,000 gp</html>",
-			card(probe -> probe.getBring("counterpart").getCellTooltips().get(2)));
-		// The two the grid has no room for, listed in "+2 more"'s tooltip, a line each, as the icons word them.
-		assertEquals("<html>Soul rune, Bring: 20, GE value: 3,000 gp<br>Fire rune, Bring: 200, GE value: 1,000 gp"
-			+ "</html>", card(probe -> probe.getBringMoreTooltip("counterpart")));
 		assertNull("all in the grid", card(probe -> probe.getBringMoreTooltip("recommendation")));
-		assertEquals("five slots to a row: 8 items fill two", 10,
-			(int) card(probe -> probe.getBring("counterpart").getSlotCount()));
+		// Bundle C: one pick, with no counterpart, rate rows, range or other setups.
+		assertNull(card(probe -> probe.getBlock("counterpart")));
 
 		assertEquals("All setups (7 tasks) | ~54 min", card(PanelProbe.AdvisorCardProbe::getAllSetups));
-		assertEquals("More setups (1)", card(PanelProbe.AdvisorCardProbe::getMoreToggle));
-		assertTrue(card(PanelProbe.AdvisorCardProbe::getMoreRows).isEmpty());
-		click(PanelProbe.AdvisorCardProbe::clickMoreToggle);
-		assertEquals(Collections.singletonList("Melee, Stronghold Cave | ~1 h 40 min (1 task)"),
-			card(PanelProbe.AdvisorCardProbe::getMoreRows));
-		assertEquals("Hide more setups", card(PanelProbe.AdvisorCardProbe::getMoreToggle));
 
 		// Its place: after the live section, before the task history.
 		List<String> order = new ArrayList<>();
@@ -281,13 +238,41 @@ public class HarnessAdvisorCardTest
 	}
 
 	@Test
+	public void theBringGridShowsEightItemsThenTheRestCounted()
+	{
+		start(barrageHistory());
+
+		assertEquals(Arrays.asList(
+			"Barrage, Catacombs | 3 tasks",
+			"~1 h",
+			"Bring",
+			"Blood rune | " + ItemID.BLOODRUNE + " x440",
+			"Death rune | " + ItemID.DEATHRUNE + " x880",
+			"Prayer potion(4) | " + ItemID._4DOSEPRAYERRESTORE + " x6",
+			"Dragon bones | " + ItemID.DRAGON_BONES + " x4",
+			"Manta ray | " + ItemID.MANTARAY + " x6",
+			"Shark | " + ItemID.SHARK + " x10",
+			"Chaos rune | " + ItemID.CHAOSRUNE + " x100",
+			"Water rune | " + ItemID.WATERRUNE + " x1320",
+			"+2 more"), card(probe -> probe.getBlock("recommendation")));
+		assertEquals("<html>Prayer potion(4)<br>Bring: 6<br>GE value: 54,000 gp</html>",
+			card(probe -> probe.getBring("recommendation").getCellTooltips().get(2)));
+		// The two the grid has no room for, listed in "+2 more"'s tooltip, a line each, as the icons word them.
+		assertEquals("<html>Soul rune, Bring: 20, GE value: 3,000 gp<br>Fire rune, Bring: 200, GE value: 1,000 gp"
+			+ "</html>", card(probe -> probe.getBringMoreTooltip("recommendation")));
+		assertEquals("five slots to a row: 8 items fill two", 10,
+			(int) card(probe -> probe.getBring("recommendation").getSlotCount()));
+		assertEquals("All setups (3 tasks) | ~1 h", card(PanelProbe.AdvisorCardProbe::getAllSetups));
+	}
+
+	@Test
 	public void theMoreBringItemsTooltipIsEscaped()
 	{
 		harness.defineItem(ItemID.FIRERUNE, "Fire <b>rune</b> & co", 5, 0);
-		start(history());
+		start(barrageHistory());
 
 		assertEquals("<html>Soul rune, Bring: 20, GE value: 3,000 gp<br>Fire &lt;b&gt;rune&lt;/b&gt; &amp; co,"
-			+ " Bring: 200, GE value: 1,000 gp</html>", card(probe -> probe.getBringMoreTooltip("counterpart")));
+			+ " Bring: 200, GE value: 1,000 gp</html>", card(probe -> probe.getBringMoreTooltip("recommendation")));
 	}
 
 	@Test
@@ -301,7 +286,6 @@ public class HarnessAdvisorCardTest
 
 		assertTrue(card(PanelProbe.AdvisorCardProbe::isShown));
 		assertNull("no title", card(PanelProbe.AdvisorCardProbe::getTitle));
-		assertNull("no tabs", card(PanelProbe.AdvisorCardProbe::getTabs));
 		assertNull(card(probe -> probe.getBlock("recommendation")));
 		assertEquals("No completed Abyssal demons tasks yet, so no estimate.",
 			card(PanelProbe.AdvisorCardProbe::getNoHistoryLine));
@@ -330,10 +314,23 @@ public class HarnessAdvisorCardTest
 		List<String> name = card(probe -> probe.getNameLines("recommendation"));
 		assertEquals("the longer sample size leaves less room beside the name, which wraps",
 			Arrays.asList("Barrage,", "Catacombs"), name);
-		assertEquals("one task: no range", "~1 h", block.get(1));
-		assertNull("no counterpart", card(probe -> probe.getBlock("counterpart")));
-		assertFalse(card(PanelProbe.AdvisorCardProbe::hasRule));
-		assertNull(card(PanelProbe.AdvisorCardProbe::getMoreToggle));
+		assertEquals("~1 h", block.get(1));
+	}
+
+	@Test
+	public void anEstimatedSetupSaysSoBesideItsSampleSize()
+	{
+		List<LedgerRecord> records = new ArrayList<>();
+		for (double minutes : new double[]{27, 30, 33})
+		{
+			LedgerRecord record = barrage(minutes);
+			// A migrated 1.x task: its cannon and style are estimates.
+			SetupTags.estimated(false, SetupStyle.BARRAGE).copyTo(record);
+			records.add(record);
+		}
+		start(records);
+
+		assertEquals("Barrage, Catacombs | 3 tasks, estimated", card(probe -> probe.getBlock("recommendation")).get(0));
 	}
 
 	@Test
@@ -356,82 +353,22 @@ public class HarnessAdvisorCardTest
 	}
 
 	@Test
-	public void aTabClickSavesTheMetricAndThePlanFollows()
+	public void theCardStaysAsItIsThroughTheKillsAndANewTaskGetsItsPlan()
 	{
 		start(history());
-		assertEquals("Cannon, melee, Smoke Dungeon | 3 tasks", card(probe -> probe.getBlock("recommendation")).get(0));
-		int planBuilds = planBuilds();
+		String title = card(PanelProbe.AdvisorCardProbe::getTitle);
 
-		click(probe -> probe.clickTab(AdvisorMetric.PROFIT_PER_HOUR));
-		assertEquals("the setting is saved", AdvisorMetric.PROFIT_PER_HOUR, harness.config.advisorMetric);
-		assertEquals("Fastest | [Profit/h] | Cheapest", card(PanelProbe.AdvisorCardProbe::getTabs));
-		assertEquals("worked out again on the config-change path, once", planBuilds + 1, planBuilds());
-		// The most profit per hour: the barrage tasks, and the counterpart is the cannon's.
-		assertEquals("Barrage, Catacombs | 3 tasks", card(probe -> probe.getBlock("recommendation")).get(0));
-		assertEquals("With cannon", card(PanelProbe.AdvisorCardProbe::getCounterpartLabel));
-		assertEquals("Cannon, melee, Smoke Dungeon | 3 tasks", card(probe -> probe.getBlock("counterpart")).get(0));
-
-		// The tab already chosen saves nothing.
-		click(probe -> probe.clickTab(AdvisorMetric.PROFIT_PER_HOUR));
-		assertEquals(planBuilds + 1, planBuilds());
-
-		// The settings panel's change shows on the tabs too.
-		harness.setAdvisorMetric(AdvisorMetric.CHEAPEST);
-		assertEquals("Fastest | Profit/h | [Cheapest]", card(PanelProbe.AdvisorCardProbe::getTabs));
-	}
-
-	@Test
-	public void afterATabClickTheOldTabStaysUntilTheNewPlanIsDelivered()
-	{
-		start(history());
-
-		// The click is saved and reaches the model (the EDT runs), but the plan is still being worked out (the
-		// executor hasn't run): the card keeps the plan it shows, and the tab is that plan's, not the setting's.
-		harness.onEdt(() -> harness.ui().getAdvisor().clickTab(AdvisorMetric.PROFIT_PER_HOUR));
-		harness.flushEdt();
-		harness.onEdt(() -> assertEquals(AdvisorMetric.PROFIT_PER_HOUR, harness.historyModel().advisorMetric()));
-		harness.onEdt(() -> assertNull("still worked out", harness.historyModel().plan()));
-		assertTrue(card(PanelProbe.AdvisorCardProbe::isShown));
-		assertEquals("the tab and the blocks agree", "[Fastest] | Profit/h | Cheapest",
-			card(PanelProbe.AdvisorCardProbe::getTabs));
-		assertEquals("Cannon, melee, Smoke Dungeon | 3 tasks", card(probe -> probe.getBlock("recommendation")).get(0));
-		assertEquals("[Fastest] | Profit/h | Cheapest", refreshed(PanelProbe.AdvisorCardProbe::getTabs));
-
-		// Delivered: the new plan and its tab together.
-		harness.drain();
-		assertEquals("Fastest | [Profit/h] | Cheapest", card(PanelProbe.AdvisorCardProbe::getTabs));
-		assertEquals("Barrage, Catacombs | 3 tasks", card(probe -> probe.getBlock("recommendation")).get(0));
-	}
-
-	@Test
-	public void collapsedAfterTheFirstKillOpenedByAClickAndOpenAgainForANewTask()
-	{
-		start(history());
-		assertTrue(card(PanelProbe.AdvisorCardProbe::isOpen));
-
-		// The first kill: one line, the plan for the 19 kills left.
+		// The first kill: the card stays (bundle C), with the plan for the 19 kills left.
 		harness.setRemaining(19);
 		harness.tick();
-		assertFalse(refreshed(PanelProbe.AdvisorCardProbe::isOpen));
-		assertEquals("Plan: cannon, melee, ~38 min (3 tasks)", card(PanelProbe.AdvisorCardProbe::getCollapsedLine));
-		String tooltip = card(PanelProbe.AdvisorCardProbe::getCollapsedTooltip);
-		assertTrue(tooltip, tooltip.contains("Cannon, melee, Smoke Dungeon (3 tasks)"));
-		assertTrue(tooltip, tooltip.contains("Without cannon: Barrage, Catacombs, ~57 min (3 tasks)"));
-		assertTrue(tooltip, tooltip.endsWith(AdvisorCardSection.OPEN_HINT + "</html>"));
-
-		// A click opens it; the next kill keeps the player's choice.
-		click(PanelProbe.AdvisorCardProbe::clickCollapsed);
-		assertTrue(card(PanelProbe.AdvisorCardProbe::isOpen));
+		assertTrue(refreshed(PanelProbe.AdvisorCardProbe::isShown));
+		assertEquals(title, card(PanelProbe.AdvisorCardProbe::getTitle));
+		assertEquals("~38 min", card(probe -> probe.getBlock("recommendation")).get(1));
 		harness.setRemaining(18);
 		harness.tick();
-		assertTrue(refreshed(PanelProbe.AdvisorCardProbe::isOpen));
-		assertEquals("~36 min", card(probe -> probe.getBlock("recommendation")).get(1));
+		assertEquals("~36 min", refreshed(probe -> probe.getBlock("recommendation")).get(1));
 
-		// A click on the title closes it again.
-		click(PanelProbe.AdvisorCardProbe::clickTitle);
-		assertFalse(refreshed(PanelProbe.AdvisorCardProbe::isOpen));
-
-		// The task done and a new one assigned: open again.
+		// The task done and a new one assigned: its plan.
 		harness.completeTask();
 		harness.tick();
 		harness.ticks(SessionTracker.COMPLETION_LOOT_GRACE_TICKS + 1);
@@ -439,53 +376,7 @@ public class HarnessAdvisorCardTest
 		harness.setTask(DEMONS, TASK, 15, 15);
 		harness.tick();
 		assertTrue(refreshed(PanelProbe.AdvisorCardProbe::isShown));
-		assertTrue("a new assignment opens it", card(PanelProbe.AdvisorCardProbe::isOpen));
 		assertEquals("~30 min", card(probe -> probe.getBlock("recommendation")).get(1));
-	}
-
-	@Test
-	public void theBadgeIsOnTheCardAndNoLongerInTheTaskBox()
-	{
-		List<LedgerRecord> records = history();
-		// Five other monsters at 50K Slayer XP and 20K profit an hour: Abyssal demons, at 39K Slayer XP and 42.7K
-		// profit an hour, is the lowest of 6 by Slayer XP and the highest by profit.
-		for (int monster = 1; monster <= 5; monster++)
-		{
-			for (int i = 0; i < 3; i++)
-			{
-				LedgerRecord other = task("Monster " + monster, TestSpots.SMOKE_ID, false, SetupStyle.MELEE,
-					GearFocus.UNKNOWN, 60, 20_000L, 50_000L, Collections.emptyMap());
-				other.setCreatureId(DEMONS + monster);
-				records.add(other);
-			}
-		}
-		start(records);
-
-		assertEquals("Consider skip (n=7)", card(PanelProbe.AdvisorCardProbe::getBadge));
-		assertEquals(LedgerTheme.ALERT, card(PanelProbe.AdvisorCardProbe::getBadgeColor));
-		String tooltip = card(PanelProbe.AdvisorCardProbe::getBadgeTooltip);
-		assertTrue(tooltip, tooltip.contains("1st lowest of your 6 monsters (bottom 25%)"));
-		assertTrue(tooltip, tooltip.contains("From 7 completed tasks of this monster (n)"));
-		List<String> rows = new ArrayList<>();
-		harness.onEdt(() ->
-		{
-			harness.panel().refresh();
-			rows.addAll(harness.ui().getTaskBox().getRows());
-		});
-		assertEquals("the task box has only the task's lines", Arrays.asList(TASK, "20 left"), rows);
-		harness.onEdt(() -> assertFalse(harness.ui().isInPanel("taskBox.advice")));
-
-		// The "Task advisor" setting turns the badge off; the card stays.
-		harness.setTaskAdvisor(false);
-		assertNull(card(PanelProbe.AdvisorCardProbe::getBadge));
-		assertTrue(card(PanelProbe.AdvisorCardProbe::isShown));
-		harness.setTaskAdvisor(true);
-		assertEquals("Consider skip (n=7)", card(PanelProbe.AdvisorCardProbe::getBadge));
-
-		// Profit per hour: Abyssal demons are not the lowest by profit, so Do, which adds no line.
-		harness.setAdvisorMetric(AdvisorMetric.PROFIT_PER_HOUR);
-		assertNull(card(PanelProbe.AdvisorCardProbe::getBadge));
-		harness.onEdt(() -> assertEquals(TaskAdvisor.Advice.DO, harness.historyModel().advice().getAdvice()));
 	}
 
 	@Test
@@ -502,7 +393,7 @@ public class HarnessAdvisorCardTest
 		refreshed(PanelProbe.AdvisorCardProbe::isShown);
 		assertEquals(builds, (int) card(PanelProbe.AdvisorCardProbe::getBuildCount));
 
-		// A kill is a change: collapsed, and the plan for the kills left; then idle again.
+		// A kill is a change: the plan for the kills left; then idle again.
 		harness.setRemaining(19);
 		harness.tick();
 		refreshed(PanelProbe.AdvisorCardProbe::isShown);
@@ -532,8 +423,6 @@ public class HarnessAdvisorCardTest
 		assertEquals(best.toString(), 2, best.size());
 		assertEquals("the sample size stays on the first line's right, the rest goes under it",
 			"Cannon, melee, Smoke Dungeon", String.join(" ", best));
-		assertEquals(Collections.singletonList("Barrage, Catacombs"),
-			card(probe -> probe.getNameLinesShown("counterpart")));
 		List<String> all = new ArrayList<>(title);
 		all.addAll(best);
 		for (String line : all)
@@ -570,27 +459,27 @@ public class HarnessAdvisorCardTest
 		assertTrue("the rest is cut short: " + shown, shown.get(1).endsWith(FitLabel.ELLIPSIS));
 		List<String> lines = card(PanelProbe.AdvisorCardProbe::getTitleLines);
 		assertEquals("Based on 3 " + task + " tasks", String.join(" ", lines));
-		String title = card(PanelProbe.AdvisorCardProbe::getTitleTooltip);
-		assertTrue(title, title.startsWith("<html>Based on 3 " + task + " tasks<br>"));
+		assertEquals("<html>Based on 3 " + task + " tasks</html>",
+			card(PanelProbe.AdvisorCardProbe::getTitleTooltip));
 		// The option's name fits two lines: whole.
 		List<String> name = card(probe -> probe.getNameLinesShown("recommendation"));
 		assertEquals("Cannon, barrage, Stronghold Cave", String.join(" ", name));
 	}
 
 	@Test
-	public void aTaskAlreadyStartedAtTheLoginIsCollapsed()
+	public void aTaskAlreadyStartedAtTheLoginShowsThePlanForTheKillsLeft()
 	{
 		start(TASK, history(), 12, 20);
 
 		// Read as the model's changes left it: no panel refresh.
 		assertTrue(card(PanelProbe.AdvisorCardProbe::isShown));
-		assertFalse("fewer left than assigned: its first kill is done", card(PanelProbe.AdvisorCardProbe::isOpen));
-		assertEquals("Plan: cannon, melee, ~24 min (3 tasks)", card(PanelProbe.AdvisorCardProbe::getCollapsedLine));
+		assertEquals("Based on 7 Abyssal demons tasks", card(PanelProbe.AdvisorCardProbe::getTitle));
+		assertEquals("~24 min", card(probe -> probe.getBlock("recommendation")).get(1));
 		assertRefreshBuildsNothing();
 	}
 
 	@Test
-	public void aRestoredSessionIsCollapsed()
+	public void aRestoredSessionShowsTheCard()
 	{
 		start(history());
 		// A session of the task with no kill yet, kept over a restart: restored as Logged out, the count unchanged.
@@ -606,28 +495,27 @@ public class HarnessAdvisorCardTest
 		// itself, so the model is told now, whatever the EDT ran before it (the overlay's pace shows it).
 		assertNotNull("the restored session's pace", harness.overlayData().getHistoricalMillisPerKill());
 		assertTrue(card(PanelProbe.AdvisorCardProbe::isShown));
-		assertFalse("an active session of the task", card(PanelProbe.AdvisorCardProbe::isOpen));
+		assertEquals("~40 min", card(probe -> probe.getBlock("recommendation")).get(1));
 		assertRefreshBuildsNothing();
 	}
 
 	@Test
-	public void aSessionOfTheTaskCollapsesTheCardWithoutARefreshAndRebuildsNothingElse()
+	public void aSessionOfTheTaskRebuildsNothing()
 	{
 		start(history());
-		assertTrue(card(PanelProbe.AdvisorCardProbe::isOpen));
 		int cardBuilds = card(PanelProbe.AdvisorCardProbe::getBuildCount);
 		int[] others = otherSectionBuilds();
 
 		// A session of the task starts with no kill (as a restored one is): no input of the plan changed, so no view
-		// is worked out and nothing refreshes the panel. The model's live change alone tells the card.
+		// is worked out, and the card stays as it is.
 		assertTrue(harness.startNow());
-		assertFalse("a session of the task", card(PanelProbe.AdvisorCardProbe::isOpen));
-		assertEquals("collapsed once", cardBuilds + 1, (int) card(PanelProbe.AdvisorCardProbe::getBuildCount));
+		assertTrue(card(PanelProbe.AdvisorCardProbe::isShown));
+		assertEquals("nothing rebuilt", cardBuilds, (int) card(PanelProbe.AdvisorCardProbe::getBuildCount));
 		assertArrayEquals("no other section is rebuilt for it", others, otherSectionBuilds());
 
 		// Ticks with nothing new build nothing.
 		harness.ticks(3);
-		assertEquals(cardBuilds + 1, (int) card(PanelProbe.AdvisorCardProbe::getBuildCount));
+		assertEquals(cardBuilds, (int) card(PanelProbe.AdvisorCardProbe::getBuildCount));
 		assertRefreshBuildsNothing();
 	}
 
@@ -651,41 +539,38 @@ public class HarnessAdvisorCardTest
 	}
 
 	@Test
-	public void theSameCreatureReassignedWithoutAGapOpensAgain()
+	public void theSameCreatureReassignedWithoutAGapShowsItsPlan()
 	{
 		start(history());
 		harness.setRemaining(19);
 		harness.tick();
-		assertFalse(card(PanelProbe.AdvisorCardProbe::isOpen));
+		assertEquals("~38 min", card(probe -> probe.getBlock("recommendation")).get(1));
 
 		// A new assignment of the same creature, read with no tick of no task between.
 		harness.setTask(DEMONS, TASK, 30, 30);
 		harness.tick();
 		assertTrue(card(PanelProbe.AdvisorCardProbe::isShown));
-		assertTrue("a new assignment opens it", card(PanelProbe.AdvisorCardProbe::isOpen));
 		assertEquals("~1 h", card(probe -> probe.getBlock("recommendation")).get(1));
 		assertRefreshBuildsNothing();
 	}
 
 	@Test
-	public void aKonarTaskCollapsesAfterItsFirstKillAndOpensForANewArea()
+	public void aKonarTaskKeepsItsAreasPlanThroughAKillAndANewAreaGetsItsOwn()
 	{
 		harness.setAssignment(SlayerMaster.KONAR, KONAR_AREA + 1, "Catacombs of Kourend");
 		start(history());
-		assertTrue(card(PanelProbe.AdvisorCardProbe::isOpen));
 		assertEquals("Barrage, Catacombs | 3 tasks", card(probe -> probe.getBlock("recommendation")).get(0));
 
 		harness.setRemaining(19);
 		harness.tick();
-		assertFalse(card(PanelProbe.AdvisorCardProbe::isOpen));
-		assertEquals("Plan: barrage, ~57 min (3 tasks)", card(PanelProbe.AdvisorCardProbe::getCollapsedLine));
+		assertEquals(Arrays.asList("Barrage, Catacombs | 3 tasks", "~57 min"),
+			card(probe -> probe.getBlock("recommendation")).subList(0, 2));
 		assertRefreshBuildsNothing();
 
-		// Konar gives the same creature again, elsewhere: a new assignment, open, with that area's plan.
+		// Konar gives the same creature again, elsewhere: a new assignment, with that area's plan.
 		harness.setAssignment(SlayerMaster.KONAR, KONAR_AREA, "Slayer Tower");
 		harness.setTask(DEMONS, TASK, 25, 25);
 		harness.tick();
-		assertTrue(card(PanelProbe.AdvisorCardProbe::isOpen));
 		assertEquals("No completed tasks in " + TaskPlanText.shortSpotName(TestSpots.TOWER_ID, TestSpots.TABLE, null)
 			+ " yet, so all areas are used.", card(PanelProbe.AdvisorCardProbe::getAreaNote));
 		assertRefreshBuildsNothing();
@@ -697,9 +582,7 @@ public class HarnessAdvisorCardTest
 		start(history());
 		harness.setRemaining(19);
 		harness.tick();
-		// The player opens it after the first kill: their choice.
-		click(PanelProbe.AdvisorCardProbe::clickCollapsed);
-		assertTrue(refreshed(PanelProbe.AdvisorCardProbe::isOpen));
+		assertTrue(refreshed(PanelProbe.AdvisorCardProbe::isShown));
 		int builds = card(PanelProbe.AdvisorCardProbe::getBuildCount);
 
 		// The count reads 0 for one tick (SessionTracker.MAX_TRANSIENT_ZERO_OBSERVATIONS), then the same task is back
@@ -710,7 +593,6 @@ public class HarnessAdvisorCardTest
 		harness.setRemaining(19);
 		harness.tick();
 		assertTrue("shown again by the refresh", refreshed(PanelProbe.AdvisorCardProbe::isShown));
-		assertTrue("the player's choice holds", card(PanelProbe.AdvisorCardProbe::isOpen));
 		assertEquals("~38 min", card(probe -> probe.getBlock("recommendation")).get(1));
 		assertEquals("nothing rebuilt", builds, (int) card(PanelProbe.AdvisorCardProbe::getBuildCount));
 	}
@@ -754,7 +636,6 @@ public class HarnessAdvisorCardTest
 	{
 		start(history());
 		assertTrue(card(PanelProbe.AdvisorCardProbe::isShown));
-		assertTrue(card(PanelProbe.AdvisorCardProbe::isOpen));
 		List<String> recommendation = card(probe -> probe.getBlock("recommendation"));
 
 		// Logging out clears the history; logging back in to the same account, task and place (no kill in between)
@@ -762,7 +643,6 @@ public class HarnessAdvisorCardTest
 		harness.logout();
 		harness.loginAndSettle(ACCOUNT);
 		assertTrue("shown again after the relog", card(PanelProbe.AdvisorCardProbe::isShown));
-		assertTrue("open: no kill yet", card(PanelProbe.AdvisorCardProbe::isOpen));
 		assertEquals("the same plan", recommendation, card(probe -> probe.getBlock("recommendation")));
 	}
 
@@ -791,15 +671,8 @@ public class HarnessAdvisorCardTest
 	private void assertRefreshBuildsNothing()
 	{
 		int builds = card(PanelProbe.AdvisorCardProbe::getBuildCount);
-		boolean open = card(PanelProbe.AdvisorCardProbe::isOpen);
-		assertEquals(open, refreshed(PanelProbe.AdvisorCardProbe::isOpen));
+		boolean shown = card(PanelProbe.AdvisorCardProbe::isShown);
+		assertEquals(shown, refreshed(PanelProbe.AdvisorCardProbe::isShown));
 		assertEquals(builds, (int) card(PanelProbe.AdvisorCardProbe::getBuildCount));
-	}
-
-	private int planBuilds()
-	{
-		AtomicInteger builds = new AtomicInteger();
-		harness.onEdt(() -> builds.set(harness.historyModel().getPlanBuildCount()));
-		return builds.get();
 	}
 }

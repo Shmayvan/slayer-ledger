@@ -1,10 +1,8 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import net.runelite.api.gameval.ItemID;
-import net.runelite.api.gameval.SpriteID;
+import java.util.*;
+import lombok.*;
+import net.runelite.api.gameval.*;
 
 /**
  * The small sprites that stand for a task's setup tags (V2 plan 4.3, DESIGN_PRINCIPLES.md 2.1 and 3.4): the overlay's
@@ -30,6 +28,8 @@ final class SetupTagIcons
 	static final String SET_BY_YOU = " (set by you)";
 
 	/** One tag's image: an item icon or a game sprite (sprite archive, frame 0). */
+	@Getter
+	@AllArgsConstructor
 	enum Icon
 	{
 		/** A cannon task: the cannon barrels item ({@code ItemID.TWPART3}, "Cannon barrels"). */
@@ -47,69 +47,28 @@ final class SetupTagIcons
 		/** Strength gear focus: the Strength skill icon. */
 		STRENGTH("Strength gear", SpriteID.Staticons.STRENGTH, false);
 
-		private final String name;
-		private final int id;
-		private final boolean item;
-
-		Icon(String name, int id, boolean item)
-		{
-			this.name = name;
-			this.id = id;
-			this.item = item;
-		}
-
 		/** What the image stands for, for a tooltip: {@code Cannon}, {@code Barrage}, {@code Prayer gear}. */
-		String getName()
-		{
-			return name;
-		}
-
+		private final String name;
 		/** The item id ({@link #isItem}) or the sprite archive id. */
-		int getId()
-		{
-			return id;
-		}
-
+		private final int id;
 		/** Whether {@link #getId} is an item id (else a sprite archive, drawn from frame 0). */
-		boolean isItem()
-		{
-			return item;
-		}
+		private final boolean item;
 	}
 
 	/**
 	 * One effective tag's image with how its value was decided, for the sidebar: an estimate (a migrated 1.x task) or
 	 * set by the player (never both: an overridden tag is never estimated, {@link SetupTags}). Immutable.
 	 */
+	@Getter
+	@EqualsAndHashCode
+	@AllArgsConstructor(access = AccessLevel.PACKAGE)
 	static final class Tag
 	{
 		private final Icon icon;
-		private final boolean estimated;
-		private final boolean setByYou;
-
-		Tag(Icon icon, boolean estimated, boolean setByYou)
-		{
-			this.icon = icon;
-			this.estimated = estimated;
-			this.setByYou = setByYou;
-		}
-
-		Icon getIcon()
-		{
-			return icon;
-		}
-
 		/** Whether the value is an estimate: detected on a migrated 1.x task and not set by the player. */
-		boolean isEstimated()
-		{
-			return estimated;
-		}
-
+		private final boolean estimated;
 		/** Whether the player set the value (an override). */
-		boolean isSetByYou()
-		{
-			return setByYou;
-		}
+		private final boolean setByYou;
 
 		/**
 		 * The icon's tooltip, plain text: what it stands for ({@link Icon#getName}), then {@link #ESTIMATED} or
@@ -118,23 +77,6 @@ final class SetupTagIcons
 		String getTooltip()
 		{
 			return icon.getName() + (estimated ? ESTIMATED : "") + (setByYou ? SET_BY_YOU : "");
-		}
-
-		@Override
-		public boolean equals(Object other)
-		{
-			if (!(other instanceof Tag))
-			{
-				return false;
-			}
-			final Tag that = (Tag) other;
-			return icon == that.icon && estimated == that.estimated && setByYou == that.setByYou;
-		}
-
-		@Override
-		public int hashCode()
-		{
-			return (icon.hashCode() * 31 + (estimated ? 1 : 0)) * 31 + (setByYou ? 1 : 0);
 		}
 
 		@Override

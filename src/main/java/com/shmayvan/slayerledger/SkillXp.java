@@ -1,13 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.TreeMap;
-import lombok.Value;
+import java.util.*;
+import lombok.*;
 
 /**
  * XP gained per skill during a task. Skills are keyed by the name of RuneLite's {@code Skill} constant (for

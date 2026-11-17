@@ -1,19 +1,10 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.Graphics2D;
-import java.awt.Image;
-import java.awt.Point;
-import java.awt.Rectangle;
-import java.awt.RenderingHints;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.awt.*;
+import java.util.*;
 import java.util.List;
-import net.runelite.client.ui.overlay.components.ComponentConstants;
-import net.runelite.client.ui.overlay.components.LayoutableRenderableEntity;
+import lombok.*;
+import net.runelite.client.ui.overlay.components.*;
 import net.runelite.client.ui.overlay.components.TextComponent;
 
 /**
@@ -36,8 +27,11 @@ final class OverlayIconLine implements LayoutableRenderableEntity
 	private final List<Image> trailing;
 	private final int trailingSize;
 
+	@Getter
 	private final Rectangle bounds = new Rectangle();
+	@Setter
 	private Point preferredLocation = new Point();
+	@Setter
 	private Dimension preferredSize = new Dimension(ComponentConstants.STANDARD_WIDTH, 0);
 
 	private OverlayIconLine(String text, Color color, Font font, Image leading, int leadingWidth, int leadingHeight,
@@ -128,23 +122,5 @@ final class OverlayIconLine implements LayoutableRenderableEntity
 		final int drawHeight = Math.max(1, (int) Math.round(imageHeight * scale));
 		graphics.drawImage(image, x + (width - drawWidth) / 2, y + (height - drawHeight) / 2, drawWidth, drawHeight,
 			null);
-	}
-
-	@Override
-	public Rectangle getBounds()
-	{
-		return bounds;
-	}
-
-	@Override
-	public void setPreferredLocation(Point position)
-	{
-		preferredLocation = position;
-	}
-
-	@Override
-	public void setPreferredSize(Dimension dimension)
-	{
-		preferredSize = dimension;
 	}
 }

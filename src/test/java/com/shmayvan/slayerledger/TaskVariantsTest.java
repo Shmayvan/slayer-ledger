@@ -1,6 +1,9 @@
 package com.shmayvan.slayerledger;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -35,6 +38,8 @@ public class TaskVariantsTest
 	/** A boss task's creature key: {@code -2 - bossId}. */
 	private static final int BOSS_TASK = -2 - 7;
 	private static final String GG = "Grotesque Guardians";
+	/** The boss table's file, for what explains its rows (sources, ids, attribution), which the table doesn't read. */
+	private static final JsonObject BOSS_FILE = BundledDataTest.file("slayer-bosses.json");
 
 	@Rule
 	public TemporaryFolder temp = new TemporaryFolder();
@@ -71,34 +76,42 @@ public class TaskVariantsTest
 			NpcID.GRYPHON_BOSS, 14860, "Shellbane gryphon");
 		assertEquals(9, SlayerBosses.all().size());
 
+		assertEquals(BOSS_FILE.getAsJsonArray("bosses").size(), SlayerBosses.all().size());
 		for (SlayerBosses.Boss boss : SlayerBosses.all())
 		{
 			// The task is one of the game's Slayer tasks, as RuneLite's Slayer plugin names them.
 			assertNotNull(boss.getTask(), TaskIcons.itemId(boss.getTask()));
-			assertSource(boss.getSource());
-			assertFalse(boss.getNpcs().isEmpty());
-			for (SlayerBosses.Npc npc : boss.getNpcs())
+			assertSource(bossRow(boss.getTask()).getAsJsonObject("source"));
+			assertFalse(boss.getNpcNames().isEmpty());
+			for (String npc : boss.getNpcNames())
 			{
 				// Each NPC name resolves to the boss: one kill of it on the task is the boss variant and sets the flag.
-				assertTrue(npc.getName(), SlayerBosses.isBossNpcName(npc.getName()));
-				assertTrue(TaskVariants.isDecidingNpcName(npc.getName()));
-				TaskVariants.Decision decision = decide(boss.getTask(), tally(npc.getName(), 1), 1);
-				assertEquals(npc.getName(), boss.getName(), decision.getVariant());
+				assertTrue(npc, SlayerBosses.isBossNpcName(npc));
+				assertTrue(TaskVariants.isDecidingNpcName(npc));
+				TaskVariants.Decision decision = decide(boss.getTask(), tally(npc, 1), 1);
+				assertEquals(npc, boss.getName(), decision.getVariant());
 				assertTrue(decision.isVariantBoss());
 				assertTrue(decision.isBossKills());
 			}
 			assertEquals(boss.getName(), TaskVariants.bossName(boss.getTask()));
 		}
 
-		// The data's attribution, shaped as slayer-spots.json's.
-		assertEquals("Old School RuneScape Wiki", SlayerBosses.SOURCE);
-		assertEquals("CC BY-NC-SA 3.0", SlayerBosses.LICENSE);
-		assertEquals("https://creativecommons.org/licenses/by-nc-sa/3.0/", SlayerBosses.LICENSE_URL);
-		assertEquals("Old School RuneScape Wiki contributors", SlayerBosses.CONTRIBUTORS);
-		assertEquals("2026-11-09", SlayerBosses.RETRIEVED);
-		assertTrue(SlayerBosses.ATTRIBUTION.contains("CC BY-NC-SA 3.0"));
-		assertSource(SlayerBosses.LIST_SOURCE);
-		assertSource(SlayerBosses.SUPERIORS_SOURCE);
+		// The data's attribution, in slayer-bosses.json and shaped as slayer-spots.json's.
+		assertEquals("Old School RuneScape Wiki", BOSS_FILE.get("source").getAsString());
+		assertEquals("CC BY-NC-SA 3.0", BOSS_FILE.get("license").getAsString());
+		assertEquals("https://creativecommons.org/licenses/by-nc-sa/3.0/", BOSS_FILE.get("licenseUrl").getAsString());
+		assertEquals("Old School RuneScape Wiki contributors", BOSS_FILE.get("contributors").getAsString());
+		assertEquals("2026-11-09", BOSS_FILE.get("retrieved").getAsString());
+		assertTrue(BOSS_FILE.get("attribution").getAsString().contains("CC BY-NC-SA 3.0"));
+		JsonObject listSource = BOSS_FILE.getAsJsonObject("listSource");
+		assertSource(listSource);
+		assertEquals("https://oldschool.runescape.wiki/w/Boss#Slayer_bosses", listSource.get("page").getAsString());
+		assertEquals(15390364L, listSource.get("revision").getAsLong());
+		JsonObject superiorsSource = BOSS_FILE.getAsJsonObject("superiorsSource");
+		assertSource(superiorsSource);
+		assertEquals("https://oldschool.runescape.wiki/w/Superior_slayer_monster",
+			superiorsSource.get("page").getAsString());
+		assertEquals(15389037L, superiorsSource.get("revision").getAsLong());
 	}
 
 	@Test
@@ -121,14 +134,23 @@ public class TaskVariantsTest
 		expected.put(NpcID.SUPERIOR_CHILLED_JELLY, "Vitreous Chilled Jelly");
 		expected.put(NpcID.SUPERIOR_BANSHEE, "Screaming banshee");
 		expected.put(NpcID.SUPERIOR_KOUREND_BANSHEE, "Screaming twisted banshee");
+		// The file's ids and names; the table reads the names, in the file's order.
 		Map<Integer, String> actual = new HashMap<>();
-		for (SlayerBosses.Npc npc : SlayerBosses.superiors())
+		List<String> names = new ArrayList<>();
+		for (JsonElement element : BOSS_FILE.getAsJsonArray("superiors"))
 		{
-			actual.put(npc.getId(), npc.getName());
-			assertTrue(TaskVariants.isDecidingNpcName(npc.getName()));
+			JsonObject npc = element.getAsJsonObject();
+			actual.put(npc.get("id").getAsInt(), npc.get("name").getAsString());
+			names.add(npc.get("name").getAsString());
 		}
 		assertEquals(expected, actual);
-		assertEquals(16, SlayerBosses.superiors().size());
+		// The table reads every one, and each decides a task's variant.
+		for (String name : names)
+		{
+			assertTrue(name, SlayerBosses.isSuperiorName(name));
+			assertTrue(TaskVariants.isDecidingNpcName(name));
+		}
+		assertEquals(16, names.size());
 		assertEquals(7407, NpcID.SUPERIOR_GARGOYLE);
 		assertEquals(13680, NpcID.SUPERIOR_ARAXYTE);
 		assertTrue(SlayerBosses.isSuperiorName(" MARBLE gargoyle "));
@@ -427,24 +449,44 @@ public class TaskVariantsTest
 		assertNotNull(task, boss);
 		assertEquals(task, boss.getTask());
 		assertEquals(name, boss.getName());
-		assertEquals("https://oldschool.runescape.wiki/w/" + path, boss.getSource().getPage());
-		assertEquals(revision, boss.getSource().getRevision());
-		assertEquals(npcs.length / 3, boss.getNpcs().size());
+		// The file's source and NPC ids, which explain the row; the table reads the names.
+		JsonObject row = bossRow(task);
+		JsonObject source = row.getAsJsonObject("source");
+		assertEquals("https://oldschool.runescape.wiki/w/" + path, source.get("page").getAsString());
+		assertEquals(revision, source.get("revision").getAsLong());
+		JsonArray rowNpcs = row.getAsJsonArray("npcs");
+		assertEquals(npcs.length / 3, boss.getNpcNames().size());
+		assertEquals(npcs.length / 3, rowNpcs.size());
 		for (int i = 0; i < npcs.length; i += 3)
 		{
 			assertEquals("the constant's id", npcs[i + 1], npcs[i]);
-			SlayerBosses.Npc npc = boss.getNpcs().get(i / 3);
-			assertEquals(npcs[i + 1], npc.getId());
-			assertEquals(npcs[i + 2], npc.getName());
+			JsonObject npc = rowNpcs.get(i / 3).getAsJsonObject();
+			assertEquals(npcs[i + 1], npc.get("id").getAsInt());
+			assertEquals(npcs[i + 2], npc.get("name").getAsString());
+			assertEquals(npcs[i + 2], boss.getNpcNames().get(i / 3));
 		}
 	}
 
-	private static void assertSource(SlayerBosses.Source source)
+	/** The slayer-bosses.json row of {@code task}. */
+	private static JsonObject bossRow(String task)
+	{
+		for (JsonElement row : BOSS_FILE.getAsJsonArray("bosses"))
+		{
+			if (row.getAsJsonObject().get("task").getAsString().equals(task))
+			{
+				return row.getAsJsonObject();
+			}
+		}
+		throw new AssertionError("no row for " + task);
+	}
+
+	private static void assertSource(JsonObject source)
 	{
 		assertNotNull(source);
-		assertFalse(source.getArticle().trim().isEmpty());
-		assertTrue(source.getPage(), source.getPage().startsWith("https://oldschool.runescape.wiki/w/"));
-		assertTrue(source.getRevision() > 0);
+		assertFalse(source.get("article").getAsString().trim().isEmpty());
+		String page = source.get("page").getAsString();
+		assertTrue(page, page.startsWith("https://oldschool.runescape.wiki/w/"));
+		assertTrue(source.get("revision").getAsLong() > 0);
 	}
 
 	@Test

@@ -4,13 +4,17 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import java.lang.reflect.Method;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import net.runelite.api.gameval.ItemID;
 import org.junit.Test;
 
@@ -92,7 +96,7 @@ public class TaskIconsTest
 		for (OverallTotals.Grouping grouping : Arrays.asList(OverallTotals.Grouping.ALL,
 			OverallTotals.Grouping.MASTER, OverallTotals.Grouping.MONTH))
 		{
-			List<OverallTotals.Entry> entries = OverallTotals.summarize(Collections.singletonList(named), grouping,
+			List<OverallTotals.Entry> entries = TestTotals.summarize(Collections.singletonList(named), grouping,
 				LootPriceMode.GE, Collections.emptyMap(), UTC);
 			assertNull(grouping.toString(), entries.get(0).getTask());
 		}
@@ -125,17 +129,26 @@ public class TaskIconsTest
 		getItemSpriteId.setAccessible(true);
 		Object[] tasks = taskClass.getEnumConstants();
 		assertTrue(tasks.length > 100);
+		Set<String> names = new HashSet<>();
 		for (Object task : tasks)
 		{
 			String name = (String) getName.invoke(task);
+			names.add(name);
 			assertEquals(name, getItemSpriteId.invoke(task), TaskIcons.itemId(name));
 		}
-		assertEquals(tasks.length, TaskIcons.size());
+		// And no other: each of the bundled file's rows is one of the enum's tasks.
+		JsonArray rows = BundledDataTest.file("task-icons.json").getAsJsonArray("tasks");
+		for (JsonElement row : rows)
+		{
+			String name = row.getAsJsonObject().get("task").getAsString();
+			assertTrue("Not in the enum: " + name, names.contains(name));
+		}
+		assertEquals(tasks.length, rows.size());
 	}
 
 	private static List<OverallTotals.Entry> byMonster(List<LedgerRecord> records)
 	{
-		return OverallTotals.summarize(records, OverallTotals.Grouping.MONSTER, LootPriceMode.GE,
+		return TestTotals.summarize(records, OverallTotals.Grouping.MONSTER, LootPriceMode.GE,
 			Collections.emptyMap(), UTC);
 	}
 

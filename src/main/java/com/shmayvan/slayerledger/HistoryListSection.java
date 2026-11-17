@@ -1,54 +1,16 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Container;
-import java.awt.Cursor;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
-import java.awt.LayoutManager;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.awt.font.TextAttribute;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.awt.*;
+import java.awt.event.*;
+import java.awt.font.*;
+import java.time.*;
+import java.time.format.*;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
-import java.util.function.BiPredicate;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.DefaultComboBoxModel;
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JList;
-import javax.swing.JMenuItem;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
-import javax.swing.ListCellRenderer;
-import javax.swing.SwingUtilities;
-import javax.swing.ToolTipManager;
-import javax.swing.border.EmptyBorder;
+import java.util.function.*;
+import javax.swing.*;
+import javax.swing.border.*;
+import lombok.*;
 
 /**
  * The "Task history" section of {@link SlayerLedgerPanel}, in look A (DESIGN_PRINCIPLES.md 3.7): a flat
@@ -152,6 +114,7 @@ final class HistoryListSection
 	 * Renames a region the spot table doesn't list for every task there ({@code (region, name)}); {@code true}
 	 * when the name was taken. None until {@link #setRenamePlace}.
 	 */
+	@Setter
 	private BiPredicate<Integer, String> renamePlace = (region, name) -> false;
 	/** Revalidates and repaints the panel after a change. */
 	private final Runnable relayout;
@@ -224,15 +187,6 @@ final class HistoryListSection
 		this.relayout = relayout;
 		this.icons = icons;
 		icons.getSetup().addListener(this::tagImageArrived, list::repaint);
-	}
-
-	/**
-	 * Sets what renames a region the spot table doesn't list, for every task there ({@code (region, name)};
-	 * {@code true} when the name was taken).
-	 */
-	void setRenamePlace(BiPredicate<Integer, String> renamePlace)
-	{
-		this.renamePlace = renamePlace;
 	}
 
 	/** Adds the header, the filters, the hints, the error line and the (empty) list to {@code content}. */
@@ -794,16 +748,11 @@ final class HistoryListSection
 	}
 
 	/** The two date formats of a rebuild: the rows' dates and the tooltips' dates with times. */
+	@AllArgsConstructor(access = AccessLevel.PRIVATE)
 	private static final class RowFormat
 	{
 		private final DateTimeFormatter date;
 		private final DateTimeFormatter dateTime;
-
-		private RowFormat(DateTimeFormatter date, DateTimeFormatter dateTime)
-		{
-			this.date = date;
-			this.dateTime = dateTime;
-		}
 	}
 
 	/**

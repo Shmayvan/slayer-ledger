@@ -78,8 +78,8 @@ public class CrushedLootFilterTest
 		for (List<Integer> carried : Arrays.asList(CRUSHER, NECKLACE))
 		{
 			CrushedLootFilter filter = CrushedLootFilter.forDrop(BonecrusherMode.AUTO, carried);
-			assertTrue(filter.excludesBones());
-			assertFalse(filter.excludesAshes());
+			assertFalse(filter.keeps(ItemID.WYRM_BONES));
+			assertTrue(filter.keeps(ItemID.ABYSSAL_ASHES));
 			ItemTally kept = filter.apply(wyrmLoot());
 			assertEquals(0, kept.get(ItemID.WYRM_BONES));
 			assertEquals(1, kept.get(ItemID.ABYSSAL_ASHES));
@@ -94,8 +94,8 @@ public class CrushedLootFilterTest
 	public void autoWithAnAshSanctifierDropsDemonicAshesOnly()
 	{
 		CrushedLootFilter filter = CrushedLootFilter.forDrop(BonecrusherMode.AUTO, SANCTIFIER);
-		assertFalse(filter.excludesBones());
-		assertTrue(filter.excludesAshes());
+		assertTrue(filter.keeps(ItemID.WYRM_BONES));
+		assertFalse(filter.keeps(ItemID.ABYSSAL_ASHES));
 		ItemTally kept = filter.apply(wyrmLoot());
 		assertEquals(1, kept.get(ItemID.WYRM_BONES));
 		assertEquals(0, kept.get(ItemID.ABYSSAL_ASHES));
@@ -117,9 +117,8 @@ public class CrushedLootFilterTest
 		for (List<Integer> carried : Arrays.asList(NOTHING, CRUSHER, null))
 		{
 			CrushedLootFilter filter = CrushedLootFilter.forDrop(BonecrusherMode.ALWAYS_EXCLUDE, carried);
-			assertTrue(filter.excludesBones());
-			assertTrue(filter.excludesAshes());
 			assertFalse(filter.keeps(ItemID.WYRM_BONES));
+			assertFalse(filter.keeps(ItemID.ABYSSAL_ASHES));
 			assertFalse(filter.keeps(ItemID.INFERNAL_ASHES));
 			assertTrue(filter.keeps(ItemID.COINS));
 		}
@@ -140,7 +139,7 @@ public class CrushedLootFilterTest
 	{
 		assertTrue(CrushedLootFilter.needsCarriedItems(BonecrusherMode.AUTO));
 		assertTrue(CrushedLootFilter.needsCarriedItems(null));
-		assertTrue(CrushedLootFilter.forDrop(null, CRUSHER).excludesBones());
+		assertFalse(CrushedLootFilter.forDrop(null, CRUSHER).keeps(ItemID.WYRM_BONES));
 	}
 
 	@Test

@@ -1,75 +1,55 @@
 package com.shmayvan.slayerledger;
 
-import java.math.BigDecimal;
-import java.math.MathContext;
-import java.math.RoundingMode;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import lombok.Builder;
-import lombok.Value;
+import java.math.*;
+import java.util.*;
+import lombok.*;
 
 /**
  * The advisor's planner (V2 plan 5 and 6): from the player's completed tasks of the current task's creature, how
- * to do the kills left, how long it takes, what to bring and the alternative. Pure: no client, Swing or file access, so
- * the plugin can work it out off the EDT from an immutable snapshot ({@link Request}).
+ * to do the kills left, how long it takes and what to bring. Pure: no client, Swing or file access, so the plugin can
+ * work it out off the EDT from an immutable snapshot ({@link Request}).
  *
  * <p><b>Pool.</b> The samples are the records that are completed, not partial, with kills and active time
- * ({@link TaskRanking#isTaskSample}) and of the current task's creature ({@link TaskStatistics#isSample}: by creature
- * key, or by name for a record or task without one), every version pooled. Boss tasks are their own pool: a boss task's
- * plan uses only boss-task records, any other task's only the others. A Wilderness task's (Krystilia's) plan uses only
- * Wilderness tasks ({@link TaskType#of} the record's master and creature key), since its kills count only in the
- * Wilderness.</p>
+ * ({@link TaskStatistics#isTaskSample}) and of the current task's creature ({@link TaskStatistics#isSample}: by
+ * creature key, or by name for a record or task without one), every version pooled. Boss tasks are their own pool: a
+ * boss task's plan uses only boss-task records, any other task's only the others. A Wilderness task's (Krystilia's)
+ * plan uses only Wilderness tasks ({@link TaskType#of} the record's master and creature key), since its kills count
+ * only in the Wilderness.</p>
  *
  * <p><b>Options.</b> The samples are grouped by spot ({@link SlayerSpots#recordSpot}), whether their variant is the
  * task's Slayer boss (most kills were the boss: {@link LedgerRecord#getVariant} names the boss of
  * {@link TaskVariants#bossName}), the effective cannon and the effective style ({@link SetupTags#of}). An estimated
  * value groups under its own value, and the option carries the estimated mark. A sample with an Unknown spot or style
- * is in no option; it counts only in the "All setups" summary. The boss flag ({@link TaskVariants#hasBossKills}) and
- * the gear focus are reported per option and don't split them. A task with an assigned area (Konar's, whose kills
+ * is in no option; it counts only in the "All setups" summary. The boss flag ({@link TaskVariants#hasBossKills}) is
+ * reported per option and doesn't split them. A task with an assigned area (Konar's, whose kills
  * count only there) keeps only the options at the spot the area names ({@link SlayerSpots#spotNamed}); with none
  * there it keeps them all and the plan notes it ({@link TaskPlan#isAreaFallback}), and an area naming no spot keeps
  * them all.</p>
  *
  * <p><b>Each option</b> has its sample size n; the time for the kills left (the median time per kill of its tasks
- * times the kills left, with the 20th and 80th percentiles: {@link #percentile}); Slayer XP per hour, pooled over its
- * tasks with XP as {@link TaskRanking#perHour} pools it (no rate under a minute); profit per hour and the
- * supply cost of the kills left at today's prices, pooled (the cost per kill) over its valued tasks with supply data
- * ({@link #hasSupplyData}); the gear note; and what to bring: per item, the {@value #BRING_PERCENTILE}th percentile of
- * its use per kill over the tasks with supply data (a task that didn't use it counts 0), times the kills left,
- * rounded up to whole items, potions from doses, multi-bite food from bites and charged items from charges
- * ({@link LedgerRecord#getSupplyDoses}), a potion's ids of one family as one item ({@link Request#getPotionFamilies}).
+ * times the kills left: {@link #percentile}); and what to bring: per item, the {@value #BRING_PERCENTILE}th percentile
+ * of its use per kill over the tasks with supply data ({@link #hasSupplyData}; a task that didn't use it counts 0),
+ * times the kills left, rounded up to whole items, potions from doses, multi-bite food from bites and charged items
+ * from charges ({@link LedgerRecord#getSupplyDoses}), a potion's ids of one family as one item
+ * ({@link Request#getPotionFamilies}).
  * The items are sorted most valuable first (at today's GE price; unpriced last, then by amount and id) and cut to
  * {@value #MAX_BRING_ITEMS}, with the rest kept apart ({@link TaskPlan.Option#getBringRest}). With the kills left
- * unknown (0 or less) nothing is scaled to them: the times and supply costs are for one kill and nothing is to bring
+ * unknown (0 or less) nothing is scaled to them: the times are for one kill and nothing is to bring
  * ({@link TaskPlan#hasKillsLeft}).</p>
  *
- * <p><b>Recommendation.</b> The best option by the metric ({@link #order}) among those with at least
- * {@value #MIN_TASKS} tasks; with none, the option with the most tasks, ties broken by the metric, which the plan marks
- * thin ({@link TaskPlan#isRecommendationThin}). <b>Counterpart:</b> by the same rule among the options with the other
- * cannon choice. <b>More setups:</b> the rest, in the metric's order. With no samples the plan is
- * {@link TaskPlan#empty}, which for a Wilderness task notes when the creature has other completed tasks
- * ({@link TaskPlan#isWildernessHistoryMissing}).</p>
+ * <p><b>Recommendation.</b> The fastest option ({@link #ORDER}: least time for the kills left) among those with at
+ * least {@value #MIN_TASKS} tasks; with none, the option with the most tasks, ties broken by time, which the plan marks
+ * thin ({@link TaskPlan#isRecommendationThin}). With no samples the plan is {@link TaskPlan#empty}, which for a
+ * Wilderness task notes when the creature has other completed tasks ({@link TaskPlan#isWildernessHistoryMissing}).</p>
  */
 final class TaskPlanner
 {
-	/** Tasks an option needs to be chosen on the metric alone (as the badge's {@link TaskAdvisor#MIN_TASKS}). */
-	static final int MIN_TASKS = TaskAdvisor.MIN_TASKS;
+	/** Tasks an option needs to be chosen on its time alone. */
+	static final int MIN_TASKS = 3;
 	/** Bring items a plan shows before "+N more". */
 	static final int MAX_BRING_ITEMS = 8;
 	/** The percentile of the use per kill each bring amount is from: a safe amount, not an average one. */
 	static final int BRING_PERCENTILE = 80;
-	/** The time range's low end. */
-	static final int TIME_LOW_PERCENTILE = 20;
-	/** The time range's high end. */
-	static final int TIME_HIGH_PERCENTILE = 80;
 
 	private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
 	/**
@@ -86,13 +66,22 @@ final class TaskPlanner
 		.thenComparing(TaskPlan.Option::isCannon)
 		.thenComparing(TaskPlan.Option::getStyle);
 
+	/**
+	 * The options' order: least time for the kills left first (Fastest finish); ties by more tasks, then the option's
+	 * key.
+	 */
+	static final Comparator<TaskPlan.Option> ORDER = Comparator
+		.<TaskPlan.Option>comparingLong(option -> option.getTime().getMillis())
+		.thenComparing(Comparator.comparingInt(TaskPlan.Option::getTasks).reversed())
+		.thenComparing(KEY_ORDER);
+
 	private TaskPlanner()
 	{
 	}
 
 	/**
 	 * What the planner works from, captured where the plan is asked for: the current task, the kills left, the records
-	 * (not changed by the planner) and how they are valued, as {@link LedgerViews}' background views value them.
+	 * (not changed by the planner) and today's prices, as {@link LedgerViews}' background views capture them.
 	 * Immutable once built (the records collection and the prices map must not change while the plan is worked out).
 	 * Set the creature key: the builder's default, 0, is a creature.
 	 */
@@ -123,14 +112,8 @@ final class TaskPlanner
 		 */
 		String area;
 		Collection<LedgerRecord> records;
-		/** {@code null} is {@link AdvisorMetric#DEFAULT}. */
-		AdvisorMetric metric;
-		/** The "Loot price" mode the profit's loot is valued in; {@code null} is GE. */
-		LootPriceMode mode;
-		/** Today's GE unit prices ({@link HistoryPricing}); {@code null} is none. */
+		/** Today's GE unit prices ({@link HistoryPricing}), which value the bring items; {@code null} is none. */
 		Map<Integer, Long> prices;
-		/** Loot left out of the profit; {@code null} is none. */
-		HiddenLoot hidden;
 		/** The spot table; {@code null} is {@link SlayerSpots#NONE}. */
 		SlayerSpots spots;
 		/**
@@ -144,16 +127,15 @@ final class TaskPlanner
 	/** The plan for {@code request} (see the class rules); {@link TaskPlan#empty} with no samples. */
 	static TaskPlan plan(Request request)
 	{
-		final AdvisorMetric metric = AdvisorMetric.orDefault(request.getMetric());
 		final int kills = request.getKillsLeft();
 		final boolean wilderness = request.getTaskType() == TaskType.WILDERNESS;
 		final List<LedgerRecord> samples = samples(request, wilderness);
 		if (samples.isEmpty())
 		{
 			// A Wilderness task whose creature has only other tasks: said so, not "no completed tasks".
-			return TaskPlan.empty(request, kills, metric, wilderness && !samples(request, false).isEmpty());
+			return TaskPlan.empty(request, kills, wilderness && !samples(request, false).isEmpty());
 		}
-		// With the kills left unknown, the times and costs are for one kill.
+		// With the kills left unknown, the times are for one kill.
 		final int scaleKills = kills > 0 ? kills : 1;
 		final SlayerSpots spots = request.getSpots() == null ? SlayerSpots.NONE : request.getSpots();
 		final Map<Integer, Long> prices = request.getPrices() == null ? Collections.emptyMap() : request.getPrices();
@@ -174,13 +156,12 @@ final class TaskPlanner
 				key -> new ArrayList<>()).add(record);
 		}
 
-		final Comparator<TaskPlan.Option> order = order(metric);
 		List<TaskPlan.Option> options = new ArrayList<>();
 		for (Map.Entry<OptionKey, List<LedgerRecord>> group : groups.entrySet())
 		{
 			options.add(option(group.getKey(), group.getValue(), kills, request, prices));
 		}
-		options.sort(order);
+		options.sort(ORDER);
 
 		// An assigned area (Konar's): its kills count only there, so only the options at its spot, when there are any.
 		final String areaSpot = areaSpot(request.getArea(), spots);
@@ -205,22 +186,8 @@ final class TaskPlanner
 			}
 		}
 
-		final TaskPlan.Option recommendation = pick(options, order);
-		final List<TaskPlan.Option> others = new ArrayList<>();
-		for (TaskPlan.Option option : options)
-		{
-			if (recommendation != null && option.isCannon() != recommendation.isCannon())
-			{
-				others.add(option);
-			}
-		}
-		final TaskPlan.Option counterpart = pick(others, order);
-		final List<TaskPlan.Option> more = new ArrayList<>(options);
-		more.remove(recommendation);
-		more.remove(counterpart);
-		return TaskPlan.of(request, kills, metric,
-			new TaskPlan.Summary(samples.size(), time(samples, scaleKills)), Collections.unmodifiableList(options),
-			excluded, areaSpot, areaFallback, recommendation, counterpart, Collections.unmodifiableList(more));
+		return TaskPlan.of(request, kills, new TaskPlan.Summary(samples.size(), time(samples, scaleKills)),
+			Collections.unmodifiableList(options), excluded, areaSpot, areaFallback, pick(options));
 	}
 
 	/**
@@ -250,44 +217,15 @@ final class TaskPlanner
 	}
 
 	/**
-	 * The options' order for {@code metric}: Fastest finish by least time for the kills left, Profit per hour by most
-	 * profit per hour, Cheapest by least supply cost (an option without the value last); ties by more tasks, then less
-	 * time, then the option's key.
+	 * The best of {@code options} in {@link #ORDER} among those with at least {@link #MIN_TASKS} tasks; with none, the
+	 * one with the most tasks, ties in {@link #ORDER}. {@code null} for no options.
 	 */
-	static Comparator<TaskPlan.Option> order(AdvisorMetric metric)
-	{
-		final Comparator<TaskPlan.Option> byTime = Comparator.comparingLong(option -> option.getTime().getMillis());
-		final Comparator<TaskPlan.Option> primary;
-		switch (AdvisorMetric.orDefault(metric))
-		{
-			case PROFIT_PER_HOUR:
-				primary = Comparator.comparing(TaskPlan.Option::getProfitPerHour,
-					Comparator.nullsLast(Comparator.reverseOrder()));
-				break;
-			case CHEAPEST:
-				primary = Comparator.comparing(TaskPlan.Option::getSupplyCost,
-					Comparator.nullsLast(Comparator.naturalOrder()));
-				break;
-			default:
-				primary = byTime;
-				break;
-		}
-		return primary
-			.thenComparing(Comparator.comparingInt(TaskPlan.Option::getTasks).reversed())
-			.thenComparing(byTime)
-			.thenComparing(KEY_ORDER);
-	}
-
-	/**
-	 * The best of {@code options} in {@code order} among those with at least {@link #MIN_TASKS} tasks; with none, the
-	 * one with the most tasks, ties in {@code order}. {@code null} for no options.
-	 */
-	private static TaskPlan.Option pick(List<TaskPlan.Option> options, Comparator<TaskPlan.Option> order)
+	private static TaskPlan.Option pick(List<TaskPlan.Option> options)
 	{
 		TaskPlan.Option best = null;
 		for (TaskPlan.Option option : options)
 		{
-			if (option.getTasks() >= MIN_TASKS && (best == null || order.compare(option, best) < 0))
+			if (option.getTasks() >= MIN_TASKS && (best == null || ORDER.compare(option, best) < 0))
 			{
 				best = option;
 			}
@@ -297,7 +235,7 @@ final class TaskPlanner
 			return best;
 		}
 		final Comparator<TaskPlan.Option> mostTasks = Comparator.comparingInt(TaskPlan.Option::getTasks).reversed()
-			.thenComparing(order);
+			.thenComparing(ORDER);
 		for (TaskPlan.Option option : options)
 		{
 			if (best == null || mostTasks.compare(option, best) < 0)
@@ -323,7 +261,7 @@ final class TaskPlanner
 			|| request.getCreatureId() < SessionTracker.NO_CREATURE;
 		for (LedgerRecord record : request.getRecords())
 		{
-			if (TaskRanking.isTaskSample(record)
+			if (TaskStatistics.isTaskSample(record)
 				&& TaskStatistics.isSample(record, request.getCreatureId(), request.getTask())
 				&& isBossTask(record) == boss
 				&& (!wilderness || isWildernessTask(record)))
@@ -361,53 +299,17 @@ final class TaskPlanner
 		boolean cannonEstimated = false;
 		boolean styleEstimated = false;
 		int bossKillTasks = 0;
-		final Map<GearFocus, Integer> gears = new EnumMap<>(GearFocus.class);
-		long xpTotal = 0;
-		long xpMillis = 0;
-		long profitTotal = 0;
-		long profitMillis = 0;
-		boolean profitApproximate = false;
-		boolean valued = false;
-		long suppliesTotal = 0;
-		long suppliesKills = 0;
-		boolean suppliesApproximate = false;
 		for (LedgerRecord record : tasks)
 		{
 			final SetupTags tags = SetupTags.of(record);
 			cannonEstimated |= tags.isCannonEstimated();
 			styleEstimated |= tags.isStyleEstimated();
-			gears.merge(tags.getGear(), 1, Integer::sum);
 			if (TaskVariants.hasBossKills(record))
 			{
 				bossKillTasks++;
 			}
-			final Map<String, Long> xp = record.getXpGained();
-			if (xp != null)
-			{
-				// XP recorded without a Slayer entry means no Slayer XP was gained, as TaskRanking counts it.
-				final Long slayer = xp.get(SkillXp.SLAYER);
-				xpTotal = saturatedAdd(xpTotal, slayer == null ? 0 : Math.max(0, slayer));
-				xpMillis = saturatedAdd(xpMillis, record.getActiveMillis());
-			}
-			// Without supply data (a 1.x task saved without supplies) its supplies, so its profit, are unknown.
-			if (LedgerHistory.isValued(record) && hasSupplyData(record))
-			{
-				final HistoryPricing.Values values = HistoryPricing.value(record, request.getMode(), prices,
-					request.getHidden());
-				// As TaskStatistics: a valued record counts only with both a loot and a supplies value.
-				if (values.getLootValue() != null && values.getSuppliesGe() != null && values.getProfit() != null)
-				{
-					valued = true;
-					profitTotal = saturatedAdd(profitTotal, values.getProfit());
-					profitMillis = saturatedAdd(profitMillis, record.getActiveMillis());
-					profitApproximate |= values.isProfitApproximate();
-					suppliesTotal = saturatedAdd(suppliesTotal, values.getSuppliesGe());
-					suppliesKills = saturatedAdd(suppliesKills, record.getKills());
-					suppliesApproximate |= values.isSuppliesApproximate();
-				}
-			}
 		}
-		// Unknown kills left: nothing to bring, and the time and cost of one kill.
+		// Unknown kills left: nothing to bring, and the time of one kill.
 		final List<TaskPlan.BringItem> bring = kills > 0 ? bring(tasks, kills, prices, request.getPotionFamilies())
 			: Collections.emptyList();
 		// The grid's items; the rest are "+N more".
@@ -423,39 +325,9 @@ final class TaskPlanner
 			.bossKillTasks(bossKillTasks)
 			.tasks(tasks.size())
 			.time(time(tasks, scaleKills))
-			.slayerXpPerHour(xpMillis > 0 ? TaskRanking.perHour(xpTotal, xpMillis) : null)
-			.profitPerHour(valued ? TaskRanking.perHour(profitTotal, profitMillis) : null)
-			.profitApproximate(profitApproximate)
-			.supplyCost(valued ? scale(suppliesTotal, scaleKills, suppliesKills) : null)
-			.supplyCostApproximate(suppliesApproximate)
-			.gear(majorityGear(gears, tasks.size()))
 			.bring(Collections.unmodifiableList(new ArrayList<>(bring.subList(0, shown))))
 			.bringRest(Collections.unmodifiableList(new ArrayList<>(bring.subList(shown, bring.size()))))
 			.build();
-	}
-
-	/** The gear focus of more than half of {@code tasks} tasks, or {@code null} (Unknown is no gear note). */
-	private static GearFocus majorityGear(Map<GearFocus, Integer> gears, int tasks)
-	{
-		for (Map.Entry<GearFocus, Integer> gear : gears.entrySet())
-		{
-			if (gear.getKey() != GearFocus.UNKNOWN && gear.getValue() * 2L > tasks)
-			{
-				return gear.getKey();
-			}
-		}
-		return null;
-	}
-
-	/** {@code total * kills / sampleKills}, rounded half up; 0 when there are no sample kills. */
-	private static long scale(long total, int kills, long sampleKills)
-	{
-		if (sampleKills <= 0)
-		{
-			return 0;
-		}
-		return toLong(BigDecimal.valueOf(total).multiply(BigDecimal.valueOf(kills))
-			.divide(BigDecimal.valueOf(sampleKills), 0, RoundingMode.HALF_UP));
 	}
 
 	/** The time for {@code kills} kills from {@code tasks}' times per kill (see {@link TaskPlan.Time}). */
@@ -469,16 +341,7 @@ final class TaskPlanner
 		}
 		Collections.sort(perKill);
 		final BigDecimal median = percentile(perKill, 50);
-		final BigDecimal killsLeft = BigDecimal.valueOf(kills);
-		return new TaskPlan.Time(round(median), round(median.multiply(killsLeft)),
-			round(percentile(perKill, TIME_LOW_PERCENTILE).multiply(killsLeft)),
-			round(percentile(perKill, TIME_HIGH_PERCENTILE).multiply(killsLeft)));
-	}
-
-	/** As {@link #bring(List, int, Map, Map)} with every id on its own. */
-	static List<TaskPlan.BringItem> bring(List<LedgerRecord> tasks, int kills, Map<Integer, Long> prices)
-	{
-		return bring(tasks, kills, prices, null);
+		return new TaskPlan.Time(round(median), round(median.multiply(BigDecimal.valueOf(kills))));
 	}
 
 	/**
@@ -698,17 +561,12 @@ final class TaskPlanner
 	}
 
 	/** One bring line's item: an id, or a potion family's id with the most doses in a potion (on a tie the lower). */
+	@AllArgsConstructor(access = AccessLevel.PRIVATE)
 	private static final class Line
 	{
 		private int itemId;
 		/** Doses (bites, charges) in one item of {@link #itemId}, 1 for an item counted whole. */
 		private int perItem;
-
-		private Line(int itemId, int perItem)
-		{
-			this.itemId = itemId;
-			this.perItem = perItem;
-		}
 
 		/** Takes {@code id} as the item when it holds more doses in one item, or as many with a lower id. */
 		private void offer(int id, int dosesPerItem)
@@ -722,36 +580,13 @@ final class TaskPlanner
 	}
 
 	/** What splits the options: spot, boss variant, effective cannon and effective style. */
+	@EqualsAndHashCode
+	@AllArgsConstructor(access = AccessLevel.PRIVATE)
 	private static final class OptionKey
 	{
 		private final String spot;
 		private final boolean boss;
 		private final boolean cannon;
 		private final SetupStyle style;
-
-		private OptionKey(String spot, boolean boss, boolean cannon, SetupStyle style)
-		{
-			this.spot = spot;
-			this.boss = boss;
-			this.cannon = cannon;
-			this.style = style;
-		}
-
-		@Override
-		public boolean equals(Object other)
-		{
-			if (!(other instanceof OptionKey))
-			{
-				return false;
-			}
-			final OptionKey that = (OptionKey) other;
-			return boss == that.boss && cannon == that.cannon && spot.equals(that.spot) && style == that.style;
-		}
-
-		@Override
-		public int hashCode()
-		{
-			return Objects.hash(spot, boss, cannon, style);
-		}
 	}
 }

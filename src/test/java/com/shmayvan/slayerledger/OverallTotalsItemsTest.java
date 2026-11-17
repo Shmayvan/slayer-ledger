@@ -114,7 +114,7 @@ public class OverallTotalsItemsTest
 		// By master, only the groups with item data have items.
 		LedgerRecord otherMaster = record(SlayerMaster.KRYSTILIA);
 		otherMaster.setLootGeValue(10L);
-		List<OverallTotals.Entry> masters = OverallTotals.summarize(Arrays.asList(itemized, otherMaster),
+		List<OverallTotals.Entry> masters = TestTotals.summarize(Arrays.asList(itemized, otherMaster),
 			OverallTotals.Grouping.MASTER, LootPriceMode.GE, today, UTC);
 		assertEquals(Arrays.asList("Konar", "Krystilia"),
 			masters.stream().map(OverallTotals.Entry::getLabel).collect(Collectors.toList()));
@@ -199,7 +199,7 @@ public class OverallTotalsItemsTest
 
 	private static OverallTotals.Entry all(List<LedgerRecord> records, LootPriceMode mode, Map<Integer, Long> today)
 	{
-		return OverallTotals.summarize(records, OverallTotals.Grouping.ALL, mode, today, UTC).get(0);
+		return TestTotals.summarize(records, OverallTotals.Grouping.ALL, mode, today, UTC).get(0);
 	}
 
 	/** A completed task with items, valued at {@code ge} and {@code ha} as the plugin saves it. */

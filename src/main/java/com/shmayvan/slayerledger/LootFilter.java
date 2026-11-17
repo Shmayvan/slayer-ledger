@@ -1,8 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * Decides which items of one kill-loot drop are counted, when the loot is captured: the items a bonecrusher or ash

@@ -4,8 +4,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.atLeast;
-import static org.mockito.Mockito.verify;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -13,24 +11,22 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicReference;
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.Skill;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarPlayerID;
-import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.util.Filepath;
 import org.junit.Rule;
 import org.junit.Test;
-import org.mockito.ArgumentCaptor;
 
 /**
  * Less work while nothing is shown or tracked, as wired in the plugin ({@link PluginHarness}):
  * <ul>
  * <li>the panel's one-second refresh timer runs only while the panel is on screen (its hierarchy listener's
  * {@code showingChanged}, driven directly here since nothing is showing headless; {@code onActivate} /
- * {@code onDeactivate} are only hints), and never after shutdown; the advisor's chat line on assignment and the
- * overlay's historical pace don't need it;</li>
+ * {@code onDeactivate} are only hints), and never after shutdown; the advisor's plan on assignment and the overlay's
+ * historical pace don't need it;</li>
  * <li>the supplies diff reads no containers while no task is assigned or the assignment is Ended; it runs while a
  * session runs and while a task is assigned outside a segment (waiting for its first kill, paused), where its use is
  * buffered for the next (re)start (V2 plan 4.1). While it doesn't run, only the inventory is read, once after it
@@ -47,11 +43,6 @@ public class HarnessIdleWorkTest
 	private static final long ACCOUNT = PluginHarness.ACCOUNT;
 	private static final long MINUTE = 60_000L;
 	private static final int DEMONS = 42;
-	/**
-	 * The advisor's line for 20 Abyssal demons from three saved tasks without a spot or style, as in
-	 * HarnessHistoryModelTest.
-	 */
-	private static final String LINE = "<colHIGHLIGHT>Abyssal demons x20:<colNORMAL> ~20 min (3 tasks, setup unknown).";
 
 	@Rule
 	public final PluginHarness harness = new PluginHarness();
@@ -152,13 +143,6 @@ public class HarnessIdleWorkTest
 		return shown.get();
 	}
 
-	private List<String> chatLines()
-	{
-		ArgumentCaptor<QueuedMessage> messages = ArgumentCaptor.forClass(QueuedMessage.class);
-		verify(harness.chatMessageManager, atLeast(0)).queue(messages.capture());
-		return messages.getAllValues().stream().map(QueuedMessage::getRuneLiteFormattedMessage)
-			.collect(Collectors.toList());
-	}
 
 	/** The overlay's time left now ({@code ~12 min}), with every group on; {@code null} without a session. */
 	private String overlayTimeLeft()
@@ -239,7 +223,7 @@ public class HarnessIdleWorkTest
 	}
 
 	@Test
-	public void theAssignmentChatLineIsPostedWithThePanelHidden() throws IOException
+	public void theAdvisorsPlanIsWorkedOutWithThePanelHidden() throws IOException
 	{
 		startWithHistory();
 		showThenHidePanel();
@@ -250,7 +234,12 @@ public class HarnessIdleWorkTest
 		harness.setTask(DEMONS, "Abyssal demons", 20, 20);
 		harness.tick();
 
-		assertEquals(Collections.singletonList(LINE), chatLines());
+		// The plan for the 20 kills left, from the three saved tasks.
+		AtomicReference<TaskPlan> plan = new AtomicReference<>();
+		harness.onEdt(() -> plan.set(harness.historyModel().plan()));
+		assertNotNull(plan.get());
+		assertEquals(20, plan.get().getKillsLeft());
+		assertEquals(3, plan.get().getAllSetups().getTasks());
 		assertFalse(timerRunning());
 	}
 

@@ -1,6 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import javax.swing.JLabel;
+import javax.swing.*;
 
 /**
  * Where the sidebar's item icons ({@link ItemGridView}) come from. The plugin backs it with RuneLite's

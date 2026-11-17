@@ -1,0 +1,308 @@
+{
+  "description": "Supplies SupplyTracker recognises by id. \"multiBiteFood\": food eaten in parts, each family's stages from the full item down to the last bite (pizzas: full, then 1/2; pies: full, then half, then the pie dish, which is not food; cakes: full, then 2/3, then a slice). \"chargedItems\": items used per charge, each family's stages from the highest charge down to 1, with the charges core ItemWithCharge gives them (its TELEPORT and FUNGICIDE_SPRAY types); the trimmed glory and the imbued ring of wealth are families of their own; uncharged variants and items that never run out are not listed. \"teleportScrolls\": the scrolls core ItemIdentification lists as Type.SCROLL. Only unnoted ids are listed: noted items are never supplies. Ids are RuneLite 1.13.6 gameval constants (net.runelite.api.gameval); \"constant\" names the constant each id was taken from.",
+  "multiBiteFood": [
+    {
+      "name": "Plain pizza",
+      "stages": [
+        {"id": 2289, "constant": "ItemID.PLAIN_PIZZA", "item": "Plain pizza"},
+        {"id": 2291, "constant": "ItemID.HALF_PLAIN_PIZZA", "item": "1/2 plain pizza"}
+      ]
+    },
+    {
+      "name": "Meat pizza",
+      "stages": [
+        {"id": 2293, "constant": "ItemID.MEAT_PIZZA", "item": "Meat pizza"},
+        {"id": 2295, "constant": "ItemID.HALF_MEAT_PIZZA", "item": "1/2 meat pizza"}
+      ]
+    },
+    {
+      "name": "Anchovy pizza",
+      "stages": [
+        {"id": 2297, "constant": "ItemID.ANCHOVIE_PIZZA", "item": "Anchovy pizza"},
+        {"id": 2299, "constant": "ItemID.HALF_ANCHOVIE_PIZZA", "item": "1/2 anchovy pizza"}
+      ]
+    },
+    {
+      "name": "Pineapple pizza",
+      "stages": [
+        {"id": 2301, "constant": "ItemID.PINEAPPLE_PIZZA", "item": "Pineapple pizza"},
+        {"id": 2303, "constant": "ItemID.HALF_PINEAPPLE_PIZZA", "item": "1/2 pineapple pizza"}
+      ]
+    },
+    {
+      "name": "Redberry pie",
+      "stages": [
+        {"id": 2325, "constant": "ItemID.REDBERRY_PIE", "item": "Redberry pie"},
+        {"id": 2333, "constant": "ItemID.HALF_A_REDBERRY_PIE", "item": "Half a redberry pie"}
+      ]
+    },
+    {
+      "name": "Meat pie",
+      "stages": [
+        {"id": 2327, "constant": "ItemID.MEAT_PIE", "item": "Meat pie"},
+        {"id": 2331, "constant": "ItemID.HALF_A_MEAT_PIE", "item": "Half a meat pie"}
+      ]
+    },
+    {
+      "name": "Apple pie",
+      "stages": [
+        {"id": 2323, "constant": "ItemID.APPLE_PIE", "item": "Apple pie"},
+        {"id": 2335, "constant": "ItemID.HALF_AN_APPLE_PIE", "item": "Half an apple pie"}
+      ]
+    },
+    {
+      "name": "Garden pie",
+      "stages": [
+        {"id": 7178, "constant": "ItemID.GARDEN_PIE", "item": "Garden pie"},
+        {"id": 7180, "constant": "ItemID.HALF_GARDEN_PIE", "item": "Half a garden pie"}
+      ]
+    },
+    {
+      "name": "Fish pie",
+      "stages": [
+        {"id": 7188, "constant": "ItemID.FISH_PIE", "item": "Fish pie"},
+        {"id": 7190, "constant": "ItemID.HALF_FISH_PIE", "item": "Half a fish pie"}
+      ]
+    },
+    {
+      "name": "Botanical pie",
+      "stages": [
+        {"id": 19662, "constant": "ItemID.BOTANICAL_PIE", "item": "Botanical pie"},
+        {"id": 19659, "constant": "ItemID.HALF_BOTANICAL_PIE", "item": "Half a botanical pie"}
+      ]
+    },
+    {
+      "name": "Mushroom pie",
+      "stages": [
+        {"id": 21690, "constant": "ItemID.MUSHROOM_PIE", "item": "Mushroom pie"},
+        {"id": 21687, "constant": "ItemID.HALF_MUSHROOM_PIE", "item": "Half a mushroom pie"}
+      ]
+    },
+    {
+      "name": "Admiral pie",
+      "stages": [
+        {"id": 7198, "constant": "ItemID.ADMIRAL_PIE", "item": "Admiral pie"},
+        {"id": 7200, "constant": "ItemID.HALF_ADMIRAL_PIE", "item": "Half an admiral pie"}
+      ]
+    },
+    {
+      "name": "Dragonfruit pie",
+      "stages": [
+        {"id": 22795, "constant": "ItemID.DRAGONFRUIT_PIE", "item": "Dragonfruit pie"},
+        {"id": 22792, "constant": "ItemID.HALF_DRAGONFRUIT_PIE", "item": "Half a dragonfruit pie"}
+      ]
+    },
+    {
+      "name": "Wild pie",
+      "stages": [
+        {"id": 7208, "constant": "ItemID.WILD_PIE", "item": "Wild pie"},
+        {"id": 7210, "constant": "ItemID.HALF_WILD_PIE", "item": "Half a wild pie"}
+      ]
+    },
+    {
+      "name": "Summer pie",
+      "stages": [
+        {"id": 7218, "constant": "ItemID.SUMMER_PIE", "item": "Summer pie"},
+        {"id": 7220, "constant": "ItemID.HALF_SUMMER_PIE", "item": "Half a summer pie"}
+      ]
+    },
+    {
+      "name": "Cake",
+      "stages": [
+        {"id": 1891, "constant": "ItemID.CAKE", "item": "Cake"},
+        {"id": 1893, "constant": "ItemID.PARTIAL_CAKE", "item": "2/3 cake"},
+        {"id": 1895, "constant": "ItemID.CAKE_SLICE", "item": "Slice of cake"}
+      ]
+    },
+    {
+      "name": "Chocolate cake",
+      "stages": [
+        {"id": 1897, "constant": "ItemID.CHOCOLATE_CAKE", "item": "Chocolate cake"},
+        {"id": 1899, "constant": "ItemID.PARTIAL_CHOCOLATE_CAKE", "item": "2/3 chocolate cake"},
+        {"id": 1901, "constant": "ItemID.CHOCOLATE_SLICE", "item": "Chocolate slice"}
+      ]
+    }
+  ],
+  "chargedItems": [
+    {
+      "name": "Ring of dueling(8)",
+      "stages": [
+        {"id": 2552, "constant": "ItemID.RING_OF_DUELING_8", "item": "Ring of dueling(8)"},
+        {"id": 2554, "constant": "ItemID.RING_OF_DUELING_7", "item": "Ring of dueling(7)"},
+        {"id": 2556, "constant": "ItemID.RING_OF_DUELING_6", "item": "Ring of dueling(6)"},
+        {"id": 2558, "constant": "ItemID.RING_OF_DUELING_5", "item": "Ring of dueling(5)"},
+        {"id": 2560, "constant": "ItemID.RING_OF_DUELING_4", "item": "Ring of dueling(4)"},
+        {"id": 2562, "constant": "ItemID.RING_OF_DUELING_3", "item": "Ring of dueling(3)"},
+        {"id": 2564, "constant": "ItemID.RING_OF_DUELING_2", "item": "Ring of dueling(2)"},
+        {"id": 2566, "constant": "ItemID.RING_OF_DUELING_1", "item": "Ring of dueling(1)"}
+      ]
+    },
+    {
+      "name": "Games necklace(8)",
+      "stages": [
+        {"id": 3853, "constant": "ItemID.NECKLACE_OF_MINIGAMES_8", "item": "Games necklace(8)"},
+        {"id": 3855, "constant": "ItemID.NECKLACE_OF_MINIGAMES_7", "item": "Games necklace(7)"},
+        {"id": 3857, "constant": "ItemID.NECKLACE_OF_MINIGAMES_6", "item": "Games necklace(6)"},
+        {"id": 3859, "constant": "ItemID.NECKLACE_OF_MINIGAMES_5", "item": "Games necklace(5)"},
+        {"id": 3861, "constant": "ItemID.NECKLACE_OF_MINIGAMES_4", "item": "Games necklace(4)"},
+        {"id": 3863, "constant": "ItemID.NECKLACE_OF_MINIGAMES_3", "item": "Games necklace(3)"},
+        {"id": 3865, "constant": "ItemID.NECKLACE_OF_MINIGAMES_2", "item": "Games necklace(2)"},
+        {"id": 3867, "constant": "ItemID.NECKLACE_OF_MINIGAMES_1", "item": "Games necklace(1)"}
+      ]
+    },
+    {
+      "name": "Amulet of glory(6)",
+      "stages": [
+        {"id": 11978, "constant": "ItemID.AMULET_OF_GLORY_6", "item": "Amulet of glory(6)"},
+        {"id": 11976, "constant": "ItemID.AMULET_OF_GLORY_5", "item": "Amulet of glory(5)"},
+        {"id": 1712, "constant": "ItemID.AMULET_OF_GLORY_4", "item": "Amulet of glory(4)"},
+        {"id": 1710, "constant": "ItemID.AMULET_OF_GLORY_3", "item": "Amulet of glory(3)"},
+        {"id": 1708, "constant": "ItemID.AMULET_OF_GLORY_2", "item": "Amulet of glory(2)"},
+        {"id": 1706, "constant": "ItemID.AMULET_OF_GLORY_1", "item": "Amulet of glory(1)"}
+      ]
+    },
+    {
+      "name": "Amulet of glory (t6)",
+      "stages": [
+        {"id": 11964, "constant": "ItemID.TRAIL_AMULET_OF_GLORY_6", "item": "Amulet of glory (t6)"},
+        {"id": 11966, "constant": "ItemID.TRAIL_AMULET_OF_GLORY_5", "item": "Amulet of glory (t5)"},
+        {"id": 10354, "constant": "ItemID.TRAIL_AMULET_OF_GLORY_4", "item": "Amulet of glory (t4)"},
+        {"id": 10356, "constant": "ItemID.TRAIL_AMULET_OF_GLORY_3", "item": "Amulet of glory (t3)"},
+        {"id": 10358, "constant": "ItemID.TRAIL_AMULET_OF_GLORY_2", "item": "Amulet of glory (t2)"},
+        {"id": 10360, "constant": "ItemID.TRAIL_AMULET_OF_GLORY_1", "item": "Amulet of glory (t1)"}
+      ]
+    },
+    {
+      "name": "Skills necklace(6)",
+      "stages": [
+        {"id": 11968, "constant": "ItemID.JEWL_NECKLACE_OF_SKILLS_6", "item": "Skills necklace(6)"},
+        {"id": 11970, "constant": "ItemID.JEWL_NECKLACE_OF_SKILLS_5", "item": "Skills necklace(5)"},
+        {"id": 11105, "constant": "ItemID.JEWL_NECKLACE_OF_SKILLS_4", "item": "Skills necklace(4)"},
+        {"id": 11107, "constant": "ItemID.JEWL_NECKLACE_OF_SKILLS_3", "item": "Skills necklace(3)"},
+        {"id": 11109, "constant": "ItemID.JEWL_NECKLACE_OF_SKILLS_2", "item": "Skills necklace(2)"},
+        {"id": 11111, "constant": "ItemID.JEWL_NECKLACE_OF_SKILLS_1", "item": "Skills necklace(1)"}
+      ]
+    },
+    {
+      "name": "Combat bracelet(6)",
+      "stages": [
+        {"id": 11972, "constant": "ItemID.JEWL_BRACELET_OF_COMBAT_6", "item": "Combat bracelet(6)"},
+        {"id": 11974, "constant": "ItemID.JEWL_BRACELET_OF_COMBAT_5", "item": "Combat bracelet(5)"},
+        {"id": 11118, "constant": "ItemID.JEWL_BRACELET_OF_COMBAT_4", "item": "Combat bracelet(4)"},
+        {"id": 11120, "constant": "ItemID.JEWL_BRACELET_OF_COMBAT_3", "item": "Combat bracelet(3)"},
+        {"id": 11122, "constant": "ItemID.JEWL_BRACELET_OF_COMBAT_2", "item": "Combat bracelet(2)"},
+        {"id": 11124, "constant": "ItemID.JEWL_BRACELET_OF_COMBAT_1", "item": "Combat bracelet(1)"}
+      ]
+    },
+    {
+      "name": "Ring of wealth (5)",
+      "stages": [
+        {"id": 11980, "constant": "ItemID.RING_OF_WEALTH_5", "item": "Ring of wealth (5)"},
+        {"id": 11982, "constant": "ItemID.RING_OF_WEALTH_4", "item": "Ring of wealth (4)"},
+        {"id": 11984, "constant": "ItemID.RING_OF_WEALTH_3", "item": "Ring of wealth (3)"},
+        {"id": 11986, "constant": "ItemID.RING_OF_WEALTH_2", "item": "Ring of wealth (2)"},
+        {"id": 11988, "constant": "ItemID.RING_OF_WEALTH_1", "item": "Ring of wealth (1)"}
+      ]
+    },
+    {
+      "name": "Ring of wealth (i5)",
+      "stages": [
+        {"id": 20786, "constant": "ItemID.RING_OF_WEALTH_I5", "item": "Ring of wealth (i5)"},
+        {"id": 20787, "constant": "ItemID.RING_OF_WEALTH_I4", "item": "Ring of wealth (i4)"},
+        {"id": 20788, "constant": "ItemID.RING_OF_WEALTH_I3", "item": "Ring of wealth (i3)"},
+        {"id": 20789, "constant": "ItemID.RING_OF_WEALTH_I2", "item": "Ring of wealth (i2)"},
+        {"id": 20790, "constant": "ItemID.RING_OF_WEALTH_I1", "item": "Ring of wealth (i1)"}
+      ]
+    },
+    {
+      "name": "Necklace of passage(5)",
+      "stages": [
+        {"id": 21146, "constant": "ItemID.NECKLACE_OF_PASSAGE_5", "item": "Necklace of passage(5)"},
+        {"id": 21149, "constant": "ItemID.NECKLACE_OF_PASSAGE_4", "item": "Necklace of passage(4)"},
+        {"id": 21151, "constant": "ItemID.NECKLACE_OF_PASSAGE_3", "item": "Necklace of passage(3)"},
+        {"id": 21153, "constant": "ItemID.NECKLACE_OF_PASSAGE_2", "item": "Necklace of passage(2)"},
+        {"id": 21155, "constant": "ItemID.NECKLACE_OF_PASSAGE_1", "item": "Necklace of passage(1)"}
+      ]
+    },
+    {
+      "name": "Digsite pendant (5)",
+      "stages": [
+        {"id": 11194, "constant": "ItemID.NECKLACE_OF_DIGSITE_5", "item": "Digsite pendant (5)"},
+        {"id": 11193, "constant": "ItemID.NECKLACE_OF_DIGSITE_4", "item": "Digsite pendant (4)"},
+        {"id": 11192, "constant": "ItemID.NECKLACE_OF_DIGSITE_3", "item": "Digsite pendant (3)"},
+        {"id": 11191, "constant": "ItemID.NECKLACE_OF_DIGSITE_2", "item": "Digsite pendant (2)"},
+        {"id": 11190, "constant": "ItemID.NECKLACE_OF_DIGSITE_1", "item": "Digsite pendant (1)"}
+      ]
+    },
+    {
+      "name": "Burning amulet(5)",
+      "stages": [
+        {"id": 21166, "constant": "ItemID.BURNING_AMULET_5", "item": "Burning amulet(5)"},
+        {"id": 21169, "constant": "ItemID.BURNING_AMULET_4", "item": "Burning amulet(4)"},
+        {"id": 21171, "constant": "ItemID.BURNING_AMULET_3", "item": "Burning amulet(3)"},
+        {"id": 21173, "constant": "ItemID.BURNING_AMULET_2", "item": "Burning amulet(2)"},
+        {"id": 21175, "constant": "ItemID.BURNING_AMULET_1", "item": "Burning amulet(1)"}
+      ]
+    },
+    {
+      "name": "Slayer ring (8)",
+      "stages": [
+        {"id": 11866, "constant": "ItemID.SLAYER_RING_8", "item": "Slayer ring (8)"},
+        {"id": 11867, "constant": "ItemID.SLAYER_RING_7", "item": "Slayer ring (7)"},
+        {"id": 11868, "constant": "ItemID.SLAYER_RING_6", "item": "Slayer ring (6)"},
+        {"id": 11869, "constant": "ItemID.SLAYER_RING_5", "item": "Slayer ring (5)"},
+        {"id": 11870, "constant": "ItemID.SLAYER_RING_4", "item": "Slayer ring (4)"},
+        {"id": 11871, "constant": "ItemID.SLAYER_RING_3", "item": "Slayer ring (3)"},
+        {"id": 11872, "constant": "ItemID.SLAYER_RING_2", "item": "Slayer ring (2)"},
+        {"id": 11873, "constant": "ItemID.SLAYER_RING_1", "item": "Slayer ring (1)"}
+      ]
+    },
+    {
+      "name": "Ring of returning(5)",
+      "stages": [
+        {"id": 21129, "constant": "ItemID.RING_OF_RETURNING_5", "item": "Ring of returning(5)"},
+        {"id": 21132, "constant": "ItemID.RING_OF_RETURNING_4", "item": "Ring of returning(4)"},
+        {"id": 21134, "constant": "ItemID.RING_OF_RETURNING_3", "item": "Ring of returning(3)"},
+        {"id": 21136, "constant": "ItemID.RING_OF_RETURNING_2", "item": "Ring of returning(2)"},
+        {"id": 21138, "constant": "ItemID.RING_OF_RETURNING_1", "item": "Ring of returning(1)"}
+      ]
+    },
+    {
+      "name": "Fungicide spray 10",
+      "stages": [
+        {"id": 7421, "constant": "ItemID.SLAYER_SPRAY_PUMP_10", "item": "Fungicide spray 10"},
+        {"id": 7422, "constant": "ItemID.SLAYER_SPRAY_PUMP_9", "item": "Fungicide spray 9"},
+        {"id": 7423, "constant": "ItemID.SLAYER_SPRAY_PUMP_8", "item": "Fungicide spray 8"},
+        {"id": 7424, "constant": "ItemID.SLAYER_SPRAY_PUMP_7", "item": "Fungicide spray 7"},
+        {"id": 7425, "constant": "ItemID.SLAYER_SPRAY_PUMP_6", "item": "Fungicide spray 6"},
+        {"id": 7426, "constant": "ItemID.SLAYER_SPRAY_PUMP_5", "item": "Fungicide spray 5"},
+        {"id": 7427, "constant": "ItemID.SLAYER_SPRAY_PUMP_4", "item": "Fungicide spray 4"},
+        {"id": 7428, "constant": "ItemID.SLAYER_SPRAY_PUMP_3", "item": "Fungicide spray 3"},
+        {"id": 7429, "constant": "ItemID.SLAYER_SPRAY_PUMP_2", "item": "Fungicide spray 2"},
+        {"id": 7430, "constant": "ItemID.SLAYER_SPRAY_PUMP_1", "item": "Fungicide spray 1"}
+      ]
+    }
+  ],
+  "teleportScrolls": [
+    {"id": 12402, "constant": "ItemID.TELEPORTSCROLL_NARDAH", "item": "Nardah teleport"},
+    {"id": 12403, "constant": "ItemID.TELEPORTSCROLL_DIGSITE", "item": "Digsite teleport"},
+    {"id": 12404, "constant": "ItemID.TELEPORTSCROLL_FELDIP", "item": "Feldip hills teleport"},
+    {"id": 12405, "constant": "ItemID.TELEPORTSCROLL_LUNARISLE", "item": "Lunar isle teleport"},
+    {"id": 12406, "constant": "ItemID.TELEPORTSCROLL_MORTTON", "item": "Mort'ton teleport"},
+    {"id": 12407, "constant": "ItemID.TELEPORTSCROLL_PESTCONTROL", "item": "Pest control teleport"},
+    {"id": 12408, "constant": "ItemID.TELEPORTSCROLL_PISCATORIS", "item": "Piscatoris teleport"},
+    {"id": 12409, "constant": "ItemID.TELEPORTSCROLL_TAIBWO", "item": "Tai bwo wannai teleport"},
+    {"id": 12410, "constant": "ItemID.TELEPORTSCROLL_ELF", "item": "Iorwerth camp teleport"},
+    {"id": 12411, "constant": "ItemID.TELEPORTSCROLL_MOSLES", "item": "Mos le'harmless teleport"},
+    {"id": 12642, "constant": "ItemID.TELEPORTSCROLL_LUMBERYARD", "item": "Lumberyard teleport"},
+    {"id": 12938, "constant": "ItemID.TELEPORTSCROLL_ZULANDRA", "item": "Zul-andra teleport"},
+    {"id": 13249, "constant": "ItemID.TELEPORTSCROLL_CERBERUS", "item": "Key master teleport"},
+    {"id": 21802, "constant": "ItemID.TELEPORTSCROLL_REVENANTS", "item": "Revenant cave teleport"},
+    {"id": 23387, "constant": "ItemID.TELEPORTSCROLL_WATSON", "item": "Watson teleport"},
+    {"id": 34033, "constant": "ItemID.TELEPORTSCROLL_ARDEAGLAIS", "item": "Ardeaglais teleport"},
+    {"id": 30775, "constant": "ItemID.TELEPORTSCROLL_CHASMOFFIRE", "item": "Chasm teleport scroll"},
+    {"id": 30040, "constant": "ItemID.TELEPORTSCROLL_COLOSSAL_WYRM", "item": "Colossal wyrm teleport scroll"},
+    {"id": 29684, "constant": "ItemID.TELEPORTSCROLL_GUTHIXIAN_TEMPLE", "item": "Guthixian temple teleport"},
+    {"id": 29782, "constant": "ItemID.TELEPORTSCROLL_SPIDERCAVE", "item": "Spider cave teleport"}
+  ]
+}

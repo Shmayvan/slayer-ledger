@@ -323,7 +323,7 @@ public class SuppliesSessionTest
 		assertEquals(SessionTracker.RestoreResult.MISMATCH, later.restore(s, COUNTERS));
 		assertTrue(later.getSupplies().isEmpty());
 
-		LedgerRecord record = LedgerRecord.fromSummary(s.toSummary(), true);
+		LedgerRecord record = LedgerRecord.fromSummary(s.toSummary(SlayerSpots.NONE), true);
 		assertEquals(Long.valueOf(4), record.getSupplies().get(SHARK));
 		assertEquals(Integer.valueOf(4), record.getSupplyDoses().get(PRAYER_4));
 	}
@@ -352,7 +352,7 @@ public class SuppliesSessionTest
 		SessionSnapshot s = gson.fromJson(v2, SessionSnapshot.class);
 		assertNull(s.getSupplies());
 		assertNull(s.getSupplyDoses());
-		assertTrue(s.toSummary().getSupplies().isEmpty());
+		assertTrue(s.toSummary(SlayerSpots.NONE).getSupplies().isEmpty());
 
 		tracker.observe("Abyssal demons", DEMON_ID, 46, 150, false);
 		assertEquals(SessionTracker.RestoreResult.RESTORED, tracker.restore(s, COUNTERS));

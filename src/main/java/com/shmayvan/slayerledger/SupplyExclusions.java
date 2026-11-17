@@ -1,13 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import net.runelite.api.gameval.InterfaceID;
-import net.runelite.api.gameval.ItemID;
+import java.util.*;
+import net.runelite.api.gameval.*;
 
 /**
  * Decides which game ticks, and which items, are left out of supply counting. Pure: the plugin passes in the tick

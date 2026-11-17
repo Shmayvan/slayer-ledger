@@ -1,13 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Rules for the free-text note on a task (for example "Barrage" or "Prayer gear"): how a typed note is cleaned up and

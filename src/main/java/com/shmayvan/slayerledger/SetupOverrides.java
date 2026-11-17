@@ -1,8 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Value;
+import lombok.*;
 
 /**
  * The player's overrides of a task's setup tags (V2 plan 4.3): cannon, style and gear focus, each {@code null}

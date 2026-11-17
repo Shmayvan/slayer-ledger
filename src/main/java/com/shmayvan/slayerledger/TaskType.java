@@ -1,5 +1,7 @@
 package com.shmayvan.slayerledger;
 
+import lombok.*;
+
 /**
  * Kind of Slayer task, derived from the assigning master and the task (never stored, so it can't disagree with the
  * raw values it comes from). Pure; no RuneLite types.
@@ -10,6 +12,7 @@ package com.shmayvan.slayerledger;
  * has no type. Whether a task was extended is not part of the
  * type: the plugin has no reliable way to tell (see docs/COUNTING_RULES.md).</p>
  */
+@RequiredArgsConstructor
 enum TaskType
 {
 	REGULAR("Regular"),
@@ -18,11 +21,6 @@ enum TaskType
 	BOSS("Boss");
 
 	private final String label;
-
-	TaskType(String label)
-	{
-		this.label = label;
-	}
 
 	/**
 	 * @param master     SLAYER_MASTER value, or {@code null} when unknown

@@ -327,7 +327,7 @@ public class AraxxorHarvestTest
 	{
 		final LedgerRecord record = valuedRecord();
 		assertEquals(Long.valueOf(200), record.getLootGeValue());
-		final ItemValuation.UnitPrices prices = ItemValuation.capturePrices(harvest(), LATER_PRICES);
+		final ItemValuation.UnitPrices prices = ItemValuationTest.capturePrices(harvest(), LATER_PRICES);
 		final List<NotableDrop> drops = NotableDrops.find(harvest(), prices, LootPriceMode.GE, 100_000,
 			itemId -> itemId == WHIP ? "Abyssal whip" : null, now);
 		assertEquals(1, drops.size());
@@ -358,7 +358,7 @@ public class AraxxorHarvestTest
 		final LedgerRecord record = new LedgerRecord();
 		record.setId("r1");
 		record.setLoot(tally(BONES, 2).toMap());
-		final ItemValuation.UnitPrices prices = ItemValuation.capturePrices(tally(WHIP, 1), PRICES);
+		final ItemValuation.UnitPrices prices = ItemValuationTest.capturePrices(tally(WHIP, 1), PRICES);
 		final List<NotableDrop> drops = NotableDrops.find(tally(WHIP, 1), prices, LootPriceMode.GE, 100_000,
 			itemId -> itemId == WHIP ? "Abyssal whip" : null, now);
 		assertEquals(1, drops.size());
@@ -384,7 +384,7 @@ public class AraxxorHarvestTest
 		store.append(ACCOUNT, valuedRecord());
 		final File ledger = new File(dir, ACCOUNT + ".json");
 
-		final ItemValuation.UnitPrices prices = ItemValuation.capturePrices(tally(WHIP, 1), PRICES);
+		final ItemValuation.UnitPrices prices = ItemValuationTest.capturePrices(tally(WHIP, 1), PRICES);
 		final List<LedgerRecord> records = store.addLoot(ACCOUNT, "r1", tally(WHIP, 1), prices, null);
 		assertEquals(records, store.load(ACCOUNT));
 		assertEquals(other, records.get(0));

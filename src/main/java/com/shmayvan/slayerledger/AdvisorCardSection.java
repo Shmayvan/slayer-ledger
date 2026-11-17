@@ -1,67 +1,37 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Cursor;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.awt.font.TextAttribute;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.HashSet;
+import java.awt.*;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.function.Consumer;
-import java.util.function.IntFunction;
-import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.JButton;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
-import net.runelite.client.ui.PluginPanel;
+import java.util.function.*;
+import javax.swing.*;
+import lombok.*;
+import net.runelite.client.ui.*;
 
 /**
  * The advisor card of {@link SlayerLedgerPanel} (V2 plan 6 and 8, DESIGN_PRINCIPLES.md 3.5): the second
  * raised card, under the live section, shown while a task is assigned and the account's history is loaded. It shows
  * the model's plan to show ({@link LedgerHistoryModel#plan}) and works nothing out itself. Top to bottom:
  * <ol>
- * <li>the title, what the plan is based on ({@code Based on 6 Dust devils tasks}), on at most two lines, then the skip
- * / block badge ({@code Consider skip (n=6)}) in the alert colour while the "Task advisor" setting is on
- * and the advice isn't Do (Do adds no line);</li>
- * <li>the plan's metric as three text tabs, Fastest, Profit/h and Cheapest, the plan's in the value colour over a 2 px
- * accent line: a click saves the "Advisor metric" setting through the plugin
- * ({@link SlayerLedgerPlugin#setAdvisorMetric}), and the plan follows on the config-change path, its tab with it;</li>
- * <li>the note, on parchment: a Konar task's note when its area has no task yet; the recommendation, then after a
- * rule and {@code With cannon} or {@code Without cannon} the counterpart in an identical block (name, on at most two
- * lines, and sample size, {@code based on 1 task} for a thin recommendation; time and range, Slayer XP/h, Profit/h,
- * Supplies, gear, and a Bring grid of at most 8 items with {@code +N more}, whose tooltip lists the rest); the All
- * setups line; the More setups toggle and its list.</li>
+ * <li>the title, what the plan is based on ({@code Based on 6 Dust devils tasks}), on at most two lines;</li>
+ * <li>the note, on parchment: a Konar task's note when its area has no task yet; the recommendation, the fastest
+ * setup (name, on at most two lines, and sample size, {@code based on 1 task} for a thin recommendation; its time for
+ * the kills left, and a Bring grid of at most 8 items with {@code +N more}, whose tooltip lists the rest); the All
+ * setups line.</li>
  * </ol>
- * Without history the card has one line ({@link TaskPlanText#noHistoryLine}). The card is open from the assignment to
- * its first task kill, then collapsed to one line ({@link TaskPlanText#collapsedLine}); a click on the collapsed line
- * opens it, a click on the title closes it, and that choice holds until the assignment changes. Every word comes from
- * {@link TaskPlanText} and every number from {@link LedgerFormat}.
+ * Without history the card has one line ({@link TaskPlanText#noHistoryLine}). Bundle C (owner decision
+ * 2026-11-16) keeps the card as it is through the task: it no longer collapses after the first kill. Every word comes
+ * from {@link TaskPlanText} and every number from {@link LedgerFormat}.
  *
- * <p>It is rebuilt only when the plan shown, the badge or whether it is open changes. The panel's refresh
- * ({@link #refresh}, also run by its timer) only reads the tracker for the task and its first kill and never asks the
- * model for the plan; the model's changes ({@link #modelChanged}) read the plan and the badge. While the plan for the
- * current inputs is worked out ({@link LedgerHistoryModel#plan} is {@code null}, as after a tab click) the card keeps
- * the plan it shows, with that plan's tab, as long as the plan is the current assignment's ({@link TaskPlan#isFor}:
- * creature, name, task type and assigned area). A reading of no task only hides the card: the count can read 0 for a
- * tick or two ({@link SessionTracker#MAX_TRANSIENT_ZERO_OBSERVATIONS}), and when the same assignment is back no model
- * change says so, since its plan is the same. Nothing in it asks for width: long names are {@link FitLabel}s, and the
- * title, option names and sentences are broken into lines at the card's fixed width. EDT only.</p>
+ * <p>It is rebuilt only when the plan shown changes. The panel's refresh ({@link #refresh}, also run by its timer)
+ * only reads the tracker for the task and never asks the model for the plan; the model's changes
+ * ({@link #modelChanged}) read the plan. While the plan for the current inputs is worked out
+ * ({@link LedgerHistoryModel#plan} is {@code null}, as after a kill) the card keeps the plan it shows, as long as the
+ * plan is the current assignment's ({@link TaskPlan#isFor}: creature, name, task type and assigned area). A reading
+ * of no task only hides the card: the count can read 0 for a tick or two
+ * ({@link SessionTracker#MAX_TRANSIENT_ZERO_OBSERVATIONS}), and when the same assignment is back no model change says
+ * so, since its plan is the same. Nothing in it asks for width: long names are {@link FitLabel}s, and the title,
+ * option names and sentences are broken into lines at the card's fixed width. EDT only.</p>
  */
 final class AdvisorCardSection
 {
@@ -69,8 +39,6 @@ final class AdvisorCardSection
 	private static final int GAP = 6;
 	/** Space inside the note's 1 px edge: the card's 199 px less 2 x 6 leaves 187, room for a 184 px grid row. */
 	private static final int NOTE_PADDING = 5;
-	/** Space between the metric tabs. */
-	private static final int TAB_GAP = 10;
 	/**
 	 * The width a sentence on the card wraps at: the sidebar's fixed content width less the card's frame, 199 px
 	 * (DESIGN_PRINCIPLES.md 3.1).
@@ -86,15 +54,12 @@ final class AdvisorCardSection
 	private static final int MAX_NAME_LINES = 2;
 	/** The Bring grids' title. */
 	static final String BRING_TITLE = "Bring";
-	/** The title's tooltip's last line. */
-	static final String CLOSE_HINT = "Click to close the plan.";
-	/** The collapsed line's tooltip's last line. */
-	static final String OPEN_HINT = "Click to open the plan.";
 
 	/**
 	 * One of the note's Bring grids and the items it shows, with its {@code +N more} label and the items that lists,
 	 * so new item names only rename them.
 	 */
+	@AllArgsConstructor(access = AccessLevel.PRIVATE)
 	private static final class BringGrid
 	{
 		private final ItemGridView grid;
@@ -102,21 +67,10 @@ final class AdvisorCardSection
 		/** {@code +N more}, or {@code null} when the grid shows every item. */
 		private final JLabel more;
 		private final List<TaskPlan.BringItem> rest;
-
-		private BringGrid(ItemGridView grid, List<TaskPlan.BringItem> items, JLabel more,
-			List<TaskPlan.BringItem> rest)
-		{
-			this.grid = grid;
-			this.items = items;
-			this.more = more;
-			this.rest = rest;
-		}
 	}
 
 	private final LedgerHistoryModel model;
 	private final SessionTracker tracker;
-	/** Saves the "Advisor metric" setting (the plugin's config manager), as a tab click chooses it. */
-	private final Consumer<AdvisorMetric> saveMetric;
 	/** Revalidates and repaints the panel after a change. */
 	private final Runnable relayout;
 	/** Draws the Bring grids' icons. */
@@ -124,21 +78,10 @@ final class AdvisorCardSection
 
 	/** The card's row of the panel, with the gap above it: hidden as one, so a hidden card leaves no gap. */
 	private final JPanel block = new JPanel(new BorderLayout());
-	/** The raised card: open, the title, badge, tabs and note; collapsed, one line. */
+	/** The raised card: the title and the note. */
 	private final JPanel card = new JPanel();
-	/** {@code Based on 6 Dust devils tasks}, one label a line; a click closes the card. */
+	/** {@code Based on 6 Dust devils tasks}, one label a line. */
 	private final JPanel title = column("advisor.title");
-	/** {@code Consider skip (n=6)}: in the card only while there is such advice. */
-	private final FitLabel badgeLabel = new FitLabel();
-	/** The metric tabs, with a 1 px rule under them. */
-	private final JPanel tabs = new JPanel();
-	private final Map<AdvisorMetric, JButton> tabButtons = new EnumMap<>(AdvisorMetric.class);
-	/** The card collapsed: {@code Plan: barrage, ~60 min (3 tasks)}; a click opens it. */
-	private final FitLabel collapsedLabel = new FitLabel();
-	/** {@code More setups (2)} or {@code Hide more setups}: opens and closes {@link #moreList}. */
-	private final JButton moreToggle = new JButton();
-	/** The other setups, one line each; shown while {@link #moreOpen}. */
-	private final JPanel moreList = new JPanel();
 	/** The note's Bring grids as last built. */
 	private final List<BringGrid> bringGrids = new ArrayList<>();
 
@@ -147,105 +90,23 @@ final class AdvisorCardSection
 	 * coming back.
 	 */
 	private TaskPlan shownPlan;
-	/** The badge shown (the model's advice other than Do), or {@code null}. */
-	private TaskAdvisor.Result shownBadge;
-	/** Whether the card is shown open. */
-	private boolean shownOpen;
 	/** The spot and option names shown, so a region's new name rebuilds the card only when it changes one. */
 	private List<String> shownNames = Collections.emptyList();
-	/** Whether More setups is open; closed for each new assignment. */
-	private boolean moreOpen;
-
-	/**
-	 * The assignment the card is for (creature key, name, task type and assigned area), or {@code null} before the
-	 * first task read with the history loaded. A reading of no task keeps it.
-	 */
-	private List<Object> assignment;
-	/** Its assigned size, or {@link SessionTracker#UNKNOWN_AMOUNT}. */
-	private int assignedOriginal = SessionTracker.UNKNOWN_AMOUNT;
-	/** The kills left when the card first saw the assignment, and at its last look. */
-	private int firstRemaining;
-	private int lastRemaining;
-	/**
-	 * The session that was active when the card moved to this assignment from another, or {@code null}: the previous
-	 * assignment's, which the tracker keeps when the same creature is reassigned with no reading of 0 between (a count
-	 * going up only moves its baseline), so it is no sign of this assignment's first kill.
-	 */
-	private String previousSession;
-	/** Whether a task kill of the assignment was seen, so it is collapsed unless the player opened it. */
-	private boolean killed;
-	/** The player's choice, open or closed, for this assignment; {@code null} until a click. */
-	private Boolean chosenOpen;
 	/** How many times the card's content was built ({@link #getBuildCount}). */
 	private int builds;
 
 	/**
-	 * @param saveMetric saves the "Advisor metric" setting a tab click chooses
-	 * @param icons      draws the Bring grids' item icons
+	 * @param icons draws the Bring grids' item icons
 	 */
-	AdvisorCardSection(LedgerHistoryModel model, SessionTracker tracker, Consumer<AdvisorMetric> saveMetric,
-		Runnable relayout, ItemIcons icons)
+	AdvisorCardSection(LedgerHistoryModel model, SessionTracker tracker, Runnable relayout, ItemIcons icons)
 	{
 		this.model = model;
 		this.tracker = tracker;
-		this.saveMetric = saveMetric;
 		this.relayout = relayout;
 		this.icons = icons;
 		// Names for tests, which find the parts by them; no visible effect.
 		block.setName("advisor");
 		card.setName("advisorCard");
-		badgeLabel.setName("advisor.badge");
-		tabs.setName("advisor.tabs");
-		collapsedLabel.setName("advisor.collapsed");
-		moreToggle.setName("advisor.moreToggle");
-		moreList.setName("advisor.more");
-
-		badgeLabel.setFont(LedgerTheme.smallFont());
-		// The words say skip or block; the alert colour draws the eye to them.
-		badgeLabel.setForeground(LedgerTheme.ALERT);
-		collapsedLabel.setFont(LedgerTheme.smallFont());
-		collapsedLabel.setForeground(LedgerTheme.LABEL);
-		for (JComponent part : new JComponent[]{badgeLabel, collapsedLabel})
-		{
-			part.setAlignmentX(Component.LEFT_ALIGNMENT);
-		}
-		// Its lines have no listener of their own, so a click or hover on any of them reaches it.
-		title.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		title.addMouseListener(clicked(() -> choose(false)));
-		collapsedLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		collapsedLabel.addMouseListener(clicked(() -> choose(true)));
-
-		tabs.setLayout(new BoxLayout(tabs, BoxLayout.X_AXIS));
-		tabs.setOpaque(false);
-		tabs.setAlignmentX(Component.LEFT_ALIGNMENT);
-		tabs.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, LedgerTheme.BEVEL_INNER));
-		for (AdvisorMetric metric : AdvisorMetric.values())
-		{
-			JButton tab = new JButton(metric.getShortLabel());
-			tab.setName("advisor.tab." + metric.name());
-			styleLink(tab, LedgerTheme.HINT);
-			tab.setToolTipText(metric.toString());
-			tab.addActionListener(e -> chooseMetric(metric));
-			if (!tabButtons.isEmpty())
-			{
-				tabs.add(Box.createHorizontalStrut(TAB_GAP));
-			}
-			tabButtons.put(metric, tab);
-			tabs.add(tab);
-		}
-		tabs.add(Box.createHorizontalGlue());
-
-		styleLink(moreToggle, LedgerTheme.MUTED_INK);
-		Font small = LedgerTheme.smallFont();
-		// The same font, underlined: the toggle reads as a link (the mockup's), at the font's own size.
-		moreToggle.setFont(small.deriveFont(Collections.singletonMap(TextAttribute.UNDERLINE,
-			TextAttribute.UNDERLINE_ON)));
-		moreToggle.setAlignmentX(Component.LEFT_ALIGNMENT);
-		moreToggle.addActionListener(e -> toggleMore());
-		moreList.setLayout(new BoxLayout(moreList, BoxLayout.Y_AXIS));
-		moreList.setOpaque(false);
-		moreList.setAlignmentX(Component.LEFT_ALIGNMENT);
-		moreList.setBorder(BorderFactory.createEmptyBorder(2, 0, 0, 0));
 	}
 
 	/** Adds the card's row to {@code content}, hidden until there is a plan to show. */
@@ -262,17 +123,17 @@ final class AdvisorCardSection
 
 	/**
 	 * The panel's refresh (its timer, a panel action, new live values) and the model's
-	 * {@link LedgerHistoryModel.Change#LIVE} (the live inputs changed, so a restored session or a kill is seen with the
-	 * panel hidden): notes the task and its first kill, hides the card without a task, and shows it again with the plan
-	 * it kept when the same assignment is back. Reads nothing of the model but whether its history is loaded, and
-	 * rebuilds only when whether the card is open changed or the plan it keeps is not the current assignment's.
+	 * {@link LedgerHistoryModel.Change#LIVE} (the live inputs changed, so a task read with the panel hidden is seen):
+	 * hides the card without a task, and shows it again with the plan it kept when the same assignment is back. Reads
+	 * nothing of the model but whether its history is loaded, and rebuilds only when the plan it keeps is not the
+	 * current assignment's.
 	 */
 	void refresh()
 	{
 		update(false);
 	}
 
-	/** A change of the history model: reads the plan to show and the badge again, and rebuilds if either changed. */
+	/** A change of the history model: reads the plan to show again, and rebuilds if it changed. */
 	void modelChanged()
 	{
 		update(true);
@@ -299,61 +160,55 @@ final class AdvisorCardSection
 	{
 		if (shownPlan != null && !names(shownPlan).equals(shownNames))
 		{
-			rebuild(shownPlan, shownBadge, shownOpen);
+			rebuild(shownPlan);
 		}
 	}
 
 	/**
-	 * Shows what the card should show now. With {@code readModel} the plan to show and the badge are read from the model
-	 * (on its changes); without, only the tracker is (on the panel's refresh), and the plan shown is kept while it is
-	 * the current assignment's.
+	 * Shows what the card should show now. With {@code readModel} the plan to show is read from the model (on its
+	 * changes); without, only the tracker is (on the panel's refresh), and the plan shown is kept while it is the
+	 * current assignment's.
 	 */
 	private void update(boolean readModel)
 	{
 		if (!model.isLoaded())
 		{
 			// Logged out, loading or another account's history: nothing of the last assignment is kept.
-			assignment = null;
-			show(null, null, false);
+			show(null);
 			return;
 		}
 		if (!tracker.isTaskObserved() || tracker.getCurrentRemaining() <= 0)
 		{
-			// No task, or the count reading 0 for a tick or two: only hidden. The plan, the badge and the player's
-			// choice stay for the same assignment, whose return no model change announces (its plan is the same).
+			// No task, or the count reading 0 for a tick or two: only hidden. The plan stays for the same assignment,
+			// whose return no model change announces (its plan is the same).
 			setShown(false);
 			return;
 		}
 		int creatureId = tracker.getCurrentCreatureId();
 		String monster = tracker.getCurrentMonster();
 		TaskContext context = tracker.getCurrentContext();
-		TaskType type = TaskType.of(context.getMaster(), creatureId);
-		String area = context.getLocation();
-		noteAssignment(Arrays.asList(creatureId, monster, type, area), monster);
 		TaskPlan plan = shownPlan;
-		TaskAdvisor.Result badge = shownBadge;
 		if (readModel)
 		{
-			// Null while the plan for the current inputs is worked out (a tab click, a kill): the plan shown stays,
-			// with its own tab, until it is back.
+			// Null while the plan for the current inputs is worked out (a kill): the plan shown stays until it is back.
 			TaskPlan current = model.plan();
 			plan = current != null ? current : plan;
-			badge = readBadge();
 		}
-		if (plan != null && !plan.isFor(creatureId, monster, type, area))
+		if (plan != null && !plan.isFor(creatureId, monster, TaskType.of(context.getMaster(), creatureId),
+			context.getLocation()))
 		{
 			// Another assignment's plan (another creature, task type or Konar area): hidden until this one's is ready.
 			plan = null;
 		}
-		show(plan, badge, chosenOpen != null ? chosenOpen : !killed);
+		show(plan);
 	}
 
-	/** Rebuilds the card if what it should show changed, and shows it while it has a plan. */
-	private void show(TaskPlan plan, TaskAdvisor.Result badge, boolean open)
+	/** Rebuilds the card if the plan it should show changed, and shows it while it has a plan. */
+	private void show(TaskPlan plan)
 	{
-		if (plan != shownPlan || badge != shownBadge || open != shownOpen)
+		if (plan != shownPlan)
 		{
-			rebuild(plan, badge, open);
+			rebuild(plan);
 		}
 		setShown(plan != null);
 	}
@@ -368,94 +223,10 @@ final class AdvisorCardSection
 		}
 	}
 
-	/**
-	 * The badge to show: the model's advice when the "Task advisor" setting is on and it isn't Do, else {@code null};
-	 * while views wait for today's prices the badge shown stays until they arrive.
-	 */
-	private TaskAdvisor.Result readBadge()
-	{
-		if (!model.isAdviceShown())
-		{
-			return null;
-		}
-		if (model.isWaitingForCurrentPrices())
-		{
-			return shownBadge;
-		}
-		TaskAdvisor.Result result = model.advice();
-		return TaskPlanText.badge(result) == null ? null : result;
-	}
-
-	/**
-	 * Notes the observed task, {@code key} (its creature key, name {@code monster}, task type and assigned area), as
-	 * the card's assignment: a new one (another key, another assigned size, or more kills left than before) opens the
-	 * card again and forgets the player's choice. Its first task kill is seen as a drop of the kills left, a session of
-	 * this task (not one the previous assignment left running, {@link #previousSession}), or kills left below the
-	 * assigned size (a task already started before a login or restart).
-	 */
-	private void noteAssignment(List<Object> key, String monster)
-	{
-		int remaining = tracker.getCurrentRemaining();
-		int original = tracker.getCurrentOriginalAmount();
-		boolean same = key.equals(assignment) && remaining <= lastRemaining
-			&& (original == SessionTracker.UNKNOWN_AMOUNT || assignedOriginal == SessionTracker.UNKNOWN_AMOUNT
-			|| original == assignedOriginal);
-		boolean sessionActive = tracker.getState().isActive();
-		String session = sessionActive ? tracker.getSessionId() : null;
-		if (!same)
-		{
-			// The first assignment seen since the history loaded has no previous one: a session running then is its own
-			// (restored at a login, or started before a restart).
-			previousSession = assignment == null ? null : session;
-			assignment = key;
-			assignedOriginal = original;
-			firstRemaining = remaining;
-			killed = false;
-			chosenOpen = null;
-			moreOpen = false;
-		}
-		else if (assignedOriginal == SessionTracker.UNKNOWN_AMOUNT)
-		{
-			assignedOriginal = original;
-		}
-		lastRemaining = remaining;
-		killed |= remaining < firstRemaining
-			|| (original != SessionTracker.UNKNOWN_AMOUNT && remaining < original)
-			|| (sessionActive && Objects.equals(tracker.getSessionMonster(), monster)
-			&& !Objects.equals(session, previousSession));
-	}
-
-	/** The player opened ({@code true}) or closed the card: held until the assignment changes. */
-	private void choose(boolean open)
-	{
-		chosenOpen = open;
-		update(false);
-	}
-
-	/** A tab click: saves the metric unless it is the one set; the plan follows through the model ({@link #update}). */
-	private void chooseMetric(AdvisorMetric metric)
-	{
-		if (metric != model.advisorMetric())
-		{
-			saveMetric.accept(metric);
-		}
-	}
-
-	/** Opens or closes the other setups' list; nothing is rebuilt. */
-	private void toggleMore()
-	{
-		moreOpen = !moreOpen;
-		moreToggle.setText(TaskPlanText.moreSetups(shownPlan == null ? 0 : shownPlan.getMoreSetups().size(), moreOpen));
-		moreList.setVisible(moreOpen);
-		relayout.run();
-	}
-
-	/** Builds the card for {@code plan} (or empties it for none), open or collapsed. */
-	private void rebuild(TaskPlan plan, TaskAdvisor.Result badge, boolean open)
+	/** Builds the card for {@code plan}, or empties it for none. */
+	private void rebuild(TaskPlan plan)
 	{
 		shownPlan = plan;
-		shownBadge = badge;
-		shownOpen = open;
 		card.removeAll();
 		bringGrids.clear();
 		shownNames = Collections.emptyList();
@@ -464,89 +235,36 @@ final class AdvisorCardSection
 			builds++;
 			requestRegionNames(plan);
 			shownNames = names(plan);
-			if (open)
-			{
-				buildOpen(plan, badge);
-			}
-			else
-			{
-				buildCollapsed(plan, badge);
-			}
+			build(plan);
 		}
 		card.revalidate();
 		card.repaint();
 		relayout.run();
 	}
 
-	/** The card collapsed: one line in Small, with the spot, the counterpart and the badge in its tooltip. */
-	private void buildCollapsed(TaskPlan plan, TaskAdvisor.Result badge)
-	{
-		collapsedLabel.setText(TaskPlanText.collapsedLine(plan));
-		List<String> tip = new ArrayList<>();
-		tip.add(collapsedLabel.getFullText());
-		tip.addAll(TaskPlanText.collapsedTooltip(plan, taskName(plan), model.spots(), regionNames()));
-		if (badge != null)
-		{
-			tip.add(TaskPlanText.badge(badge));
-		}
-		tip.add(OPEN_HINT);
-		collapsedLabel.setToolTipText(html(tip));
-		card.add(collapsedLabel);
-	}
-
-	/**
-	 * The card open: the title and badge, then with history the tabs (the plan's metric chosen, so the tab and the
-	 * blocks always agree) and the note, else the one line.
-	 */
-	private void buildOpen(TaskPlan plan, TaskAdvisor.Result badge)
+	/** The card's content: with history the title and the note, else the one line. */
+	private void build(TaskPlan plan)
 	{
 		String task = taskName(plan);
-		if (plan.hasHistory())
-		{
-			String text = TaskPlanText.cardTitle(task, plan.getAllSetups().getTasks());
-			title.removeAll();
-			FontMetrics bold = title.getFontMetrics(LedgerTheme.boldFont());
-			for (String line : TaskPlanText.wrap(text, CARD_WRAP_WIDTH, CARD_WRAP_WIDTH, MAX_NAME_LINES,
-				bold::stringWidth))
-			{
-				title.add(fitLine("advisor.title.line", line, LedgerTheme.boldFont(), LedgerTheme.HEADING));
-			}
-			title.setToolTipText(html(Arrays.asList(text, CLOSE_HINT)));
-			card.add(title);
-		}
-		if (badge != null)
-		{
-			badgeLabel.setText(TaskPlanText.badge(badge));
-			badgeLabel.setToolTipText(html(TaskPlanText.badgeReason(badge, model.lootPriceMode())));
-			card.add(badgeLabel);
-		}
 		if (!plan.hasHistory())
 		{
-			JPanel none = wrapped("advisor.noHistory", TaskPlanText.noHistoryLine(task, plan), LedgerTheme.LABEL,
-				CARD_WRAP_WIDTH);
-			// No title to click: the line closes the card instead.
-			none.setToolTipText(CLOSE_HINT);
-			none.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-			none.addMouseListener(clicked(() -> choose(false)));
-			card.add(card.getComponentCount() > 0 ? gapped(none, 2) : none);
+			card.add(wrapped("advisor.noHistory", TaskPlanText.noHistoryLine(task, plan), LedgerTheme.LABEL,
+				CARD_WRAP_WIDTH));
 			return;
 		}
-		for (Map.Entry<AdvisorMetric, JButton> tab : tabButtons.entrySet())
+		String text = TaskPlanText.cardTitle(task, plan.getAllSetups().getTasks());
+		title.removeAll();
+		FontMetrics bold = title.getFontMetrics(LedgerTheme.boldFont());
+		for (String line : TaskPlanText.wrap(text, CARD_WRAP_WIDTH, CARD_WRAP_WIDTH, MAX_NAME_LINES, bold::stringWidth))
 		{
-			boolean selected = tab.getKey() == plan.getMetric();
-			JButton button = tab.getValue();
-			button.setForeground(selected ? LedgerTheme.VALUE : LedgerTheme.HINT);
-			// The chosen tab: the accent line under it; the others keep its room, so nothing moves.
-			button.setBorder(selected
-				? BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, LedgerTheme.HEADING),
-				BorderFactory.createEmptyBorder(1, 0, 1, 0))
-				: BorderFactory.createEmptyBorder(1, 0, 3, 0));
+			title.add(fitLine("advisor.title.line", line, LedgerTheme.boldFont(), LedgerTheme.HEADING));
 		}
-		card.add(gapped(tabs, 4));
+		title.setToolTipText(html(Collections.singletonList(text)));
+		card.add(title);
 		card.add(gapped(buildNote(plan, task), GAP));
 	}
 
-	/** The parchment note: the Konar note, the recommendation and counterpart, All setups and More setups. */
+	/** The parchment note: the Konar note, the recommendation and All setups. */
 	private JPanel buildNote(TaskPlan plan, String task)
 	{
 		JPanel note = column("advisor.note");
@@ -555,12 +273,10 @@ final class AdvisorCardSection
 		note.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(LedgerTheme.PARCHMENT_EDGE, 1),
 			BorderFactory.createEmptyBorder(NOTE_PADDING, NOTE_PADDING, NOTE_PADDING, NOTE_PADDING)));
 		boolean perKill = !plan.hasKillsLeft();
-		SlayerSpots spots = model.spots();
-		IntFunction<String> regions = regionNames();
 		if (plan.isAreaFallback())
 		{
 			addPart(note, wrapped("advisor.areaNote", TaskPlanText.areaFallback(TaskPlanText.shortSpotName(
-				plan.getAreaSpot(), spots, regions)), LedgerTheme.MUTED_INK, NOTE_WRAP_WIDTH), 0);
+				plan.getAreaSpot(), model.spots(), regionNames())), LedgerTheme.MUTED_INK, NOTE_WRAP_WIDTH), 0);
 		}
 		TaskPlan.Option best = plan.getRecommendation();
 		if (best == null)
@@ -572,49 +288,16 @@ final class AdvisorCardSection
 		else
 		{
 			addPart(note, optionBlock("advisor.recommendation", best, plan.isRecommendationThin(), task, perKill), GAP);
-			TaskPlan.Option other = plan.getCounterpart();
-			if (other != null)
-			{
-				// Small multiples: the counterpart in the same block, under a rule and its cannon choice.
-				JPanel rule = new JPanel();
-				rule.setName("advisor.rule");
-				rule.setBackground(LedgerTheme.PARCHMENT_EDGE);
-				rule.setPreferredSize(new Dimension(0, 1));
-				rule.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
-				addPart(note, rule, GAP);
-				JLabel label = smallLabel(TaskPlanText.counterpartLabel(other), LedgerTheme.MUTED_INK);
-				label.setName("advisor.counterpartLabel");
-				addPart(note, label, 4);
-				addPart(note, optionBlock("advisor.counterpart", other, false, task, perKill), 2);
-			}
 		}
 		TaskPlan.Summary all = plan.getAllSetups();
 		addPart(note, line("advisor.allSetups", TaskPlanText.allSetups(all), TaskPlanText.time(all.getTime(), perKill),
 			LedgerTheme.INK, LedgerTheme.INK), GAP);
-		List<TaskPlan.Option> more = plan.getMoreSetups();
-		if (!more.isEmpty())
-		{
-			moreToggle.setText(TaskPlanText.moreSetups(more.size(), moreOpen));
-			addPart(note, moreToggle, 4);
-			moreList.removeAll();
-			for (TaskPlan.Option option : more)
-			{
-				JPanel row = line("advisor.more.row", TaskPlanText.optionName(option, task, spots, regions),
-					TaskPlanText.moreSetupValue(option, perKill), LedgerTheme.INK, LedgerTheme.MUTED_INK);
-				row.setToolTipText(html(Arrays.asList(TaskPlanText.optionName(option, task, spots, regions),
-					TaskPlanText.optionTasks(option))));
-				addPart(moreList, row, 2);
-			}
-			moreList.setVisible(moreOpen);
-			addPart(note, moreList, 0);
-		}
 		return note;
 	}
 
 	/**
-	 * One option's block, the same for the recommendation and the counterpart (small multiples): its name and sample
-	 * size ({@code based on 1 task} when {@code thin}), its time and range, Slayer XP/h, Profit/h (signed; a loss in
-	 * red ink), Supplies and gear, then with the kills left known what to bring.
+	 * The recommendation's block: its name and sample size ({@code based on 1 task} when {@code thin}), its time for
+	 * the kills left, then with the kills left known what to bring.
 	 */
 	private JPanel optionBlock(String name, TaskPlan.Option option, boolean thin, String task, boolean perKill)
 	{
@@ -625,29 +308,10 @@ final class AdvisorCardSection
 		head.setToolTipText(html(Arrays.asList(optionName, tasks)));
 		addPart(block, head, 0);
 
-		JPanel time = new JPanel(new BorderLayout(GAP, 0));
+		JLabel time = LedgerTheme.label(TaskPlanText.time(option.getTime(), perKill), LedgerTheme.boldFont(),
+			LedgerTheme.INK);
 		time.setName(name + ".time");
-		time.setOpaque(false);
-		time.setAlignmentX(Component.LEFT_ALIGNMENT);
-		time.add(LedgerTheme.label(TaskPlanText.time(option.getTime(), perKill), LedgerTheme.boldFont(),
-			LedgerTheme.INK), BorderLayout.WEST);
-		String range = TaskPlanText.timeRange(option.getTime(), perKill);
-		FitLabel rangeLabel = new FitLabel(range == null ? "" : range);
-		rangeLabel.setFont(LedgerTheme.smallFont());
-		rangeLabel.setForeground(LedgerTheme.MUTED_INK);
-		time.add(rangeLabel, BorderLayout.CENTER);
 		addPart(block, time, 1);
-
-		Long profit = option.getProfitPerHour();
-		addPart(block, line(name + ".xp", "Slayer XP/h", LedgerFormat.amount(option.getSlayerXpPerHour(), false),
-			LedgerTheme.INK, LedgerTheme.INK), 2);
-		// The sign says gain or loss; red ink only adds to it.
-		addPart(block, line(name + ".profit", "Profit/h", LedgerFormat.signed(profit, option.isProfitApproximate()),
-			LedgerTheme.INK, profit != null && profit < 0 ? LedgerTheme.RED_INK : LedgerTheme.INK), 1);
-		addPart(block, line(name + ".supplies", TaskPlanText.suppliesLabel(perKill),
-			LedgerFormat.amount(option.getSupplyCost(), option.isSupplyCostApproximate()), LedgerTheme.INK,
-			LedgerTheme.INK), 1);
-		addPart(block, line(name + ".gear", "Gear", TaskPlanText.gear(option), LedgerTheme.INK, LedgerTheme.INK), 1);
 		if (!perKill)
 		{
 			ItemGridView grid = new ItemGridView(BRING_TITLE, false, LedgerTheme.PARCHMENT, icons);
@@ -790,7 +454,7 @@ final class AdvisorCardSection
 		return names;
 	}
 
-	/** The spots the card names: the assigned area's, the recommendation's, the counterpart's and the others'. */
+	/** The spots the card names: the assigned area's and the recommendation's. */
 	private static List<String> spotKeys(TaskPlan plan)
 	{
 		List<String> spots = new ArrayList<>();
@@ -798,9 +462,9 @@ final class AdvisorCardSection
 		{
 			spots.add(plan.getAreaSpot());
 		}
-		for (TaskPlan.Option option : plan.getOptions())
+		if (plan.getRecommendation() != null)
 		{
-			spots.add(option.getSpot());
+			spots.add(plan.getRecommendation().getSpot());
 		}
 		return spots;
 	}
@@ -899,36 +563,6 @@ final class AdvisorCardSection
 		return holder;
 	}
 
-	/**
-	 * Styles {@code button} as a text link of the card: Small text in {@code color}, no frame or fill, a hand cursor,
-	 * and still focusable, so the keyboard reaches it (Space presses it).
-	 */
-	private static void styleLink(JButton button, Color color)
-	{
-		button.setFont(LedgerTheme.smallFont());
-		button.setForeground(color);
-		button.setContentAreaFilled(false);
-		button.setOpaque(false);
-		button.setFocusPainted(false);
-		button.setBorder(BorderFactory.createEmptyBorder(1, 0, 3, 0));
-		button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-	}
-
-	/** A left click's listener. */
-	private static MouseAdapter clicked(Runnable action)
-	{
-		return new MouseAdapter()
-		{
-			@Override
-			public void mouseClicked(MouseEvent e)
-			{
-				if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 1)
-				{
-					action.run();
-				}
-			}
-		};
-	}
 
 	/** Plain-text lines as an HTML tooltip, each escaped. */
 	private static String html(List<String> lines)

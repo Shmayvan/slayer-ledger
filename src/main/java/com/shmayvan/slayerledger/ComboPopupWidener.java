@@ -1,15 +1,11 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.Dimension;
-import java.awt.Insets;
-import java.awt.Point;
-import javax.accessibility.Accessible;
-import javax.swing.JComboBox;
-import javax.swing.JScrollPane;
-import javax.swing.SwingUtilities;
-import javax.swing.event.PopupMenuEvent;
-import javax.swing.event.PopupMenuListener;
-import javax.swing.plaf.basic.BasicComboPopup;
+import java.awt.*;
+import javax.accessibility.*;
+import javax.swing.*;
+import javax.swing.event.*;
+import javax.swing.plaf.basic.*;
+import lombok.*;
 
 /**
  * Widens a drop-down's open list to fit its longest choice, up to a maximum, while the closed box keeps its own
@@ -19,17 +15,13 @@ import javax.swing.plaf.basic.BasicComboPopup;
  * <p>The look and feel sizes the open list from the box's display size (its prototype) as it opens, so the list is
  * widened just after it is shown, and shown again at its new size.</p>
  */
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 final class ComboPopupWidener implements PopupMenuListener
 {
 	/** The widest the open list gets, in pixels: a 40-character location name and a scroll bar fit. */
 	static final int MAX_WIDTH = 320;
 
 	private final int maxWidth;
-
-	private ComboPopupWidener(int maxWidth)
-	{
-		this.maxWidth = maxWidth;
-	}
 
 	/** Makes {@code box}'s open list fit its longest choice, at most {@code maxWidth} pixels wide. */
 	static void install(JComboBox<?> box, int maxWidth)

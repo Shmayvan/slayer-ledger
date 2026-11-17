@@ -1,90 +1,39 @@
 package com.shmayvan.slayerledger;
 
-import com.google.gson.Gson;
-import com.google.inject.Binder;
-import com.google.inject.Provides;
-import java.awt.Image;
-import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
+import com.google.gson.*;
+import com.google.inject.*;
+import java.awt.*;
+import java.awt.image.*;
+import java.io.*;
+import java.time.Clock;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiPredicate;
-import java.util.function.Consumer;
-import java.util.regex.Pattern;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.*;
+import java.util.function.*;
+import java.util.regex.*;
 import javax.inject.Inject;
-import javax.swing.ImageIcon;
-import javax.swing.JLabel;
-import javax.swing.SwingUtilities;
-import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.Actor;
-import net.runelite.api.ChatMessageType;
-import net.runelite.api.Client;
-import net.runelite.api.EquipmentInventorySlot;
-import net.runelite.api.GameState;
-import net.runelite.api.Item;
-import net.runelite.api.ItemContainer;
-import net.runelite.api.MenuAction;
-import net.runelite.api.NPC;
-import net.runelite.api.NPCComposition;
-import net.runelite.api.Player;
-import net.runelite.api.Skill;
-import net.runelite.api.WorldView;
-import net.runelite.api.coords.LocalPoint;
-import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.events.ActorDeath;
-import net.runelite.api.events.ChatMessage;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.GameTick;
-import net.runelite.api.events.HitsplatApplied;
-import net.runelite.api.events.ItemContainerChanged;
-import net.runelite.api.events.MenuOptionClicked;
-import net.runelite.api.events.NpcDespawned;
-import net.runelite.api.events.WidgetClosed;
-import net.runelite.api.events.WidgetLoaded;
+import javax.swing.*;
+import lombok.*;
+import lombok.extern.slf4j.*;
+import net.runelite.api.*;
+import net.runelite.api.coords.*;
+import net.runelite.api.events.*;
+import net.runelite.api.gameval.*;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
-import net.runelite.api.gameval.VarPlayerID;
-import net.runelite.api.gameval.VarbitID;
-import net.runelite.api.widgets.Widget;
-import net.runelite.client.Notifier;
-import net.runelite.client.callback.ClientThread;
-import net.runelite.client.chat.ChatMessageManager;
-import net.runelite.client.chat.QueuedMessage;
-import net.runelite.client.config.ConfigManager;
-import net.runelite.client.eventbus.EventBus;
-import net.runelite.client.eventbus.Subscribe;
-import net.runelite.client.events.ClientShutdown;
-import net.runelite.client.events.ConfigChanged;
-import net.runelite.client.events.RuneScapeProfileChanged;
-import net.runelite.client.events.ServerNpcLoot;
-import net.runelite.client.game.ItemEquipmentStats;
-import net.runelite.client.game.ItemManager;
-import net.runelite.client.game.ItemStack;
-import net.runelite.client.game.ItemStats;
-import net.runelite.client.game.SkillIconManager;
-import net.runelite.client.game.SpriteManager;
-import net.runelite.client.plugins.Plugin;
-import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.ui.ClientToolbar;
-import net.runelite.client.ui.NavigationButton;
-import net.runelite.client.ui.overlay.OverlayManager;
-import net.runelite.client.util.AsyncBufferedImage;
-import net.runelite.client.util.Filepath;
-import net.runelite.client.util.ImageUtil;
-import net.runelite.client.util.Text;
+import net.runelite.api.widgets.*;
+import net.runelite.client.*;
+import net.runelite.client.callback.*;
+import net.runelite.client.chat.*;
+import net.runelite.client.config.*;
+import net.runelite.client.eventbus.*;
+import net.runelite.client.events.*;
+import net.runelite.client.game.*;
+import net.runelite.client.plugins.*;
+import net.runelite.client.ui.*;
+import net.runelite.client.ui.overlay.*;
+import net.runelite.client.util.*;
 
 @Slf4j
 @PluginDescriptor(
@@ -247,11 +196,18 @@ public class SlayerLedgerPlugin extends Plugin
 	@Inject
 	private SlayerDbLookups dbLookups;
 
+	/**
+	 * The session tracker's clock: the system clock unless the injector binds another, an optional dependency as
+	 * RuneLite's own {@code ItemManager} reads its price thresholds.
+	 */
+	@com.google.inject.Inject(optional = true)
+	private Clock clock = Clock.systemUTC();
+
 	private final CompletionGraceTicker completionGraceTicker = new CompletionGraceTicker();
 
 	/**
 	 * Source of the ledger directory, or {@code null} for the plugin directory ({@link #getPluginDirectory()}). Only
-	 * tests set it (see {@link #setLedgerDirectory}), so they never touch the real RuneLite directory.
+	 * tests set it (see {@link #setLedgerDirectorySource}), so they never touch the real RuneLite directory.
 	 */
 	private LedgerStore.DirectorySource ledgerDirectorySource;
 	/**
@@ -279,8 +235,8 @@ public class SlayerLedgerPlugin extends Plugin
 	private volatile SlayerLedgerPanel panel;
 	/**
 	 * The shown account's history and what is worked out from it: the plugin writes the records, entries,
-	 * prices, names and settings to it, the panel observes and shows it, and it decides the advisor's plan, the
-	 * assignment chat line and the overlay's historical time per kill. Used on the EDT only (see
+	 * prices, names and settings to it, the panel observes and shows it, and it decides the advisor's plan and the
+	 * overlay's historical time per kill. Used on the EDT only (see
 	 * {@link LedgerHistoryModel}); the client thread only reads the reference to queue EDT work.
 	 */
 	private volatile LedgerHistoryModel historyModel;
@@ -519,7 +475,7 @@ public class SlayerLedgerPlugin extends Plugin
 	{
 		// Until the client-thread block below has run; see clientStateReady.
 		clientStateReady = false;
-		tracker = new SessionTracker(System::currentTimeMillis);
+		tracker = new SessionTracker(clock::millis);
 		tracker.setAwayMinutes(config.awayMinutes());
 		// Read once per run; the tracker, the history model and the kill reads share it.
 		spots = SlayerSpots.load(gson, spotsResource);
@@ -545,8 +501,8 @@ public class SlayerLedgerPlugin extends Plugin
 		// The lookups answer whichever history model is current when an answer is ready.
 		lookups.setHistoryModelSource(this::historyModel);
 		historyModel = new LedgerHistoryModel(tracker, lootPriceMode, lookups::requestLocationNames,
-			lookups::requestCurrentPrices, lookups::requestItemNames, this::postAssignmentLine,
-			this::publishHistoricalPace, executor, SwingUtilities::invokeLater);
+			lookups::requestCurrentPrices, lookups::requestItemNames, this::publishHistoricalPace, executor,
+			SwingUtilities::invokeLater);
 		historyModel.setGroundItemsHidden(groundItemsHidden);
 		historyModel.setSpots(spots);
 		panel = new SlayerLedgerPanel(this, tracker, historyModel);
@@ -555,7 +511,6 @@ public class SlayerLedgerPlugin extends Plugin
 		{
 			panel.setSectionShown(section, isSectionShown(section));
 		}
-		historyModel.setTaskAdvisor(config.taskAdvisor(), config.advisorMetric());
 		taskOverlay = new SlayerLedgerOverlay(this, config, itemManager, spriteManager);
 		overlayManager.add(taskOverlay);
 
@@ -665,12 +620,6 @@ public class SlayerLedgerPlugin extends Plugin
 		loggedIn = false;
 		accountHash = SessionTracker.NO_ACCOUNT;
 		historyAccount = SessionTracker.NO_ACCOUNT;
-	}
-
-	/** Test seam: keeps the ledger files in {@code directory} instead of the plugin directory. Call before startUp. */
-	void setLedgerDirectory(Filepath directory)
-	{
-		setLedgerDirectorySource(() -> directory);
 	}
 
 	/** Test seam: answers the Keep/Discard dialog with {@code dialog} (on the EDT) instead. Call before startUp. */
@@ -783,17 +732,6 @@ public class SlayerLedgerPlugin extends Plugin
 			if (t != null)
 			{
 				t.setAwayMinutes(config.awayMinutes());
-			}
-		}
-		else if (SlayerLedgerConfig.TASK_ADVISOR.equals(event.getKey())
-			|| SlayerLedgerConfig.ADVISOR_METRIC.equals(event.getKey()))
-		{
-			final boolean enabled = config.taskAdvisor();
-			final AdvisorMetric metric = config.advisorMetric();
-			final LedgerHistoryModel m = historyModel;
-			if (m != null)
-			{
-				SwingUtilities.invokeLater(() -> m.setTaskAdvisor(enabled, metric));
 			}
 		}
 		else
@@ -1410,6 +1348,7 @@ public class SlayerLedgerPlugin extends Plugin
 	 * known, to be counted as setup contexts ({@link SlayerLedgerPlugin#countKillContexts}). What is read on the kill's
 	 * own tick (the cannon and the worn gear) is kept with them.
 	 */
+	@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 	private static final class KillContextsDue
 	{
 		/** The kills' clock time ({@link SessionTracker#getLastKillAt()} just after them). */
@@ -1421,16 +1360,6 @@ public class SlayerLedgerPlugin extends Plugin
 		final int kills;
 		final boolean cannon;
 		final Integer prayerBonus;
-
-		KillContextsDue(long killAt, int tick, int fromTick, int kills, boolean cannon, Integer prayerBonus)
-		{
-			this.killAt = killAt;
-			this.tick = tick;
-			this.fromTick = fromTick;
-			this.kills = kills;
-			this.cannon = cannon;
-			this.prayerBonus = prayerBonus;
-		}
 	}
 
 	/**
@@ -1525,12 +1454,10 @@ public class SlayerLedgerPlugin extends Plugin
 	/**
 	 * Client thread, every settled tick and after a loaded active session is applied ({@link #applyActiveSession},
 	 * which runs between ticks). When the task, its master, its kills left, its location or the session changed
-	 * ({@link LedgerHistoryModel#liveInputs}), asks the history model on the EDT to ask for the advisor's plan, check
-	 * the waiting chat line again and publish the overlay's historical time per kill; otherwise, while the model waits
-	 * for today's prices, asks it to end that wait once it has run out, and once the waiting chat line's names wait is
-	 * over ({@link LedgerHistoryModel#isAssignmentLineOverdue}), asks it to check the line again, which then posts it
-	 * with the names there are. So none of these waits for the panel's refresh timer, and a new kills left asks for a
-	 * new plan at most once a tick.
+	 * ({@link LedgerHistoryModel#liveInputs}), asks the history model on the EDT to ask for the advisor's plan and
+	 * publish the overlay's historical time per kill; otherwise, while the model waits for today's prices, asks it to
+	 * end that wait once it has run out. So neither waits for the panel's refresh timer, and a new kills left asks for
+	 * a new plan at most once a tick.
 	 */
 	private void refreshHistoryModelIfLiveChanged()
 	{
@@ -1544,16 +1471,9 @@ public class SlayerLedgerPlugin extends Plugin
 				SwingUtilities.invokeLater(m::refreshLive);
 			}
 		}
-		else if (m != null)
+		else if (m != null && m.isWaitingForCurrentPrices())
 		{
-			if (m.isWaitingForCurrentPrices())
-			{
-				SwingUtilities.invokeLater(m::endExpiredCurrentPricesWait);
-			}
-			if (m.isAssignmentLineOverdue())
-			{
-				SwingUtilities.invokeLater(m::checkAssignmentLine);
-			}
+			SwingUtilities.invokeLater(m::endExpiredCurrentPricesWait);
 		}
 	}
 
@@ -1578,22 +1498,10 @@ public class SlayerLedgerPlugin extends Plugin
 		return tracker;
 	}
 
-	/** Test seam: the sidebar panel, or {@code null} while the plugin is stopped. Use it on the EDT. */
-	SlayerLedgerPanel panel()
-	{
-		return panel;
-	}
-
 	/** Test seam: stands {@code valuation} in for the live session valuation. Call on the client thread. */
 	void setSessionValuation(SessionValuation valuation)
 	{
 		sessionValuation = valuation;
-	}
-
-	/** Test seam: the game-tick subscriber the plugin registers on the event bus next to itself. */
-	Object completionGraceTicker()
-	{
-		return completionGraceTicker;
 	}
 
 	/** EDT, after a panel action changed the session: the history model's live checks run at once. */
@@ -1608,31 +1516,16 @@ public class SlayerLedgerPlugin extends Plugin
 
 	/**
 	 * Client thread, every settled tick, whether or not a session is running (only varps and varbits are read). Saves
-	 * each assignment that ended without a session, and asks the history model for a new one's advisor chat line
-	 *; see {@link AssignmentWatch}.
+	 * each assignment that ended without a session; see {@link AssignmentWatch}.
 	 */
 	private void watchAssignments(AssignmentWatch.Reading reading)
 	{
 		final List<AssignmentWatch.Ended> ended = assignmentWatch.update(reading, tracker.takeSessionTaskKeys(),
 			System.currentTimeMillis());
-		// Taken every tick, so a new assignment gets its line on the tick it is seen or never.
-		final boolean started = assignmentWatch.takeStarted();
 		final long account = accountHash;
 		if (account == SessionTracker.NO_ACCOUNT)
 		{
 			return;
-		}
-		if (started && config.advisorChatLine())
-		{
-			// The tracker took this tick's task before the watch did. The history is on the EDT; the history model
-			// posts the line through postAssignmentLine once it has what it needs.
-			final int creatureId = tracker.getCurrentCreatureId();
-			final String monster = tracker.getCurrentMonster();
-			final LedgerHistoryModel m = historyModel;
-			if (m != null)
-			{
-				SwingUtilities.invokeLater(() -> m.requestAssignmentLine(account, creatureId, monster));
-			}
 		}
 		for (AssignmentWatch.Ended e : ended)
 		{
@@ -3018,16 +2911,6 @@ public class SlayerLedgerPlugin extends Plugin
 		});
 	}
 
-	/**
-	 * Saves the "Advisor metric" setting as the advisor card's tabs choose it (EDT, as RuneLite's own
-	 * config panel sets settings). RuneLite's {@code ConfigManager} posts {@link ConfigChanged} for a new value, and
-	 * {@link #onConfigChanged} applies it to the history model like an edit in the config panel, so the plan is worked
-	 * out again on that path only.
-	 */
-	void setAdvisorMetric(AdvisorMetric metric)
-	{
-		configManager.setConfiguration(SlayerLedgerConfig.GROUP, SlayerLedgerConfig.ADVISOR_METRIC, metric);
-	}
 
 	/**
 	 * Sets the note of the session the panel's note box belongs to (see {@link SessionTracker#setNote}). If that
@@ -3326,21 +3209,6 @@ public class SlayerLedgerPlugin extends Plugin
 		});
 	}
 
-	/**
-	 * EDT. Queues a new assignment's advisor chat line, a chat message the history model built with
-	 * {@link TaskPlanText#chatMessage}, like the task-complete summary, unless the "Advisor chat line" setting was
-	 * turned off meanwhile.
-	 */
-	void postAssignmentLine(String message)
-	{
-		clientThread.invoke(() ->
-		{
-			if (config.advisorChatLine())
-			{
-				postChatMessage(message);
-			}
-		});
-	}
 
 	/**
 	 * Client thread. Posts the plugin's plain-text chat line (waiting for the next kill) as a console message named
@@ -3609,18 +3477,13 @@ public class SlayerLedgerPlugin extends Plugin
 	}
 
 	/** The result of {@link #saveKeptRecords}. */
+	@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 	private static final class KeptRecords
 	{
 		/** The updated record list, or {@code null} if no kept record was saved. */
 		final List<LedgerRecord> records;
 		/** Whether a kept record could not be saved and is still waiting. */
 		final boolean failed;
-
-		KeptRecords(List<LedgerRecord> records, boolean failed)
-		{
-			this.records = records;
-			this.failed = failed;
-		}
 	}
 
 	private Future<?> deleteActive(long account, String sessionId)
@@ -3747,7 +3610,7 @@ public class SlayerLedgerPlugin extends Plugin
 		{
 			restorePending = false;
 			// Applied after the tick's own live check: a session it restored (or ended) is told to the history model
-			// now, not on the next tick, so the advisor card collapses for it whatever the EDT ran first.
+			// now, not on the next tick, so its live checks see it whatever the EDT ran first.
 			refreshHistoryModelIfLiveChanged();
 		}
 	}

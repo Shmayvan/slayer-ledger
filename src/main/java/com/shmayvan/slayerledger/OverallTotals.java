@@ -1,23 +1,8 @@
 package com.shmayvan.slayerledger;
 
-import java.time.Instant;
-import java.time.YearMonth;
-import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Value;
+import java.time.*;
+import java.util.*;
+import lombok.*;
 
 /**
  * Overall and grouped totals from completed played-task records. XP is the total of every skill in a record's
@@ -26,16 +11,17 @@ import lombok.Value;
  * ({@link ItemDetails}) at the same prices as the profit; a task saved without item data adds none.
  *
  * <p>Each group also has the figures the By monster and By master groupings show: kills, averages per
- * task, profit per kill and per hour, Slayer XP and Slayer points. The rates follow {@link TaskRanking}'s rules:
- * pooled over the group's task samples ({@link TaskRanking#isTaskSample}) that recorded the
- * figure, an hourly rate only from {@link TaskTimeEstimate#MIN_ACTIVE_MILLIS} of their active time, and Slayer XP only
- * (the {@link SkillXp#SLAYER} entry). A task that didn't record a figure is left out of it rather than counted as 0.
+ * task, profit per kill and per hour, Slayer XP and Slayer points. The rates are pooled over the group's task
+ * samples ({@link TaskStatistics#isTaskSample}) that recorded the figure, an hourly rate only from
+ * {@link TaskTimeEstimate#MIN_ACTIVE_MILLIS} of their active time, and Slayer XP only (the {@link SkillXp#SLAYER}
+ * entry). A task that didn't record a figure is left out of it rather than counted as 0.
  * By master groups also count the master's assignments per monster ({@link Assignment}): its completed played tasks
  * plus the assignment log's entries ({@link AssignmentEntry}: skipped, blocked, reset, untracked and other ended
  * assignments).</p>
  */
 final class OverallTotals
 {
+	@AllArgsConstructor
 	enum Grouping
 	{
 		ALL("Overall"),
@@ -45,11 +31,6 @@ final class OverallTotals
 		MONSTER("By monster");
 
 		private final String label;
-
-		Grouping(String label)
-		{
-			this.label = label;
-		}
 
 		@Override
 		public String toString()
@@ -80,31 +61,13 @@ final class OverallTotals
 	 * Aggregates completed records, leaving profit and XP unknown unless the record captured them. Monthly groups use
 	 * each task's local completion month; records without an end time are kept in an unknown-date group. Items are
 	 * summed in the order of {@code records} (the history's: newest first), which picks the unit prices a summed row's
-	 * tooltip shows ({@link ItemSums}).
+	 * tooltip shows ({@link ItemSums}). The loot items {@code hidden} hides are left out of the profit
+	 * ({@link HistoryPricing}); the summed loot items still list them, and the panel leaves them out of its grid. By
+	 * master groups also count their assignments per monster ({@link Entry#getAssignments}) from the completed records
+	 * and {@code assignments}, the assignment log's entries. Only masters with a group (a completed played task) are
+	 * counted.
 	 *
 	 * @param currentGe today's GE unit prices the records are valued at ({@link HistoryPricing}); never {@code null}
-	 */
-	static List<Entry> summarize(Collection<LedgerRecord> records, Grouping grouping, LootPriceMode mode,
-		Map<Integer, Long> currentGe, ZoneId zone)
-	{
-		return summarize(records, Collections.emptyList(), grouping, mode, currentGe, HiddenLoot.NONE, zone);
-	}
-
-	/**
-	 * As {@link #summarize(Collection, Grouping, LootPriceMode, Map, ZoneId)}, with the loot items {@code hidden} hides
-	 * left out of the profit ({@link HistoryPricing}). The summed loot items still list them; the panel leaves them out
-	 * of its grid.
-	 */
-	static List<Entry> summarize(Collection<LedgerRecord> records, Grouping grouping, LootPriceMode mode,
-		Map<Integer, Long> currentGe, HiddenLoot hidden, ZoneId zone)
-	{
-		return summarize(records, Collections.emptyList(), grouping, mode, currentGe, hidden, zone);
-	}
-
-	/**
-	 * As {@link #summarize(Collection, Grouping, LootPriceMode, Map, HiddenLoot, ZoneId)}; By master groups also count
-	 * their assignments per monster ({@link Entry#getAssignments}) from the completed records and {@code assignments},
-	 * the assignment log's entries. Only masters with a group (a completed played task) are counted.
 	 */
 	static List<Entry> summarize(Collection<LedgerRecord> records, Collection<AssignmentEntry> assignments,
 		Grouping grouping, LootPriceMode mode, Map<Integer, Long> currentGe, HiddenLoot hidden, ZoneId zone)
@@ -297,6 +260,22 @@ final class OverallTotals
 		}
 	}
 
+	/** {@code total} per active hour, or {@code null} under {@link TaskTimeEstimate#MIN_ACTIVE_MILLIS} of time. */
+	static Long perHour(long total, long activeMillis)
+	{
+		if (activeMillis < TaskTimeEstimate.MIN_ACTIVE_MILLIS)
+		{
+			return null;
+		}
+		return Math.round(total * 3_600_000d / activeMillis);
+	}
+
+	/** {@code total} per kill, or {@code null} without kills; no minimum time. */
+	static Long perKill(long total, long kills)
+	{
+		return kills <= 0 ? null : Math.round(total / (double) kills);
+	}
+
 	/**
 	 * One monster in a By master group's assignments: how often the master assigned it, of how many, and how
 	 * they ended. Immutable; equal when every field is.
@@ -350,64 +329,80 @@ final class OverallTotals
 	@AllArgsConstructor(access = AccessLevel.PRIVATE)
 	static final class Entry
 	{
+		@Getter
 		private final String label;
 		/**
-		 * By monster: the assigned task name ({@link LedgerRecord#getMonster}) of the group's newest task, whose icon
-		 * ({@link TaskIcons}) the group shows; {@code null} in other groupings.
+		 * By monster: the assigned task name ({@link LedgerRecord#getMonster}) of the group's newest task, without its
+		 * Catacombs variant or cannon use, whose icon ({@link TaskIcons}) the group shows; {@code null} in other
+		 * groupings or when the task had no name.
 		 */
+		@Getter
 		private final String task;
 		private final int rank;
+		@Getter
 		private final int taskCount;
+		@Getter
 		private final long activeMillis;
+		@Getter
 		private final Long profit;
+		@Getter
 		private final int profitSampleCount;
+		@Getter
 		private final boolean profitApproximate;
+		/** XP of every skill ({@link SkillXp#total}) over the records with {@code xpGained}, or {@code null}. */
+		@Getter
 		private final Long xp;
+		@Getter
 		private final int xpSampleCount;
 		/** Summed supplies, unnamed and unsorted ({@link ItemSums#rows()}); empty without item data. */
 		private final List<ItemDetails.Row> supplies;
 		/** Summed loot, unnamed, unsorted and without the alch hint ({@link ItemSums#rows()}). */
 		private final List<ItemDetails.Row> loot;
+		/** Task kills of all the group's tasks. */
+		@Getter
 		private final long kills;
+		/** Active time per kill over the group's task samples, or {@code null} without any. */
+		@Getter
 		private final Long millisPerKill;
+		/**
+		 * Profit per kill, pooled ({@link OverallTotals#perKill}): the profit of the task samples that have one over
+		 * their kills, or {@code null} without any.
+		 */
+		@Getter
 		private final Long profitPerKill;
+		/**
+		 * Profit per hour, pooled ({@link OverallTotals#perHour}): the profit of the task samples that have one over
+		 * their active time, or {@code null} under {@link TaskTimeEstimate#MIN_ACTIVE_MILLIS} of it.
+		 */
+		@Getter
 		private final Long profitPerHour;
+		/** Whether {@link #getProfitPerKill} and {@link #getProfitPerHour} are approximate. */
+		@Getter
 		private final boolean profitRateApproximate;
+		/** Slayer XP only, over the tasks with recorded XP, or {@code null} when none has any. */
+		@Getter
 		private final Long slayerXp;
+		@Getter
 		private final int slayerXpSampleCount;
+		/**
+		 * Slayer XP per hour, pooled (the task samples with XP over their active time), or
+		 * {@code null} under {@link TaskTimeEstimate#MIN_ACTIVE_MILLIS} of it.
+		 */
+		@Getter
 		private final Long slayerXpPerHour;
+		/** Slayer points of the tasks that recorded them (bonus tasks included), or {@code null} when none did. */
+		@Getter
 		private final Long points;
+		@Getter
 		private final int pointsSampleCount;
 		/** Points of the tasks with recorded points that are not bonus (milestone) tasks, for the average. */
 		private final long regularPoints;
 		private final int regularPointsSampleCount;
 		/** By master: the master's assignments per monster, most first; empty otherwise. */
 		private final List<Assignment> assignments;
+		/** By master: all the master's assignments counted; 0 in other groupings. */
+		@Getter
 		private final int assignmentTotal;
-
-		String getLabel()
-		{
-			return label;
-		}
-
-		/**
-		 * By monster: the assigned task name of the group's newest task, without its Catacombs variant or cannon use
-		 *, for its icon ({@link TaskIcons}); {@code null} in other groupings or when the task had no name.
-		 */
-		String getTask()
-		{
-			return task;
-		}
-
-		int getTaskCount()
-		{
-			return taskCount;
-		}
-
-		long getActiveMillis()
-		{
-			return activeMillis;
-		}
 
 		/** Average active time per task. */
 		long getAverageActiveMillis()
@@ -415,36 +410,10 @@ final class OverallTotals
 			return taskCount <= 0 ? 0 : activeMillis / taskCount;
 		}
 
-		Long getProfit()
-		{
-			return profit;
-		}
-
-		int getProfitSampleCount()
-		{
-			return profitSampleCount;
-		}
-
-		boolean isProfitApproximate()
-		{
-			return profitApproximate;
-		}
-
 		/** Average profit per task over the {@link #getProfitSampleCount} tasks that have one, or {@code null}. */
 		Long getAverageProfit()
 		{
 			return profit == null ? null : average(profit, profitSampleCount);
-		}
-
-		/** XP of every skill ({@link SkillXp#total}) over the records with {@code xpGained}, or {@code null}. */
-		Long getXp()
-		{
-			return xp;
-		}
-
-		int getXpSampleCount()
-		{
-			return xpSampleCount;
 		}
 
 		/**
@@ -465,77 +434,10 @@ final class OverallTotals
 			return loot == null ? Collections.emptyList() : loot;
 		}
 
-		/** Task kills of all the group's tasks. */
-		long getKills()
-		{
-			return kills;
-		}
-
-		/** Active time per kill over the group's task samples, or {@code null} without any. */
-		Long getMillisPerKill()
-		{
-			return millisPerKill;
-		}
-
-		/**
-		 * Profit per kill as {@link TaskRanking} pools it: the profit of the task samples that have one over their
-		 * kills, or {@code null} without any.
-		 */
-		Long getProfitPerKill()
-		{
-			return profitPerKill;
-		}
-
-		/**
-		 * Profit per hour as {@link TaskRanking} pools it: the profit of the task samples that have one over their
-		 * active time, or {@code null} under {@link TaskTimeEstimate#MIN_ACTIVE_MILLIS} of it.
-		 */
-		Long getProfitPerHour()
-		{
-			return profitPerHour;
-		}
-
-		/** Whether {@link #getProfitPerKill} and {@link #getProfitPerHour} are approximate. */
-		boolean isProfitRateApproximate()
-		{
-			return profitRateApproximate;
-		}
-
-		/** Slayer XP only, over the tasks with recorded XP, or {@code null} when none has any. */
-		Long getSlayerXp()
-		{
-			return slayerXp;
-		}
-
-		int getSlayerXpSampleCount()
-		{
-			return slayerXpSampleCount;
-		}
-
 		/** Average Slayer XP per task over {@link #getSlayerXpSampleCount} tasks, or {@code null}. */
 		Long getAverageSlayerXp()
 		{
 			return slayerXp == null ? null : average(slayerXp, slayerXpSampleCount);
-		}
-
-		/**
-		 * Slayer XP per hour as {@link TaskRanking} pools it (the task samples with XP over their active time), or
-		 * {@code null} under {@link TaskTimeEstimate#MIN_ACTIVE_MILLIS} of it.
-		 */
-		Long getSlayerXpPerHour()
-		{
-			return slayerXpPerHour;
-		}
-
-		/** Slayer points of the tasks that recorded them (bonus tasks included), or {@code null} when none did. */
-		Long getPoints()
-		{
-			return points;
-		}
-
-		int getPointsSampleCount()
-		{
-			return pointsSampleCount;
 		}
 
 		/**
@@ -559,15 +461,9 @@ final class OverallTotals
 		{
 			return assignments == null ? Collections.emptyList() : assignments;
 		}
-
-		/** By master: all the master's assignments counted; 0 in other groupings. */
-		int getAssignmentTotal()
-		{
-			return assignmentTotal;
-		}
 	}
 
-	/** A pooled rate's totals, as {@link TaskRanking} pools a metric: its total, active time and kills. */
+	/** A pooled rate's totals: its total, active time and kills. */
 	private static final class Pool
 	{
 		private long total;
@@ -585,7 +481,7 @@ final class OverallTotals
 
 		private Long perHour()
 		{
-			return activeMillis <= 0 ? null : TaskRanking.perHour(total, activeMillis);
+			return activeMillis <= 0 ? null : OverallTotals.perHour(total, activeMillis);
 		}
 	}
 
@@ -625,20 +521,17 @@ final class OverallTotals
 			return Collections.unmodifiableList(rows);
 		}
 
+		@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 		private static final class Counts
 		{
 			private final String name;
 			private int count;
 			private int completed;
 			private final Map<AssignmentOutcome, Integer> outcomes = new EnumMap<>(AssignmentOutcome.class);
-
-			private Counts(String name)
-			{
-				this.name = name;
-			}
 		}
 	}
 
+	@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 	private static final class Aggregate
 	{
 		private final String label;
@@ -667,20 +560,13 @@ final class OverallTotals
 		private int regularPointsSampleCount;
 		private final AssignmentTally assignments = new AssignmentTally();
 
-		private Aggregate(String label, int rank, String task)
-		{
-			this.label = label;
-			this.rank = rank;
-			this.task = task;
-		}
-
 		private void add(LedgerRecord record, LootPriceMode mode, Map<Integer, Long> currentGe, HiddenLoot hidden)
 		{
 			taskCount++;
 			activeMillis = saturatedAdd(activeMillis, Math.max(0, record.getActiveMillis()));
 			kills = saturatedAdd(kills, record.getKills());
-			// The rates pool only the task samples, as TaskRanking does (a task with no active time adds none).
-			boolean sample = TaskRanking.isTaskSample(record);
+			// The rates pool only the task samples (a task with no active time adds none).
+			boolean sample = TaskStatistics.isTaskSample(record);
 			if (sample)
 			{
 				time.add(0, record, false);
@@ -706,7 +592,7 @@ final class OverallTotals
 			{
 				xp = saturatedAdd(xp, SkillXp.total(recordXp));
 				xpSampleCount++;
-				// As TaskRanking: XP recorded without a Slayer entry means no Slayer XP was gained.
+				// XP recorded without a Slayer entry means no Slayer XP was gained.
 				Long slayer = recordXp.get(SkillXp.SLAYER);
 				long slayerValue = slayer == null ? 0 : Math.max(0, slayer);
 				slayerXp = saturatedAdd(slayerXp, slayerValue);
@@ -765,8 +651,8 @@ final class OverallTotals
 				.supplies(supplies.rows())
 				.loot(loot.rows())
 				.kills(kills)
-				.millisPerKill(TaskRanking.perKill(time.activeMillis, time.kills))
-				.profitPerKill(TaskRanking.perKill(profitRate.total, profitRate.kills))
+				.millisPerKill(perKill(time.activeMillis, time.kills))
+				.profitPerKill(perKill(profitRate.total, profitRate.kills))
 				.profitPerHour(profitRate.perHour())
 				.profitRateApproximate(profitRate.approximate)
 				.slayerXp(slayerXpSampleCount == 0 ? null : slayerXp)

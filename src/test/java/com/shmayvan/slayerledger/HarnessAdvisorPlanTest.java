@@ -16,10 +16,9 @@ import org.junit.Test;
 
 /**
  * The advisor's plan as wired in the plugin ({@link PluginHarness}): worked out off the EDT for the current task
- * when the task, its kills left, the records or the "Advisor metric" change, kept only for the latest inputs (the plan
- * shown stays through a kill until the new one is back), never worked out on the panel's refresh timer, and for
- * Konar's and Krystilia's tasks from the history where their kills count. {@link TaskPlannerTest} covers the plan
- * itself, {@link HarnessAssignmentLineTest} the chat line.
+ * when the task, its kills left or the records change, kept only for the latest inputs (the plan shown stays through a
+ * kill until the new one is back), never worked out on the panel's refresh timer, and for Konar's and Krystilia's
+ * tasks from the history where their kills count. {@link TaskPlannerTest} covers the plan itself.
  */
 public class HarnessAdvisorPlanTest
 {
@@ -72,34 +71,6 @@ public class HarnessAdvisorPlanTest
 		return records;
 	}
 
-	/**
-	 * {@link #smokeDungeon} and three hour-long tasks of each of five other monsters, at 100K profit and 50K Slayer XP
-	 * an hour: Abyssal demons make the most profit per hour and the least Slayer XP, so the badge says Do by
-	 * profit and Consider skip by Slayer XP.
-	 */
-	private static List<LedgerRecord> withOtherMonsters()
-	{
-		List<LedgerRecord> records = smokeDungeon();
-		for (int monster = 1; monster <= 5; monster++)
-		{
-			for (int i = 0; i < 3; i++)
-			{
-				LedgerRecord record = new LedgerRecord();
-				record.setId("other-" + IDS.incrementAndGet());
-				record.setCreatureId(DEMONS + monster);
-				record.setMonster("Monster " + monster);
-				record.setKills(10);
-				record.setActiveMillis(60 * MINUTE);
-				record.setCompleted(true);
-				record.setLootGeValue(100_000L);
-				record.setLootHaValue(0L);
-				record.setSuppliesGeValue(0L);
-				record.setXpGained(Collections.singletonMap(SkillXp.SLAYER, 50_000L));
-				records.add(SavedItems.withItems(record));
-			}
-		}
-		return records;
-	}
 
 	/** Starts the plugin on a 20-kill Abyssal demons task and shows {@code records}. */
 	private void start(List<LedgerRecord> records)
@@ -120,13 +91,6 @@ public class HarnessAdvisorPlanTest
 		return plan.get();
 	}
 
-	/** The model's plan for exactly the current inputs now, without draining anything first. */
-	private TaskPlan exactPlan()
-	{
-		AtomicReference<TaskPlan> plan = new AtomicReference<>();
-		harness.onEdt(() -> plan.set(harness.historyModel().exactPlan()));
-		return plan.get();
-	}
 
 	private int planBuilds()
 	{
@@ -135,18 +99,6 @@ public class HarnessAdvisorPlanTest
 		return builds.get();
 	}
 
-	/**
-	 * The advisor card's skip / block badge after a panel refresh, once the advice worked out off the
-	 * EDT is back; {@code null} for Do, which adds no line.
-	 */
-	private String advice()
-	{
-		AtomicReference<String> text = new AtomicReference<>();
-		harness.onEdt(() -> harness.panel().refresh());
-		harness.drain();
-		harness.onEdt(() -> text.set(harness.ui().getAdvisor().getBadge()));
-		return text.get();
-	}
 
 	@Test
 	public void thePlanShownStaysThroughAKillAndAnOlderOneIsDropped()
@@ -158,12 +110,11 @@ public class HarnessAdvisorPlanTest
 		int builds = planBuilds();
 
 		// A kill: the settled tick asks for the plan for 19 kills left, which waits for the executor. Meanwhile the
-		// plan for 20 is still shown, so the card doesn't blank once a kill; there is no exact plan.
+		// plan for 20 is still shown, so the card doesn't blank once a kill.
 		harness.setRemaining(19);
 		harness.tickWithoutDrain();
 		harness.runClientThread();
 		harness.flushEdt();
-		assertNull("being worked out", exactPlan());
 		assertSame("the kept plan is shown", first, plan());
 		assertEquals(builds + 1, planBuilds());
 
@@ -178,36 +129,21 @@ public class HarnessAdvisorPlanTest
 		harness.flushEdt();
 		TaskPlan latest = plan();
 		assertEquals(18, latest.getKillsLeft());
-		assertSame(latest, exactPlan());
 		harness.drain();
 		assertEquals("nothing more worked out", builds + 2, planBuilds());
 		assertEquals(18, plan().getKillsLeft());
 	}
 
 	@Test
-	public void theMetricChangesThePlansRecommendationAndTheBadge()
+	public void theFastestSetupIsRecommended()
 	{
-		start(withOtherMonsters());
+		start(smokeDungeon());
 
-		// Fastest finish (the default): the cannon tasks, at 3 minutes a kill; the badge by Slayer XP/h.
-		TaskPlan fastest = plan();
-		assertEquals(AdvisorMetric.FASTEST_FINISH, fastest.getMetric());
-		assertTrue(fastest.getRecommendation().isCannon());
-		assertFalse(fastest.getCounterpart().isCannon());
-		assertEquals("Consider skip (n=6)", advice());
-
-		harness.setAdvisorMetric(AdvisorMetric.PROFIT_PER_HOUR);
-		TaskPlan profit = plan();
-		assertEquals(AdvisorMetric.PROFIT_PER_HOUR, profit.getMetric());
-		assertFalse("300K an hour without the cannon", profit.getRecommendation().isCannon());
-		assertTrue(profit.getCounterpart().isCannon());
-		// The most profit per hour: Do, which adds no line. The 1.x "Better: without cannon" line is gone: the card's
-		// counterpart says it.
-		assertNull(advice());
-
-		harness.setAdvisorMetric(AdvisorMetric.FASTEST_FINISH);
-		assertTrue(plan().getRecommendation().isCannon());
-		assertEquals("Consider skip (n=6)", advice());
+		// The cannon tasks, at 3 minutes a kill against 6: always the least time for the kills left.
+		TaskPlan plan = plan();
+		assertTrue(plan.getRecommendation().isCannon());
+		assertEquals("both setups are options", 2, plan.getOptions().size());
+		assertFalse(plan.getOptions().get(1).isCannon());
 	}
 
 	@Test

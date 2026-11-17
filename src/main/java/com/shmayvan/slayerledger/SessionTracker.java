@@ -1,18 +1,8 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.UUID;
-import java.util.function.LongSupplier;
+import java.util.*;
+import java.util.function.*;
+import lombok.*;
 
 /**
  * Tracks a single Slayer task session. This class has no RuneLite dependencies so it can be unit tested with a
@@ -101,6 +91,8 @@ public class SessionTracker
 	 * whether the assignment waits for its first kill or was Ended. Each has a label and, for the overlay's state line,
 	 * a hint (empty when there is nothing to add).
 	 */
+	@Getter
+	@RequiredArgsConstructor
 	public enum Status
 	{
 		NO_TASK("No task", ""),
@@ -116,30 +108,14 @@ public class SessionTracker
 		/** After End task: the sidebar's Track again tracks the assignment again. */
 		ENDED("Ended", "See sidebar");
 
-		private final String label;
-		private final String hint;
-
-		Status(String label, String hint)
-		{
-			this.label = label;
-			this.hint = hint;
-		}
-
 		/** The status as shown, for example "Away". */
-		public String getLabel()
-		{
-			return label;
-		}
-
+		private final String label;
 		/**
 		 * What happens next or what to do, for the overlay's state line (DESIGN_PRINCIPLES.md 2.1), for example "Back on
 		 * your next kill" or "Resume in sidebar"; may be empty. On a Jad or Zuk task the overlay words Away and the
 		 * waiting states for the caves instead ({@link OverlayRows#stateRow}).
 		 */
-		public String getHint()
-		{
-			return hint;
-		}
+		private final String hint;
 
 		/** Whether time is not running while a task is assigned, so the overlay shows a state line. */
 		public boolean hasStateLine()
@@ -244,8 +220,8 @@ public class SessionTracker
 	/** Most bank trips kept as since the last activity ({@link #bankTripsSinceActivity}); plenty. */
 	private static final int MAX_COUNTERS_SINCE_ACTIVITY = 256;
 
-	/** Read under the tracker's lock; only {@link #setClock} replaces it. */
-	private LongSupplier clock;
+	/** The time source, in clock millis. */
+	private final LongSupplier clock;
 
 	private State state = State.IDLE;
 	/** How long without activity a running session goes Away ({@link #setAwayMinutes}). */
@@ -473,12 +449,6 @@ public class SessionTracker
 	private final Set<Integer> takenTaskKeys = new HashSet<>();
 
 	public SessionTracker(LongSupplier clock)
-	{
-		this.clock = Objects.requireNonNull(clock);
-	}
-
-	/** Test seam: reads the time from {@code clock} from now on (a harness-run plugin's tracker reads the system clock). */
-	synchronized void setClock(LongSupplier clock)
 	{
 		this.clock = Objects.requireNonNull(clock);
 	}
@@ -716,12 +686,6 @@ public class SessionTracker
 		return true;
 	}
 
-	/** The session's known task NPCs, normalized ({@link TaskStatistics#normalize}), in the order learned. */
-	public synchronized List<String> getTaskNpcNames()
-	{
-		return new ArrayList<>(taskNpcNames);
-	}
-
 	/**
 	 * A bracelet of slaughter's activation: a task kill that left the count unchanged (V2 plan 4.1). It is activity:
 	 * it resets the Away clock of a running session, restarts a stopped one at its resume point, and starts a session
@@ -864,12 +828,6 @@ public class SessionTracker
 		}
 		ended = false;
 		return true;
-	}
-
-	/** Whether the current assignment was Ended and not tracked again. */
-	public synchronized boolean isEnded()
-	{
-		return ended;
 	}
 
 	/**
@@ -2866,11 +2824,6 @@ public class SessionTracker
 		return completed;
 	}
 
-	public synchronized boolean hasSessionTask()
-	{
-		return hasSessionTask;
-	}
-
 	public synchronized long getSessionAccountHash()
 	{
 		return sessionAccountHash;
@@ -3034,6 +2987,7 @@ public class SessionTracker
 	 * as {@link #pendingFirstKill} when that kill dropped the count to zero and waits for its completion. Created
 	 * before the observation replaces the tracker's current task, which it copies.
 	 */
+	@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 	private final class PendingFirstKill
 	{
 		final String monster = currentMonster;
@@ -3047,13 +3001,6 @@ public class SessionTracker
 		final KillPairing pairing;
 		/** The kill's clock time. */
 		final long at;
-
-		PendingFirstKill(KillPlace place, KillPairing pairing, long at)
-		{
-			this.place = place;
-			this.pairing = pairing;
-			this.at = at;
-		}
 	}
 
 	/**
@@ -3061,32 +3008,59 @@ public class SessionTracker
 	 * the builder starts from an empty session (no id, {@link #NO_ACCOUNT}, {@link #NO_CREATURE},
 	 * {@link #UNKNOWN_AMOUNT}, everything else 0 or empty, counters at 0 and XP gained known and empty).
 	 */
+	@Getter
 	public static final class Summary
 	{
+		/** Session id (also used as the ledger record id), or {@code null} if no session was started. */
 		private final String sessionId;
+		/** Account that started the session, or {@link #NO_ACCOUNT}. */
 		private final long accountHash;
 		private final String monster;
 		private final int creatureId;
+		@Getter(AccessLevel.NONE)
 		private final boolean hasTask;
 		private final int initialAmount;
+		/** Assigned task size, or {@link #UNKNOWN_AMOUNT}. */
 		private final int originalAmount;
 		private final int kills;
 		private final long activeMillis;
 		private final long startedAt;
 		private final long endedAt;
 		private final boolean completed;
+		/** Remaining task count to resume from (the count before a pending drop to zero, if any). */
 		private final int resumeRemaining;
+		/** The session's loot, supplies, notable drops and boss kill counts (never {@code null}). */
 		private final SessionLoot sessionLoot;
+		/** The session's superior spawns, bank trips and deaths (never {@code null}; each {@code null} when unknown). */
 		private final SessionCounters counters;
+		/** The player's note, or {@code null}. */
 		private final String note;
+		/** The task's assignment and, for a completed task, its points earned and streak (never {@code null}). */
 		private final TaskContext context;
+		/**
+		 * XP gained per skill while running ({@link SkillXp}; unmodifiable, possibly empty), or {@code null} when unknown
+		 * (a snapshot from before XP was tracked).
+		 */
 		private final Map<String, Long> xpGained;
+		/** The session's counted kills per place, the most recent last (never {@code null}; unmodifiable). */
 		private final List<LocationKills> locationKills;
+		/**
+		 * The task's spot and the region saved with it ({@link LocationTally#decide}); {@link TaskSpot#UNKNOWN} when no
+		 * kill was tallied. Never {@code null}.
+		 */
 		private final TaskSpot taskSpot;
+		/** The session's kills per NPC name, in the order first seen (never {@code null}; unmodifiable). */
 		private final List<NpcKills> npcKills;
+		/** The session's setup kill contexts (never {@code null}). */
 		private final SetupKills setupKills;
+		/**
+		 * Task kills counted before the session recorded kill contexts: those of a session restored from a 1.x
+		 * active-session file; 0 for a 2.0 session.
+		 */
 		private final int killsBeforeContexts;
+		/** The player's setup overrides (never {@code null}). */
 		private final SetupOverrides setupOverrides;
+		/** The segment clamps, the state the session was in and its known task NPCs (never {@code null}). */
 		private final SegmentInfo segments;
 
 		private Summary(Builder b)
@@ -3471,97 +3445,9 @@ public class SessionTracker
 				.build();
 		}
 
-		/** The segment clamps, the state the session was in and its known task NPCs (never {@code null}). */
-		public SegmentInfo getSegments()
-		{
-			return segments;
-		}
-
-		/** The task's assignment and, for a completed task, its points earned and streak (never {@code null}). */
-		public TaskContext getContext()
-		{
-			return context;
-		}
-
-		/** Session id (also used as the ledger record id), or {@code null} if no session was started. */
-		public String getSessionId()
-		{
-			return sessionId;
-		}
-
-		/** Remaining task count to resume from (the count before a pending drop to zero, if any). */
-		public int getResumeRemaining()
-		{
-			return resumeRemaining;
-		}
-
-		/** Account that started the session, or {@link #NO_ACCOUNT}. */
-		public long getAccountHash()
-		{
-			return accountHash;
-		}
-
-		public String getMonster()
-		{
-			return monster;
-		}
-
-		public int getCreatureId()
-		{
-			return creatureId;
-		}
-
 		public boolean hasTask()
 		{
 			return hasTask;
-		}
-
-		public int getInitialAmount()
-		{
-			return initialAmount;
-		}
-
-		/** Assigned task size, or {@link #UNKNOWN_AMOUNT}. */
-		public int getOriginalAmount()
-		{
-			return originalAmount;
-		}
-
-		public int getKills()
-		{
-			return kills;
-		}
-
-		public long getActiveMillis()
-		{
-			return activeMillis;
-		}
-
-		public long getStartedAt()
-		{
-			return startedAt;
-		}
-
-		public long getEndedAt()
-		{
-			return endedAt;
-		}
-
-		public boolean isCompleted()
-		{
-			return completed;
-		}
-
-		/** The session's loot, supplies, notable drops and boss kill counts (never {@code null}). */
-		public SessionLoot getSessionLoot()
-		{
-			return sessionLoot;
-		}
-
-		/** The session's superior spawns, bank trips and deaths (never {@code null}; each {@code null} when unknown). */
-		public SessionCounters getCounters()
-		{
-			return counters;
 		}
 
 		/** A copy of the session's loot (never {@code null}). */
@@ -3600,12 +3486,6 @@ public class SessionTracker
 			return counters.getDeaths();
 		}
 
-		/** The player's note, or {@code null}. */
-		public String getNote()
-		{
-			return note;
-		}
-
 		/** The session's notable drops in the order they arrived (never {@code null}; unmodifiable). */
 		public List<NotableDrop> getNotableDrops()
 		{
@@ -3616,57 +3496,6 @@ public class SessionTracker
 		public List<BossKillCount> getBossKillCounts()
 		{
 			return sessionLoot.getBossKillCounts();
-		}
-
-		/**
-		 * XP gained per skill while running ({@link SkillXp}; unmodifiable, possibly empty), or {@code null} when unknown
-		 * (a snapshot from before XP was tracked).
-		 */
-		public Map<String, Long> getXpGained()
-		{
-			return xpGained;
-		}
-
-		/** The session's counted kills per place, the most recent last (never {@code null}; unmodifiable). */
-		public List<LocationKills> getLocationKills()
-		{
-			return locationKills;
-		}
-
-		/**
-		 * The task's spot and the region saved with it ({@link LocationTally#decide}); {@link TaskSpot#UNKNOWN} when no
-		 * kill was tallied. Never {@code null}.
-		 */
-		public TaskSpot getTaskSpot()
-		{
-			return taskSpot;
-		}
-
-		/** The session's kills per NPC name, in the order first seen (never {@code null}; unmodifiable). */
-		public List<NpcKills> getNpcKills()
-		{
-			return npcKills;
-		}
-
-		/** The session's setup kill contexts (never {@code null}). */
-		public SetupKills getSetupKills()
-		{
-			return setupKills;
-		}
-
-		/** The player's setup overrides (never {@code null}). */
-		public SetupOverrides getSetupOverrides()
-		{
-			return setupOverrides;
-		}
-
-		/**
-		 * Task kills counted before the session recorded kill contexts: those of a session restored from a 1.x
-		 * active-session file; 0 for a 2.0 session.
-		 */
-		public int getKillsBeforeContexts()
-		{
-			return killsBeforeContexts;
 		}
 
 		/**
@@ -3681,6 +3510,8 @@ public class SessionTracker
 	}
 
 	/** Immutable snapshot of the active session's task progress ({@link #liveTask()}). */
+	@Getter
+	@AllArgsConstructor(access = AccessLevel.PACKAGE)
 	public static final class LiveTask
 	{
 		/** {@link #getRemaining()} when the kills left on the session's task are not known right now. */
@@ -3688,59 +3519,12 @@ public class SessionTracker
 
 		private final Status status;
 		private final String sessionId;
+		/** The session's task name, or {@code null} when unknown. */
 		private final String monster;
 		private final int creatureId;
 		private final int kills;
 		private final long activeMillis;
-		private final int remaining;
-
-		LiveTask(Status status, String sessionId, String monster, int creatureId, int kills, long activeMillis,
-			int remaining)
-		{
-			this.status = status;
-			this.sessionId = sessionId;
-			this.monster = monster;
-			this.creatureId = creatureId;
-			this.kills = kills;
-			this.activeMillis = activeMillis;
-			this.remaining = remaining;
-		}
-
-		public Status getStatus()
-		{
-			return status;
-		}
-
-		public String getSessionId()
-		{
-			return sessionId;
-		}
-
-		/** The session's task name, or {@code null} when unknown. */
-		public String getMonster()
-		{
-			return monster;
-		}
-
-		public int getCreatureId()
-		{
-			return creatureId;
-		}
-
-		public int getKills()
-		{
-			return kills;
-		}
-
-		public long getActiveMillis()
-		{
-			return activeMillis;
-		}
-
 		/** Kills left on the session's task, or {@link #UNKNOWN_REMAINING}. */
-		public int getRemaining()
-		{
-			return remaining;
-		}
+		private final int remaining;
 	}
 }

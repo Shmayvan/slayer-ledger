@@ -19,14 +19,19 @@ public class DamagedNpcsTest
 {
 	private static final long MINUTE = 60_000L;
 	private static final long AWAY = 10 * MINUTE;
+	/**
+	 * The game tick of a hit in the tests of engagements and deaths: those never put hits down to attacks
+	 * ({@link DamagedNpcs#applyHits}), so it is never read.
+	 */
+	private static final int NO_TICK = 0;
 
 	@Test
 	public void engagementStartsAtTheFirstHitOfTheCurrentRun()
 	{
 		DamagedNpcs npcs = new DamagedNpcs();
-		npcs.damaged(0, 1, 1_000, AWAY);
-		npcs.damaged(0, 1, 5 * MINUTE, AWAY);
-		npcs.damaged(0, 1, 14 * MINUTE, AWAY);
+		npcs.damaged(0, 1, 1_000, AWAY, NO_TICK);
+		npcs.damaged(0, 1, 5 * MINUTE, AWAY, NO_TICK);
+		npcs.damaged(0, 1, 14 * MINUTE, AWAY, NO_TICK);
 		assertTrue(npcs.died(0, 1, "Abyssal demon", "Abyssal demon", false, 100, 15 * MINUTE, AWAY));
 
 		KillPairing pairing = npcs.pairing(98, 100);
@@ -38,10 +43,10 @@ public class DamagedNpcsTest
 	public void aGapOverTheLimitStartsANewEngagement()
 	{
 		DamagedNpcs npcs = new DamagedNpcs();
-		npcs.damaged(0, 1, 0, AWAY);
+		npcs.damaged(0, 1, 0, AWAY, NO_TICK);
 		// Walked off for half an hour, then came back for it.
-		npcs.damaged(0, 1, 30 * MINUTE, AWAY);
-		npcs.damaged(0, 1, 31 * MINUTE, AWAY);
+		npcs.damaged(0, 1, 30 * MINUTE, AWAY, NO_TICK);
+		npcs.damaged(0, 1, 31 * MINUTE, AWAY, NO_TICK);
 		npcs.died(0, 1, "Abyssal demon", "Abyssal demon", false, 10, 31 * MINUTE, AWAY);
 
 		assertEquals(30 * MINUTE, npcs.pairing(8, 10).getEarliestStart());
@@ -51,7 +56,7 @@ public class DamagedNpcsTest
 	public void anNpcHitLongBeforeItDiesDoesNotStretchTheStart()
 	{
 		DamagedNpcs npcs = new DamagedNpcs();
-		npcs.damaged(0, 1, 0, AWAY);
+		npcs.damaged(0, 1, 0, AWAY, NO_TICK);
 		// Killed 20 minutes later by someone else, or a cannon: its own run is the death itself.
 		npcs.died(0, 1, "Abyssal demon", "Abyssal demon", false, 10, 20 * MINUTE, AWAY);
 
@@ -64,10 +69,10 @@ public class DamagedNpcsTest
 	public void aBarrageMultiKillPairsEveryDeathInTheWindow()
 	{
 		DamagedNpcs npcs = new DamagedNpcs();
-		npcs.damaged(0, 1, 2_000, AWAY);
-		npcs.damaged(0, 2, 1_000, AWAY);
-		npcs.damaged(0, 3, 3_000, AWAY);
-		npcs.damaged(0, 4, 500, AWAY);
+		npcs.damaged(0, 1, 2_000, AWAY, NO_TICK);
+		npcs.damaged(0, 2, 1_000, AWAY, NO_TICK);
+		npcs.damaged(0, 3, 3_000, AWAY, NO_TICK);
+		npcs.damaged(0, 4, 500, AWAY, NO_TICK);
 		npcs.died(0, 1, "Dust devil", "Dust devil", false, 99, 60_000, AWAY);
 		npcs.died(0, 2, "Dust devil", "Dust devil", false, 100, 60_000, AWAY);
 		npcs.died(0, 3, "Choke devil", "Choke devil", false, 101, 60_000, AWAY);
@@ -104,7 +109,7 @@ public class DamagedNpcsTest
 		DamagedNpcs npcs = new DamagedNpcs();
 		for (int index = 1; index <= 5; index++)
 		{
-			npcs.damaged(0, index, 1_000, AWAY);
+			npcs.damaged(0, index, 1_000, AWAY, NO_TICK);
 		}
 		// Died while the session was stopped, so refused then; a kill on tick 100 restarts it.
 		npcs.died(0, 1, "Deviant spectre", "Deviant spectre", false, 98, 2_000, AWAY);
@@ -131,14 +136,14 @@ public class DamagedNpcsTest
 	public void deathsAreKeptOnlyAFewTicks()
 	{
 		DamagedNpcs npcs = new DamagedNpcs();
-		npcs.damaged(0, 1, 1_000, AWAY);
+		npcs.damaged(0, 1, 1_000, AWAY, NO_TICK);
 		npcs.died(0, 1, "Abyssal demon", "Abyssal demon", false, 100, 2_000, AWAY);
 
 		assertTrue("paired again on the tick after a kill on tick 102",
 			npcs.pairing(100, 103).hasStart());
 		assertFalse("dropped after DEATH_KEEP_TICKS", npcs.pairing(90, 100 + DamagedNpcs.DEATH_KEEP_TICKS + 1).hasStart());
 
-		npcs.damaged(0, 2, 1_000, AWAY);
+		npcs.damaged(0, 2, 1_000, AWAY, NO_TICK);
 		npcs.died(0, 2, "Abyssal demon", "Abyssal demon", false, 200, 2_000, AWAY);
 		npcs.clear();
 		assertFalse("a login or hop forgets the deaths", npcs.pairing(198, 200).hasStart());

@@ -1,21 +1,11 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Cursor;
-import java.awt.Dimension;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.*;
+import java.awt.event.*;
 import java.util.List;
-import java.util.function.Consumer;
-import javax.swing.BorderFactory;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
-import net.runelite.client.ui.ColorScheme;
-import net.runelite.client.ui.FontManager;
+import java.util.function.*;
+import javax.swing.*;
+import net.runelite.client.ui.*;
 
 /**
  * A text list of the sidebar ({@link TitledListView}): one line per {@link ItemListView.Line}, a small skill icon

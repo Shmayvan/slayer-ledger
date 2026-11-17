@@ -1,8 +1,11 @@
 package com.shmayvan.slayerledger;
 
+import lombok.*;
+
 /**
  * How kill loot that a bonecrusher or ash sanctifier would destroy is handled; see {@link CrushedLootFilter}.
  */
+@AllArgsConstructor
 public enum BonecrusherMode
 {
 	/**
@@ -16,11 +19,6 @@ public enum BonecrusherMode
 	NEVER_EXCLUDE("Never exclude");
 
 	private final String displayName;
-
-	BonecrusherMode(String displayName)
-	{
-		this.displayName = displayName;
-	}
 
 	@Override
 	public String toString()

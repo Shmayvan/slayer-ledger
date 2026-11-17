@@ -173,7 +173,7 @@ public class TaskContextTest
 		restored.observe("Kraken", TASK, 50, 100, TaskContext.assignment(SlayerMaster.KONAR, 12, null), false);
 		assertEquals(SessionTracker.RestoreResult.RESTORED, restored.restore(copy, COUNTERS));
 		assertEquals(KONAR_AT_COVE, restored.summary().getContext());
-		assertEquals(KONAR_AT_COVE, copy.toSummary().getContext());
+		assertEquals(KONAR_AT_COVE, copy.toSummary(SlayerSpots.NONE).getContext());
 	}
 
 	@Test
@@ -183,7 +183,7 @@ public class TaskContextTest
 			+ "\"creatureId\":42,\"initialAmount\":60,\"originalAmount\":100,\"kills\":10,\"remaining\":50}";
 		SessionSnapshot old = gson.fromJson(json, SessionSnapshot.class);
 		assertNull(old.getSlayerMaster());
-		assertSame(TaskContext.NONE, old.toSummary().getContext());
+		assertSame(TaskContext.NONE, old.toSummary(SlayerSpots.NONE).getContext());
 		observe(50, KONAR_AT_COVE, false);
 		assertEquals(SessionTracker.RestoreResult.RESTORED, tracker.restore(old, null));
 		assertEquals(KONAR_AT_COVE, tracker.summary().getContext());

@@ -197,7 +197,7 @@ public class SessionTrackerCountersTest
 		assertNull(old.getSuperiorsSpawned());
 
 		// Saved as a partial record when it cannot be restored: the counts stay unknown.
-		LedgerRecord partial = LedgerRecord.fromSummary(old.toSummary(), true);
+		LedgerRecord partial = LedgerRecord.fromSummary(old.toSummary(SlayerSpots.NONE), true);
 		assertNull(partial.getSuperiorsSpawned());
 		assertNull(partial.getBankTrips());
 		assertNull(partial.getDeaths());
@@ -220,7 +220,7 @@ public class SessionTrackerCountersTest
 		tracker.addBankTrip();
 		tracker.addDeath();
 		SessionSnapshot snapshot = SessionSnapshot.fromSummary(tracker.activeSummary(), COUNTERS, now);
-		SessionTracker.Summary summary = snapshot.toSummary();
+		SessionTracker.Summary summary = snapshot.toSummary(SlayerSpots.NONE);
 		assertEquals(Integer.valueOf(1), summary.getSuperiorsSpawned());
 		assertEquals(Integer.valueOf(1), summary.getBankTrips());
 		assertEquals(Integer.valueOf(1), summary.getDeaths());

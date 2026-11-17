@@ -1,21 +1,12 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Cursor;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.*;
 import java.util.List;
-import javax.swing.BorderFactory;
-import javax.swing.BoxLayout;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
-import net.runelite.client.ui.ColorScheme;
-import net.runelite.client.ui.FontManager;
+import javax.swing.*;
+import lombok.*;
+import net.runelite.client.ui.*;
 
 /**
  * A titled list of the sidebar, the part {@link ItemListView} (text lines) and {@link ItemGridView} (item icons)
@@ -49,6 +40,7 @@ abstract class TitledListView<T> extends JPanel
 	/** Rows shown; empty before the first {@link #setRows}. */
 	private List<T> rows;
 	/** Whether a collapsible list is open; always true otherwise. */
+	@Getter
 	private boolean expanded;
 	/** Rows the caller left out of {@link #rows}, counted in the title; 0 for none. */
 	private int hiddenCount;
@@ -153,11 +145,6 @@ abstract class TitledListView<T> extends JPanel
 			expanded = !expanded;
 			rebuild();
 		}
-	}
-
-	boolean isExpanded()
-	{
-		return expanded;
 	}
 
 	/**

@@ -1,9 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+import lombok.*;
 
 /**
  * The choices of a saved task's "Setup..." dialog (the history row's right-click menu) and of the menus of the
@@ -14,27 +12,13 @@ import java.util.Objects;
 final class SetupChoices
 {
 	/** One choice: its label and the override it sets ({@code null}: none, the detected value counts). */
+	@Getter
+	@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 	static final class Choice<T>
 	{
 		private final String label;
-		private final T value;
-
-		private Choice(String label, T value)
-		{
-			this.label = label;
-			this.value = value;
-		}
-
-		String getLabel()
-		{
-			return label;
-		}
-
 		/** The override this choice sets, or {@code null} to clear it. */
-		T getValue()
-		{
-			return value;
-		}
+		private final T value;
 
 		/** The label: what a combo box shows. */
 		@Override

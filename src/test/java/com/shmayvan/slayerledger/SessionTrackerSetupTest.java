@@ -236,8 +236,8 @@ public class SessionTrackerSetupTest
 		assertEquals(mine, SetupOverrides.from(record));
 
 		assertEquals("as a partial record when it cannot be restored", mine,
-			SetupOverrides.from(LedgerRecord.fromSummary(read.toSummary(), true)));
-		assertEquals(kills, SetupKills.from(LedgerRecord.fromSummary(read.toSummary(), true)));
+			SetupOverrides.from(LedgerRecord.fromSummary(read.toSummary(SlayerSpots.NONE), true)));
+		assertEquals(kills, SetupKills.from(LedgerRecord.fromSummary(read.toSummary(SlayerSpots.NONE), true)));
 	}
 
 	/**
@@ -284,7 +284,7 @@ public class SessionTrackerSetupTest
 		assertTrue(restored.getSetupTags().isCannon());
 		assertEquals(2, restored.getContextKills());
 		assertEquals("as a partial record when it cannot be restored", Boolean.TRUE,
-			LedgerRecord.fromSummary(persisted.toSummary(), true).getDetectedCannon());
+			LedgerRecord.fromSummary(persisted.toSummary(SlayerSpots.NONE), true).getDetectedCannon());
 
 		final LedgerRecord record = LedgerRecord.fromSummary(restored.stopAndReset(), true);
 		assertEquals(Boolean.TRUE, record.getDetectedCannon());

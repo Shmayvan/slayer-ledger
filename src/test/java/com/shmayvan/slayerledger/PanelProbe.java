@@ -1137,8 +1137,7 @@ final class PanelProbe
 
 	/**
 	 * The live card's header: the task's name, then (while known) the location line and the master line. The master,
-	 * type, location and next bonus are read from the master line's tooltip, which has each of them in full. (The skip /
-	 * block badge is on the advisor card since {@link AdvisorCardProbe#getBadge}.)
+	 * type, location and next bonus are read from the master line's tooltip, which has each of them in full.
 	 */
 	static final class TaskBoxProbe
 	{
@@ -1241,8 +1240,8 @@ final class PanelProbe
 	}
 
 	/**
-	 * The advisor card: open, its title, badge, metric tabs and parchment note; collapsed, its one line.
-	 * A part not in the card (another state's) reads {@code null}.
+	 * The advisor card: its title and parchment note, or its no-history line. A part not in the card
+	 * reads {@code null}.
 	 */
 	static final class AdvisorCardProbe
 	{
@@ -1272,24 +1271,6 @@ final class PanelProbe
 			return SwingLookup.isVisible(panel, "advisor");
 		}
 
-		/** Whether the card is shown open (not collapsed to its one line). */
-		boolean isOpen()
-		{
-			return isShown() && part("advisor.collapsed") == null;
-		}
-
-		/** The collapsed line ({@code Plan: barrage, ~1 h (3 tasks)}), in full, or {@code null} while open or hidden. */
-		String getCollapsedLine()
-		{
-			return isShown() ? fullText(part("advisor.collapsed")) : null;
-		}
-
-		/** The collapsed line's tooltip (HTML). */
-		String getCollapsedTooltip()
-		{
-			return ((JComponent) part("advisor.collapsed")).getToolTipText();
-		}
-
 		/** The title, its lines in full joined by a space, or {@code null} while it is not in the card. */
 		String getTitle()
 		{
@@ -1317,92 +1298,12 @@ final class PanelProbe
 			return ((JComponent) part("advisor.title")).getToolTipText();
 		}
 
-		/** The skip / block badge ({@code Consider skip (n=6)}), or {@code null} while it is not in the card. */
-		String getBadge()
-		{
-			return isShown() ? fullText(part("advisor.badge")) : null;
-		}
-
-		/** The badge's tooltip (HTML), or {@code null} while there is no badge. */
-		String getBadgeTooltip()
-		{
-			Component badge = isShown() ? part("advisor.badge") : null;
-			return badge == null ? null : ((JComponent) badge).getToolTipText();
-		}
-
-		/** The colour of the badge's text. */
-		Color getBadgeColor()
-		{
-			return part("advisor.badge").getForeground();
-		}
-
 		/**
-		 * The metric tabs, {@code "[Fastest] | Profit/h | Cheapest"}: the chosen one (in the value colour, over the
-		 * accent line) in brackets; {@code null} while they are not in the card.
-		 */
-		String getTabs()
-		{
-			if (!isShown() || part("advisor.tabs") == null)
-			{
-				return null;
-			}
-			List<String> tabs = new ArrayList<>();
-			for (AdvisorMetric metric : AdvisorMetric.values())
-			{
-				AbstractButton tab = tab(metric);
-				boolean chosen = LedgerTheme.VALUE.equals(tab.getForeground());
-				tabs.add(chosen ? "[" + tab.getText() + "]" : tab.getText());
-			}
-			return String.join(" | ", tabs);
-		}
-
-		/** Whether each tab can be reached with the keyboard and shows the hand cursor, as a link does. */
-		boolean areTabsFocusableLinks()
-		{
-			for (AdvisorMetric metric : AdvisorMetric.values())
-			{
-				AbstractButton tab = tab(metric);
-				if (!tab.isFocusable() || tab.getCursor().getType() != java.awt.Cursor.HAND_CURSOR)
-				{
-					return false;
-				}
-			}
-			return true;
-		}
-
-		/** Clicks the tab of {@code metric}, as the player does: only while the tabs are in the card. */
-		void clickTab(AdvisorMetric metric)
-		{
-			if (getTabs() == null)
-			{
-				throw new AssertionError("the tabs are not shown");
-			}
-			tab(metric).doClick();
-		}
-
-		private AbstractButton tab(AdvisorMetric metric)
-		{
-			return find(card(), "advisor.tab." + metric.name(), AbstractButton.class);
-		}
-
-		/** Clicks the title (it closes the card), as the player does. */
-		void clickTitle()
-		{
-			click(part("advisor.title"));
-		}
-
-		/** Clicks the collapsed line (it opens the card), as the player does. */
-		void clickCollapsed()
-		{
-			click(part("advisor.collapsed"));
-		}
-
-		/**
-		 * The lines of the option block {@code which} ({@code "recommendation"} or {@code "counterpart"}), in order,
-		 * each as {@code "left | right"} with texts in full ({@code "Barrage, Catacombs | 3 tasks"}, the name's lines
-		 * joined by a space; {@code "~1 h | 56 min to 1 h 4 min"}, {@code "Slayer XP/h | 21.1K"}, ...), then
-		 * {@code "Bring"}, each Bring icon as {@link ItemGridProbe#getCellTexts} reads it and {@code "+N more"};
-		 * {@code null} while the block is not in the card.
+		 * The lines of the option block {@code which} ({@code "recommendation"}), in order: its head as
+		 * {@code "left | right"} with texts in full ({@code "Barrage, Catacombs | 3 tasks"}, the name's lines joined by
+		 * a space), its time ({@code "~1 h"}), then {@code "Bring"}, each Bring icon as
+		 * {@link ItemGridProbe#getCellTexts} reads it and {@code "+N more"}; {@code null} while the block is not in the
+		 * card.
 		 */
 		List<String> getBlock(String which)
 		{
@@ -1486,13 +1387,6 @@ final class PanelProbe
 			}
 		}
 
-		/** The colour of the value on the right of block {@code which}'s row {@code row} ({@code "profit"}). */
-		Color getRowValueColor(String which, String row)
-		{
-			Container line = (Container) part("advisor." + which + "." + row);
-			return line.getComponent(line.getComponentCount() - 1).getForeground();
-		}
-
 		/** The Bring grid of block {@code which}, for its tooltips and slots. */
 		ItemGridProbe getBring(String which)
 		{
@@ -1506,51 +1400,11 @@ final class PanelProbe
 			return more == null ? null : ((JComponent) more).getToolTipText();
 		}
 
-		/** {@code With cannon} or {@code Without cannon} over the counterpart, or {@code null} without one. */
-		String getCounterpartLabel()
-		{
-			return isShown() ? fullText(part("advisor.counterpartLabel")) : null;
-		}
-
-		/** Whether the rule between the recommendation and the counterpart is in the card. */
-		boolean hasRule()
-		{
-			return isShown() && part("advisor.rule") != null;
-		}
-
 		/** {@code "All setups (6 tasks) | ~1 h 8 min"}, or {@code null} while it is not in the card. */
 		String getAllSetups()
 		{
 			Component line = isShown() ? part("advisor.allSetups") : null;
 			return line == null ? null : labelsText((Container) line);
-		}
-
-		/** The More setups toggle's text ({@code More setups (2)}), or {@code null} while it is not in the card. */
-		String getMoreToggle()
-		{
-			Component toggle = isShown() ? part("advisor.moreToggle") : null;
-			return toggle == null ? null : ((AbstractButton) toggle).getText();
-		}
-
-		/** Clicks the More setups toggle, as the player does. */
-		void clickMoreToggle()
-		{
-			((AbstractButton) part("advisor.moreToggle")).doClick();
-		}
-
-		/** The other setups' lines ({@code "Melee, Stronghold Cave | ~1 h 23 min (1 task)"}); empty while closed. */
-		List<String> getMoreRows()
-		{
-			List<String> rows = new ArrayList<>();
-			Component list = isShown() ? part("advisor.more") : null;
-			if (list != null && list.isVisible())
-			{
-				for (Component row : children((Container) list, "advisor.more.row"))
-				{
-					rows.add(labelsText((Container) row));
-				}
-			}
-			return rows;
 		}
 
 		/** The no-history sentence, its lines joined by a space, or {@code null} while it is not in the card. */

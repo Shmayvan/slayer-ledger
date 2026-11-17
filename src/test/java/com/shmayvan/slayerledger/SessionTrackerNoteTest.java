@@ -147,7 +147,7 @@ public class SessionTrackerNoteTest
 		assertEquals(SessionTracker.RestoreResult.RESTORED, restored.restore(read, COUNTERS));
 		assertEquals("Strength gear", restored.getNote());
 		assertEquals("as a partial record when it cannot be restored", "Strength gear",
-			LedgerRecord.fromSummary(read.toSummary(), true).getNote());
+			LedgerRecord.fromSummary(read.toSummary(SlayerSpots.NONE), true).getNote());
 	}
 
 	@Test
@@ -161,6 +161,6 @@ public class SessionTrackerNoteTest
 		restored.observe("Abyssal demons", DEMON_ID, 50, 150, false);
 		restored.restore(snapshot, COUNTERS);
 		assertEquals("Barrage", restored.getNote());
-		assertEquals("Barrage", snapshot.toSummary().getNote());
+		assertEquals("Barrage", snapshot.toSummary(SlayerSpots.NONE).getNote());
 	}
 }

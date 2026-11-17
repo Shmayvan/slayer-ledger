@@ -1,14 +1,11 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.Image;
-import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.EnumSet;
+import java.awt.*;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Consumer;
+import java.util.concurrent.*;
+import java.util.function.*;
+import lombok.*;
 
 /**
  * The sidebar's setup tag images: the game images {@link SetupTagIcons} names, the same ones the overlay draws,
@@ -23,8 +20,10 @@ import java.util.function.Consumer;
  * the EDT. When a blank item icon has been drawn, every listener's repaint runs, on any thread. EDT only, but for those
  * repaints.</p>
  */
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 final class SetupImages
 {
+	/** Where the images come from (the plugin's {@code loadSetupIcon}; a fake in tests). */
 	private final SetupIcons source;
 	/** The images that have arrived. */
 	private final Map<SetupTagIcons.Icon, Image> images = new EnumMap<>(SetupTagIcons.Icon.class);
@@ -36,12 +35,6 @@ final class SetupImages
 	private final List<Runnable> repaints = new CopyOnWriteArrayList<>();
 	/** True while an image is asked for, so one handed over at once is returned rather than announced. */
 	private boolean asking;
-
-	/** @param source where the images come from (the plugin's {@code loadSetupIcon}; a fake in tests) */
-	SetupImages(SetupIcons source)
-	{
-		this.source = source;
-	}
 
 	/**
 	 * Adds a user of the images: {@code arrived} is told on the EDT which image arrived after it was asked for, and

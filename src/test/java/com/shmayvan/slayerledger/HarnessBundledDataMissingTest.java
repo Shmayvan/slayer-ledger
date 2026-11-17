@@ -13,8 +13,9 @@ import org.junit.Test;
  * The plugin started without its bundled Slayer spot table, as it would ship if the CC BY-NC-SA data had to be left
  * out: a task is saved with its region but no spot (a later build with the table works its spot out from the region)
  * and named only by the player's own region names, and nothing fails ({@link PluginHarness} fails the test on any
- * swallowed error). The Slayer boss table is in code ({@link SlayerBosses}); the luck meter's drop snapshot was removed
- * with the Luck meter.
+ * swallowed error). The static tables bundled the same way (the Slayer boss table and the others {@link BundledData}
+ * reads) are read once per JVM, so their missing and malformed files are {@link BundledDataTest}'s subject; the
+ * luck meter's drop snapshot was removed with the Luck meter.
  */
 public class HarnessBundledDataMissingTest
 {

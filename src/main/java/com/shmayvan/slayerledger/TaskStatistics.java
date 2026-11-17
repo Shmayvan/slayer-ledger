@@ -1,13 +1,8 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.function.Function;
+import java.util.*;
+import java.util.function.*;
+import lombok.*;
 
 /**
  * Per-task historical averages, calculated from saved completed records only: what the live task card's time left and
@@ -17,6 +12,7 @@ import java.util.function.Function;
  */
 final class TaskStatistics
 {
+	@Getter
 	private final int sampleCount;
 	private final long totalKills;
 	private final long activeMillis;
@@ -24,7 +20,11 @@ final class TaskStatistics
 	private final long supplyKills;
 	/** Supplies used by those samples, by item id (doses, bites or charges for the items saved so). */
 	private final Map<Integer, Long> supplies;
-	/** The name of the location the samples were limited to, or {@code null} for every location. */
+	/**
+	 * The name of the location the samples were limited to (the current task's
+	 * {@link TaskLocation.Here#getName}), or {@code null} for every location.
+	 */
+	@Getter
 	private final String location;
 
 	private TaskStatistics(Totals t)
@@ -106,6 +106,16 @@ final class TaskStatistics
 	{
 		return record != null && record.isCompleted() && !record.isPartial() && record.getKills() > 0
 			&& matches(record, creatureId, monster) && (selection == null || selection.matches(record));
+	}
+
+	/**
+	 * A completed, not partial record with kills and active time, of any task: the samples Overall totals' rates and
+	 * the advisor's plan pool.
+	 */
+	static boolean isTaskSample(LedgerRecord record)
+	{
+		return record != null && record.isCompleted() && !record.isPartial() && record.getKills() > 0
+			&& record.getActiveMillis() > 0;
 	}
 
 	/**
@@ -215,20 +225,6 @@ final class TaskStatistics
 		{
 			return right >= 0 ? Long.MAX_VALUE : Long.MIN_VALUE;
 		}
-	}
-
-	int getSampleCount()
-	{
-		return sampleCount;
-	}
-
-	/**
-	 * The name of the location the samples are limited to (the current task's {@link TaskLocation.Here#getName}), or
-	 * {@code null} when they are from every location.
-	 */
-	String getLocation()
-	{
-		return location;
 	}
 
 	/** The samples' active time over their kills, or {@code null} without a sample. */

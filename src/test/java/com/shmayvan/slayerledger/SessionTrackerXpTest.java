@@ -259,8 +259,8 @@ public class SessionTrackerXpTest
 		SessionSnapshot old = gson.fromJson(json, SessionSnapshot.class);
 
 		// Saved as partial (it no longer matches): the XP is unknown, not 0.
-		assertNull(old.toSummary().getXpGained());
-		assertNull(LedgerRecord.fromSummary(old.toSummary(), true).getXpGained());
+		assertNull(old.toSummary(SlayerSpots.NONE).getXpGained());
+		assertNull(LedgerRecord.fromSummary(old.toSummary(SlayerSpots.NONE), true).getXpGained());
 
 		SessionTracker restored = new SessionTracker(() -> now);
 		restored.observe("Abyssal demons", DEMON_ID, 50, 150, false);

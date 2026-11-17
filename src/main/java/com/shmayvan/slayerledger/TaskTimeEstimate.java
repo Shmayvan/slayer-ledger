@@ -1,7 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import java.util.OptionalDouble;
-import java.util.OptionalLong;
+import java.util.*;
 
 /**
  * Estimates how long the rest of a Slayer task will take from the session's pace so far: the average active time per

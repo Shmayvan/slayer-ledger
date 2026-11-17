@@ -1,19 +1,13 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Value;
+import java.util.*;
+import lombok.*;
 
 /**
  * The advisor's plan for the current task (V2 plan 6), as {@link TaskPlanner} works it out from the player's
  * completed tasks: the options (the task's setups, grouped by spot, boss variant, cannon and style), the recommendation
- * and its counterpart, the other setups, and the creature-level "All setups" summary. Item names and spot names are not
- * part of it: the plan is worked out off the EDT and the names are asked for where it is shown. Immutable; pure (no
- * RuneLite types).
+ * and the creature-level "All setups" summary. Item names and spot names are not part of it: the plan is worked out off
+ * the EDT and the names are asked for where it is shown. Immutable; pure (no RuneLite types).
  */
 @Value
 @Builder(access = AccessLevel.PRIVATE)
@@ -36,12 +30,10 @@ class TaskPlan
 	 * is then per kill.
 	 */
 	int killsLeft;
-	/** The metric the options are ranked by. */
-	AdvisorMetric metric;
 	/** Every completed task of the creature, the ones left out of the options included. */
 	Summary allSetups;
 	/**
-	 * The options, in the metric's order ({@link TaskPlanner#order}): every option, or on a task with an assigned area
+	 * The options, fastest first ({@link TaskPlanner#ORDER}): every option, or on a task with an assigned area
 	 * that names a spot ({@link #getAreaSpot}) the options at that spot, unless none is there
 	 * ({@link #isAreaFallback}). Unmodifiable.
 	 */
@@ -58,16 +50,12 @@ class TaskPlan
 	 * then has no task done where the kills count.
 	 */
 	boolean areaFallback;
-	/** The best option by the metric (see {@link TaskPlanner}), or {@code null} without options. */
+	/** The fastest option (see {@link TaskPlanner}), or {@code null} without options. */
 	Option recommendation;
-	/** The best option with the other cannon choice, or {@code null} when there is none. */
-	Option counterpart;
-	/** The options but the recommendation and the counterpart, in the metric's order. Unmodifiable. */
-	List<Option> moreSetups;
 	/**
 	 * Whether this is a Wilderness task's plan with no completed Wilderness task of the creature, though it has other
-	 * completed tasks (which a Wilderness task doesn't use, {@link TaskPlanner}): the chat line says "no completed
-	 * Wilderness tasks yet". Only ever true for a plan without history ({@link #hasHistory}).
+	 * completed tasks (which a Wilderness task doesn't use, {@link TaskPlanner}): the card says "no completed
+	 * Wilderness tasks yet" ({@link TaskPlanText#noHistoryLine}). Only ever true for a plan without history ({@link #hasHistory}).
 	 */
 	boolean wildernessHistoryMissing;
 
@@ -76,8 +64,7 @@ class TaskPlan
 	 * of 0 tasks; {@code wildernessHistoryMissing} says whether it is a Wilderness task's whose creature has completed
 	 * tasks, just none in the Wilderness ({@link #isWildernessHistoryMissing}).
 	 */
-	static TaskPlan empty(TaskPlanner.Request request, int killsLeft, AdvisorMetric metric,
-		boolean wildernessHistoryMissing)
+	static TaskPlan empty(TaskPlanner.Request request, int killsLeft, boolean wildernessHistoryMissing)
 	{
 		return builder()
 			.task(request.getTask())
@@ -85,20 +72,16 @@ class TaskPlan
 			.taskType(request.getTaskType())
 			.area(request.getArea())
 			.killsLeft(killsLeft)
-			.metric(AdvisorMetric.orDefault(metric))
 			.allSetups(Summary.NONE)
 			.options(Collections.emptyList())
 			.recommendation(null)
-			.counterpart(null)
-			.moreSetups(Collections.emptyList())
 			.wildernessHistoryMissing(wildernessHistoryMissing)
 			.build();
 	}
 
-	/** A plan for {@code request}'s assignment; the lists are copied into unmodifiable ones by {@link TaskPlanner}. */
-	static TaskPlan of(TaskPlanner.Request request, int killsLeft, AdvisorMetric metric, Summary allSetups,
-		List<Option> options, int excludedTasks, String areaSpot, boolean areaFallback, Option recommendation,
-		Option counterpart, List<Option> moreSetups)
+	/** A plan for {@code request}'s assignment; {@link TaskPlanner} makes the options list unmodifiable. */
+	static TaskPlan of(TaskPlanner.Request request, int killsLeft, Summary allSetups, List<Option> options,
+		int excludedTasks, String areaSpot, boolean areaFallback, Option recommendation)
 	{
 		return builder()
 			.task(request.getTask())
@@ -106,15 +89,12 @@ class TaskPlan
 			.taskType(request.getTaskType())
 			.area(request.getArea())
 			.killsLeft(killsLeft)
-			.metric(AdvisorMetric.orDefault(metric))
 			.allSetups(allSetups == null ? Summary.NONE : allSetups)
 			.options(options)
 			.excludedTasks(excludedTasks)
 			.areaSpot(areaSpot)
 			.areaFallback(areaFallback)
 			.recommendation(recommendation)
-			.counterpart(counterpart)
-			.moreSetups(moreSetups)
 			.build();
 	}
 
@@ -128,8 +108,8 @@ class TaskPlan
 	}
 
 	/**
-	 * Whether this is a plan of the assignment given: the same creature key, name, type and assigned area. Its metric,
-	 * kills left, records and prices may differ (the kept plan {@link LedgerViews#plan} shows while the current one is
+	 * Whether this is a plan of the assignment given: the same creature key, name, type and assigned area. Its kills
+	 * left, records and prices may differ (the kept plan {@link LedgerViews#plan} shows while the current one is
 	 * worked out).
 	 */
 	boolean isFor(int creatureId, String task, TaskType taskType, String area)
@@ -140,7 +120,7 @@ class TaskPlan
 
 	/**
 	 * Whether the kills left are known (more than 0). Without them nothing is scaled to them: each {@link Time} is for
-	 * one kill (the median, 20th and 80th percentile per kill), each supply cost is per kill, and nothing is to bring.
+	 * one kill (the median per kill), and nothing is to bring.
 	 */
 	boolean hasKillsLeft()
 	{
@@ -157,9 +137,8 @@ class TaskPlan
 	}
 
 	/**
-	 * The time for the kills left: the median time per kill of the tasks times the kills left, with the 20th and 80th
-	 * percentiles of the time per kill the same way ({@link TaskPlanner#percentile}); for one kill when the kills left
-	 * are unknown ({@link #hasKillsLeft}). Immutable.
+	 * The time for the kills left: the median time per kill of the tasks ({@link TaskPlanner#percentile}) times the
+	 * kills left; for one kill when the kills left are unknown ({@link #hasKillsLeft}). Immutable.
 	 */
 	@Value
 	static class Time
@@ -168,10 +147,6 @@ class TaskPlan
 		long perKillMillis;
 		/** The median time per kill times the kills left. */
 		long millis;
-		/** The 20th percentile of the time per kill times the kills left. */
-		long lowMillis;
-		/** The 80th percentile of the time per kill times the kills left. */
-		long highMillis;
 	}
 
 	/** The creature-level "All setups" line: its completed tasks and their time. Immutable. */
@@ -233,22 +208,6 @@ class TaskPlan
 		int tasks;
 		/** The time for the kills left. */
 		Time time;
-		/** Slayer XP per hour, pooled over the tasks with XP; {@code null} under a minute of their active time. */
-		Long slayerXpPerHour;
-		/**
-		 * Profit per hour, pooled over the valued tasks with supply data ({@link TaskPlanner#hasSupplyData});
-		 * {@code null} without one or under a minute of their active time.
-		 */
-		Long profitPerHour;
-		boolean profitApproximate;
-		/**
-		 * The supply cost of the kills left (of one kill when they are unknown) at today's GE prices, pooled per kill
-		 * over the valued tasks with supply data ({@link TaskPlanner#hasSupplyData}); {@code null} without one.
-		 */
-		Long supplyCost;
-		boolean supplyCostApproximate;
-		/** The effective gear focus of more than half of the tasks, or {@code null} when none has that many. */
-		GearFocus gear;
 		/**
 		 * What to bring, most valuable first: at most {@link TaskPlanner#MAX_BRING_ITEMS}; none when the kills left are
 		 * unknown. Unmodifiable.
@@ -271,12 +230,6 @@ class TaskPlan
 		boolean isEstimated()
 		{
 			return cannonEstimated || styleEstimated;
-		}
-
-		/** The gear note, plain text: {@code mostly Prayer gear}; {@code null} without a {@link #getGear gear}. */
-		String gearNote()
-		{
-			return gear == null ? null : "mostly " + gear.getLabel() + " gear";
 		}
 	}
 }

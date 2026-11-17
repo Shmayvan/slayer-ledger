@@ -1,30 +1,16 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.Graphics2D;
-import java.awt.Image;
+import java.awt.*;
 import java.awt.Point;
-import java.awt.image.BufferedImage;
-import java.util.ArrayList;
+import java.awt.image.*;
+import java.util.*;
 import java.util.List;
-import net.runelite.api.MenuAction;
-import net.runelite.client.game.ItemManager;
-import net.runelite.client.game.SpriteManager;
-import net.runelite.client.ui.FontManager;
-import net.runelite.client.ui.overlay.Overlay;
-import net.runelite.client.ui.overlay.OverlayManager;
-import net.runelite.client.ui.overlay.OverlayPanel;
-import net.runelite.client.ui.overlay.OverlayPosition;
-import net.runelite.client.ui.overlay.components.ComponentConstants;
+import net.runelite.api.*;
+import net.runelite.client.game.*;
+import net.runelite.client.ui.*;
+import net.runelite.client.ui.overlay.*;
+import net.runelite.client.ui.overlay.components.*;
 import net.runelite.client.ui.overlay.components.ComponentOrientation;
-import net.runelite.client.ui.overlay.components.ImageComponent;
-import net.runelite.client.ui.overlay.components.LayoutableRenderableEntity;
-import net.runelite.client.ui.overlay.components.LineComponent;
-import net.runelite.client.ui.overlay.components.ProgressBarComponent;
-import net.runelite.client.ui.overlay.components.SplitComponent;
 
 /**
  * The in-game task overlay in look A, OSRS-native (DESIGN_PRINCIPLES.md 2 and 4.2): the rows of

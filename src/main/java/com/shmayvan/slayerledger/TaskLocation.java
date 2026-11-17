@@ -1,8 +1,8 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Locale;
-import java.util.function.IntFunction;
-import lombok.Value;
+import java.util.*;
+import java.util.function.*;
+import lombok.*;
 
 /**
  * Rules for a task's location name: how a typed name is cleaned up and which name the panel shows. A task's
@@ -193,13 +193,6 @@ final class TaskLocation
 	{
 		final String normalized = normalizeName(name);
 		return normalized == null ? null : normalized.toLowerCase(Locale.ROOT);
-	}
-
-	/** Whether two location names are the same place ({@link #matchKey}); no name never matches. */
-	static boolean sameLocation(String left, String right)
-	{
-		final String key = matchKey(left);
-		return key != null && key.equals(matchKey(right));
 	}
 
 	/** The location line of the live task box and the history tooltip: {@code Location: Smoke Dungeon}. */

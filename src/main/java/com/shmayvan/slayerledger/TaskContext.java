@@ -1,30 +1,28 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Objects;
+import lombok.*;
 
 /**
  * Who assigned a task and what completing it gave: the raw SLAYER_MASTER and SLAYER_AREA values, the area's name, and
  * (for a completed task) the Slayer points earned and the streak afterwards. Every part is {@code null} when unknown.
  * Immutable; pure (no RuneLite types). The task's {@link TaskType} is derived from it, see {@link #type(Integer)}.
  */
+@Value
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 final class TaskContext
 {
 	static final TaskContext NONE = new TaskContext(null, null, null, null, null);
 
+	/** SLAYER_MASTER value, or {@code null} when unknown. */
 	private final Integer master;
+	/** SLAYER_AREA value, or {@code null} when the task has no area (or it is unknown). */
 	private final Integer area;
+	/** The area's name, or {@code null}. */
 	private final String location;
+	/** Slayer points the completion gave, or {@code null} when unknown or not trusted. */
 	private final Integer pointsEarned;
+	/** The streak the completion raised, as it stood afterwards, or {@code null} when unknown. */
 	private final Integer taskStreak;
-
-	private TaskContext(Integer master, Integer area, String location, Integer pointsEarned, Integer taskStreak)
-	{
-		this.master = master;
-		this.area = area;
-		this.location = location;
-		this.pointsEarned = pointsEarned;
-		this.taskStreak = taskStreak;
-	}
 
 	/**
 	 * The assignment as read from the game.
@@ -82,69 +80,9 @@ final class TaskContext
 		return of(newMaster, newArea, newLocation, pointsEarned, taskStreak);
 	}
 
-	/** SLAYER_MASTER value, or {@code null} when unknown. */
-	Integer getMaster()
-	{
-		return master;
-	}
-
-	/** SLAYER_AREA value, or {@code null} when the task has no area (or it is unknown). */
-	Integer getArea()
-	{
-		return area;
-	}
-
-	/** The area's name, or {@code null}. */
-	String getLocation()
-	{
-		return location;
-	}
-
-	/** Slayer points the completion gave, or {@code null} when unknown or not trusted. */
-	Integer getPointsEarned()
-	{
-		return pointsEarned;
-	}
-
-	/** The streak the completion raised, as it stood afterwards, or {@code null} when unknown. */
-	Integer getTaskStreak()
-	{
-		return taskStreak;
-	}
-
 	/** The task's type for the given creature key; see {@link TaskType#of}. */
 	TaskType type(Integer creatureId)
 	{
 		return TaskType.of(master, creatureId);
-	}
-
-	@Override
-	public boolean equals(Object o)
-	{
-		if (this == o)
-		{
-			return true;
-		}
-		if (!(o instanceof TaskContext))
-		{
-			return false;
-		}
-		TaskContext other = (TaskContext) o;
-		return Objects.equals(master, other.master) && Objects.equals(area, other.area)
-			&& Objects.equals(location, other.location) && Objects.equals(pointsEarned, other.pointsEarned)
-			&& Objects.equals(taskStreak, other.taskStreak);
-	}
-
-	@Override
-	public int hashCode()
-	{
-		return Objects.hash(master, area, location, pointsEarned, taskStreak);
-	}
-
-	@Override
-	public String toString()
-	{
-		return "TaskContext(master=" + master + ", area=" + area + ", location=" + location + ", pointsEarned="
-			+ pointsEarned + ", taskStreak=" + taskStreak + ")";
 	}
 }

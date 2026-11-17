@@ -1,14 +1,9 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.function.*;
+import lombok.*;
 
 /**
  * How the shown history is valued (split from {@link LedgerHistoryModel}): the "Loot price" mode, today's GE
@@ -18,7 +13,7 @@ import java.util.function.Consumer;
  *
  * <p>Threading: EDT only, like the model that owns it; the exception is {@link #isWaitingForCurrentPrices}, which reads
  * one volatile field. It only keeps the state: the model decides what a change means (dropping the statistics,
- * re-checking the assignment chat line) and tells its listener. Callers write through the model.</p>
+ * asking for the advisor's plan again) and tells its listener. Callers write through the model.</p>
  */
 final class HistoryValuation
 {
@@ -53,6 +48,7 @@ final class HistoryValuation
 	 * {@link #CURRENT_PRICES_WAIT_MILLIS}. Written on the EDT only; volatile so the plugin may check it on the client
 	 * thread ({@link #isWaitingForCurrentPrices}).
 	 */
+	@Getter
 	private volatile boolean waitingForCurrentPrices;
 	/** When {@link #waitingForCurrentPrices} began ({@link System#nanoTime}). */
 	private long waitingForCurrentPricesSince;
@@ -208,15 +204,6 @@ final class HistoryValuation
 			waitingForCurrentPricesSince = System.nanoTime();
 		}
 		return true;
-	}
-
-	/**
-	 * Whether the views valued at today's prices keep what they show until the prices asked for arrive. Any
-	 * thread (one volatile read).
-	 */
-	boolean isWaitingForCurrentPrices()
-	{
-		return waitingForCurrentPrices;
 	}
 
 	/** Ends any wait for today's prices; the prices being looked up again no longer hold anything back. */

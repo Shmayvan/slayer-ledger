@@ -108,57 +108,6 @@ public class AssignmentWatchTest
 	}
 
 	@Test
-	public void aTaskAssignedWhileWatchedIsStartedOnce()
-	{
-		assertTrue(watch.takeStarted());
-		assertFalse(watch.takeStarted());
-		tick();
-		assertFalse(watch.takeStarted());
-	}
-
-	@Test
-	public void theSameTaskBackAfterAZeroIsNotStartedAgain()
-	{
-		watch.takeStarted();
-		remaining = 80;
-		tick();
-		clearTask();
-		ticks(2);
-		assign("Abyssal demons", DEMONS, 120, 5);
-		remaining = 80;
-		tick();
-		assertFalse("transient zero", watch.takeStarted());
-		clearTask();
-		ticks(20);
-		assign("Abyssal demons", DEMONS, 120, 5);
-		remaining = 79;
-		tick();
-		assertFalse("long zero", watch.takeStarted());
-	}
-
-	@Test
-	public void aDirectChangeToAnotherTaskIsStarted()
-	{
-		watch.takeStarted();
-		assign("Gargoyles", GARGOYLES, 150, 5);
-		tick();
-		assertTrue(watch.takeStarted());
-		assertFalse(watch.takeStarted());
-	}
-
-	@Test
-	public void aTaskSeenAfterAForgetOrLoginIsNotStarted()
-	{
-		watch.takeStarted();
-		watch.forget();
-		tick();
-		assertFalse("account change", watch.takeStarted());
-		login();
-		ticks(AssignmentWatch.SYNC_MAX_TICKS);
-		assertFalse("login", watch.takeStarted());
-	}
-
-	@Test
 	public void aSkipIsRecordedWithThePointsSpent()
 	{
 		remaining = 80;

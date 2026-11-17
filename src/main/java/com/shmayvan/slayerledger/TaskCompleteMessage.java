@@ -1,7 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import net.runelite.client.chat.ChatColorType;
-import net.runelite.client.chat.ChatMessageBuilder;
+import net.runelite.client.chat.*;
 
 /**
  * The task-complete chat line ({@code DESIGN_PRINCIPLES.md} 5.2, 5.3), posted for a successfully saved completed task:
@@ -75,9 +74,9 @@ final class TaskCompleteMessage
 
 	/**
 	 * A line from {@link #format} as a RuneLite chat message ({@code DESIGN_PRINCIPLES.md} 4.5): its {@link #head} in
-	 * the player's chat highlight colour and the rest in the normal one, as the assignment line
-	 * ({@link TaskPlanText#chatMessage}). {@link ChatMessageBuilder#append(String)} escapes the plain text, so nothing
-	 * is escaped before and no text goes through its unescaped {@code append(Color, String)}.
+	 * the player's chat highlight colour and the rest in the normal one, as the plugin's other chat lines.
+	 * {@link ChatMessageBuilder#append(String)} escapes the plain text, so nothing is escaped before and no text goes
+	 * through its unescaped {@code append(Color, String)}.
 	 */
 	static String chatMessage(LedgerRecord record, String line)
 	{

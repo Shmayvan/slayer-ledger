@@ -1,11 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.Component;
-import java.awt.Container;
-import java.awt.Dimension;
-import java.awt.Insets;
-import java.awt.LayoutManager;
-import net.runelite.client.ui.components.ProgressBar;
+import java.awt.*;
+import net.runelite.client.ui.components.*;
 
 /**
  * The live task card's progress bar (DESIGN_PRINCIPLES.md 2.4 and 3.4): RuneLite's {@link ProgressBar}, drawn in

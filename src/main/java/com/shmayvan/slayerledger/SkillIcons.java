@@ -1,6 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import javax.swing.JLabel;
+import javax.swing.*;
 
 /**
  * Where the small skill icons before the names of the XP lists ({@link ItemListView}) come from. The plugin backs

@@ -1,11 +1,8 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import net.runelite.client.util.Text;
-import net.runelite.client.util.WildcardMatcher;
+import java.util.*;
+import lombok.*;
+import net.runelite.client.util.*;
 
 /**
  * The core Ground Items plugin's hidden-items list, parsed, so Slayer Ledger hides the same items from its loot:
@@ -32,6 +29,9 @@ import net.runelite.client.util.WildcardMatcher;
  *
  * <p>Immutable, so a parsed list can be shared between threads; equal lists are {@link #equals equal}.</p>
  */
+@EqualsAndHashCode
+@ToString
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 final class GroundItemsHidden
 {
 	/** Ground Items' config group ({@code GroundItemsConfig.GROUP}). */
@@ -60,12 +60,6 @@ final class GroundItemsHidden
 
 	private final List<Entry> hidden;
 	private final List<Entry> highlighted;
-
-	private GroundItemsHidden(List<Entry> hidden, List<Entry> highlighted)
-	{
-		this.hidden = hidden;
-		this.highlighted = highlighted;
-	}
 
 	/**
 	 * What Slayer Ledger hides: nothing while its "Hide Ground Items' hidden items" setting is off or the Ground Items
@@ -163,44 +157,13 @@ final class GroundItemsHidden
 		return Collections.unmodifiableList(result);
 	}
 
-	@Override
-	public boolean equals(Object o)
-	{
-		if (this == o)
-		{
-			return true;
-		}
-		if (!(o instanceof GroundItemsHidden))
-		{
-			return false;
-		}
-		GroundItemsHidden g = (GroundItemsHidden) o;
-		return hidden.equals(g.hidden) && highlighted.equals(g.highlighted);
-	}
-
-	@Override
-	public int hashCode()
-	{
-		return Objects.hash(hidden, highlighted);
-	}
-
-	@Override
-	public String toString()
-	{
-		return "GroundItemsHidden{hidden=" + hidden + ", highlighted=" + highlighted + "}";
-	}
-
 	/** One entry of a list: a name or wildcard pattern. */
+	@EqualsAndHashCode
+	@AllArgsConstructor(access = AccessLevel.PRIVATE)
 	private static final class Entry
 	{
 		private final String name;
 		private final boolean wildcard;
-
-		private Entry(String name, boolean wildcard)
-		{
-			this.name = name;
-			this.wildcard = wildcard;
-		}
 
 		/**
 		 * Parses an entry as {@code ItemThreshold.fromName} does: a trailing {@code < n} or {@code > n} is a quantity
@@ -244,18 +207,6 @@ final class GroundItemsHidden
 			}
 			name = name.trim();
 			return name.isEmpty() ? null : new Entry(name, wildcard);
-		}
-
-		@Override
-		public boolean equals(Object o)
-		{
-			return o instanceof Entry && ((Entry) o).wildcard == wildcard && ((Entry) o).name.equals(name);
-		}
-
-		@Override
-		public int hashCode()
-		{
-			return Objects.hash(name, wildcard);
 		}
 
 		@Override

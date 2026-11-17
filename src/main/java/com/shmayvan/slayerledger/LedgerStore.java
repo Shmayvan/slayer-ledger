@@ -1,34 +1,16 @@
 package com.shmayvan.slayerledger;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.Reader;
-import java.io.Writer;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
-import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
-import java.util.function.Predicate;
-import java.util.regex.Pattern;
-import java.util.stream.Stream;
-import lombok.extern.slf4j.Slf4j;
-import net.runelite.client.util.Filepath;
+import com.google.gson.*;
+import java.io.*;
+import java.nio.charset.*;
+import java.nio.file.*;
+import java.util.*;
+import java.util.function.*;
+import java.util.regex.*;
+import java.util.stream.*;
+import lombok.*;
+import lombok.extern.slf4j.*;
+import net.runelite.client.util.*;
 
 /**
  * Reads and writes per-account ledger files ({@code <dir>/<accountHash>.json}) and active (in-progress) session
@@ -115,6 +97,7 @@ public class LedgerStore
 	 * Kept records ({@link #writeUnsaved}) could not be appended by {@link #appendUnsaved}; their side files are kept
 	 * for the next try. The cause is the append's failure.
 	 */
+	@Getter
 	static class UnsavedRecordsException extends IOException
 	{
 		/** The updated record list after the kept records appended before the failure, or {@code null} if none was. */
@@ -124,12 +107,6 @@ public class LedgerStore
 		{
 			super(message, cause);
 			this.records = records;
-		}
-
-		/** The updated record list after the kept records appended before the failure, or {@code null} if none was. */
-		List<LedgerRecord> getRecords()
-		{
-			return records;
 		}
 	}
 
@@ -1148,34 +1125,21 @@ public class LedgerStore
 	}
 
 	/** An account's records and assignment entries, read together. */
+	@Getter
+	@AllArgsConstructor(access = AccessLevel.PACKAGE)
 	static final class Contents
 	{
-		private final List<LedgerRecord> records;
-		private final List<AssignmentEntry> assignments;
-
-		Contents(List<LedgerRecord> records, List<AssignmentEntry> assignments)
-		{
-			this.records = records;
-			this.assignments = assignments;
-		}
-
 		/** The played tasks. */
-		List<LedgerRecord> getRecords()
-		{
-			return records;
-		}
-
+		private final List<LedgerRecord> records;
 		/** The assignments that ended without a saved session; never played tasks (see {@link AssignmentEntry}). */
-		List<AssignmentEntry> getAssignments()
-		{
-			return assignments;
-		}
+		private final List<AssignmentEntry> assignments;
 	}
 
 	/**
 	 * A ledger file as read: the bound layout and, when read for a write, the JSON members this build does not bind,
 	 * to be written back (see the schema policy in the class comment).
 	 */
+	@AllArgsConstructor(access = AccessLevel.PACKAGE)
 	private static final class StoredFile
 	{
 		final LedgerFile file;
@@ -1183,12 +1147,6 @@ public class LedgerStore
 		final JsonObject unknownMembers;
 		/** The members each bound record and entry has that this build does not bind, for those that have any. */
 		final Map<Object, JsonObject> unknownItemMembers = new IdentityHashMap<>();
-
-		StoredFile(LedgerFile file, JsonObject unknownMembers)
-		{
-			this.file = file;
-			this.unknownMembers = unknownMembers;
-		}
 	}
 
 	/**

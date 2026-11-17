@@ -191,18 +191,18 @@ public class CatacombsVariantsTest
 	public void damagedNpcsAreTakenOnceAndBounded()
 	{
 		DamagedNpcs npcs = new DamagedNpcs();
-		npcs.damaged(0, 5, 0L, AWAY);
+		npcs.damaged(0, 5, 0L, AWAY, NO_TICK);
 		assertTrue(died(npcs, 0, 5));
 		assertFalse("taken once", died(npcs, 0, 5));
 		assertFalse("never damaged", died(npcs, 0, 6));
 
-		npcs.damaged(0, 7, 0L, AWAY);
+		npcs.damaged(0, 7, 0L, AWAY, NO_TICK);
 		npcs.forget(0, 7);
 		assertFalse("despawned", died(npcs, 0, 7));
 
 		for (int i = 0; i < DamagedNpcs.MAX_NPCS + 10; i++)
 		{
-			npcs.damaged(0, i, 0L, AWAY);
+			npcs.damaged(0, i, 0L, AWAY, NO_TICK);
 		}
 		assertEquals(DamagedNpcs.MAX_NPCS, npcs.size());
 		// The ones damaged longest ago went first.
@@ -217,25 +217,27 @@ public class CatacombsVariantsTest
 	{
 		// The same index in another world view (a boat's) is another NPC.
 		DamagedNpcs npcs = new DamagedNpcs();
-		npcs.damaged(0, 5, 0L, AWAY);
+		npcs.damaged(0, 5, 0L, AWAY, NO_TICK);
 		assertFalse(died(npcs, 3, 5));
 		npcs.forget(3, 5);
 		assertTrue(died(npcs, 0, 5));
 
-		npcs.damaged(-1, 5, 0L, AWAY);
-		npcs.damaged(3, 5, 0L, AWAY);
+		npcs.damaged(-1, 5, 0L, AWAY, NO_TICK);
+		npcs.damaged(3, 5, 0L, AWAY, NO_TICK);
 		assertEquals(2, npcs.size());
 		assertTrue(died(npcs, 3, 5));
 		assertFalse(died(npcs, 0, 5));
 		assertTrue(died(npcs, -1, 5));
 		// Indexes and ids with the high bit set don't collide.
-		npcs.damaged(0, -1, 0L, AWAY);
+		npcs.damaged(0, -1, 0L, AWAY, NO_TICK);
 		assertFalse(died(npcs, -1, -1));
 		assertTrue(died(npcs, 0, -1));
 	}
 
 	/** The Away limit the engagements in these tests use. */
 	private static final long AWAY = 10 * 60_000L;
+	/** The game tick of a hit: never read, since these tests never put hits down to attacks. */
+	private static final int NO_TICK = 0;
 
 	/** The NPC died, with no name, on tick 0 (pairing is {@link DamagedNpcsTest}'s subject). */
 	private static boolean died(DamagedNpcs npcs, int worldViewId, int index)

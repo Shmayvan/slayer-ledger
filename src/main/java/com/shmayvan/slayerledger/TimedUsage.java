@@ -1,12 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
+import lombok.*;
 
 /**
  * Supplies, XP and loot, each stamped with the clock time it arrived (V2 plan 4.1), for the use a session may still
@@ -32,8 +27,11 @@ final class TimedUsage
 	 * What arrived at one clock time. Each part is {@code null} when nothing of it arrived. Changed only by its
 	 * {@link TimedUsage}.
 	 */
+	@Getter
+	@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 	static final class Entry
 	{
+		/** When it arrived (clock millis). */
 		private final long at;
 		/** Supplies used, potions in doses (as {@link SessionTracker#addSupplies}). */
 		private ItemTally used;
@@ -46,47 +44,6 @@ final class TimedUsage
 		private ItemTally loot;
 		/** Notable stacks of {@link #loot}, and pets. */
 		private List<NotableDrop> drops;
-
-		private Entry(long at)
-		{
-			this.at = at;
-		}
-
-		/** When it arrived (clock millis). */
-		long getAt()
-		{
-			return at;
-		}
-
-		ItemTally getUsed()
-		{
-			return used;
-		}
-
-		ItemTally getReturned()
-		{
-			return returned;
-		}
-
-		Map<Integer, Integer> getDoses()
-		{
-			return doses;
-		}
-
-		Map<String, Long> getXp()
-		{
-			return xp;
-		}
-
-		ItemTally getLoot()
-		{
-			return loot;
-		}
-
-		List<NotableDrop> getDrops()
-		{
-			return drops;
-		}
 
 		private boolean hasSupplies()
 		{

@@ -1,25 +1,11 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.TreeSet;
-import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.JComboBox;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.SwingConstants;
+import javax.swing.*;
+import lombok.*;
 
 /**
  * The collapsed "Overall totals" section of {@link SlayerLedgerPanel}: completed-task totals, overall or grouped
@@ -52,11 +38,12 @@ import javax.swing.SwingConstants;
  * open or closed while the section rebuilds the same group in the same grouping; closing the section or changing the
  * grouping closes them again. EDT only.</p>
  */
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 final class OverallTotalsSection
 {
 	/** Shown instead of the blocks with no completed task (DESIGN_PRINCIPLES.md 3.9: plain, one line). */
 	static final String EMPTY_TEXT = "No completed tasks yet.";
-	/** XP is every skill's (owner decision), unlike the Slayer XP/h of {@link TaskRanking}'s rates. */
+	/** XP is every skill's (owner decision), unlike the Slayer XP/h line, which counts Slayer XP only. */
 	private static final String XP_LABEL = "XP (all skills)";
 	private static final String SUPPLIES_TITLE = "Supplies used";
 	private static final String LOOT_TITLE = "Loot received";
@@ -75,7 +62,7 @@ final class OverallTotalsSection
 	private final Runnable relayout;
 	/** Draws the item grids' icons and the task icons. */
 	private final ItemIcons icons;
-	/** The masters' faces of By master. */
+	/** The masters' faces before By master's group names. */
 	private final MasterIcons masterIcons;
 
 	private final JPanel header = new JPanel(new BorderLayout(6, 0));
@@ -98,15 +85,6 @@ final class OverallTotalsSection
 	private Map<String, Grid> grids = new HashMap<>();
 	/** The By master assignment lists shown, by grouping and group; kept like {@link #grids}, so "+N more" stays. */
 	private Map<String, ItemListView> assignmentLists = new HashMap<>();
-
-	/** @param masterIcons the masters' faces before By master's group names */
-	OverallTotalsSection(LedgerHistoryModel model, Runnable relayout, ItemIcons icons, MasterIcons masterIcons)
-	{
-		this.model = model;
-		this.relayout = relayout;
-		this.icons = icons;
-		this.masterIcons = masterIcons;
-	}
 
 	/** Adds the header and the body to {@code content}, collapsed. */
 	void addTo(JPanel content)
@@ -701,16 +679,12 @@ final class OverallTotalsSection
 	 * One line of a By master group's monsters assigned ({@link OverallTotals.Assignment}); equal when its assignment
 	 * and master are, so an unchanged list is not redrawn.
 	 */
+	@EqualsAndHashCode
+	@AllArgsConstructor(access = AccessLevel.PRIVATE)
 	private static final class AssignmentLine implements ItemListView.Line
 	{
 		private final OverallTotals.Assignment assignment;
 		private final String master;
-
-		private AssignmentLine(OverallTotals.Assignment assignment, String master)
-		{
-			this.assignment = assignment;
-			this.master = master;
-		}
 
 		@Override
 		public String getName()
@@ -742,26 +716,10 @@ final class OverallTotalsSection
 		{
 			return assignment.tooltip(master);
 		}
-
-		@Override
-		public boolean equals(Object other)
-		{
-			if (!(other instanceof AssignmentLine))
-			{
-				return false;
-			}
-			AssignmentLine that = (AssignmentLine) other;
-			return assignment.equals(that.assignment) && master.equals(that.master);
-		}
-
-		@Override
-		public int hashCode()
-		{
-			return Objects.hash(assignment, master);
-		}
 	}
 
 	/** One item grid and the unnamed rows it shows. */
+	@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 	private final class Grid
 	{
 		private final ItemGridView view;
@@ -769,12 +727,6 @@ final class OverallTotalsSection
 		private final boolean loot;
 		/** Unnamed rows ({@link OverallTotals.Entry#getSupplies()} or {@link OverallTotals.Entry#getLoot()}). */
 		private List<ItemDetails.Row> rows;
-
-		private Grid(ItemGridView view, boolean loot)
-		{
-			this.view = view;
-			this.loot = loot;
-		}
 
 		/**
 		 * Names the rows with what the model knows and shows them, loot without the items Ground Items hides;

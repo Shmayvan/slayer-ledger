@@ -1,11 +1,10 @@
 package com.shmayvan.slayerledger;
 
-import java.util.List;
-import java.util.Locale;
-import javax.inject.Inject;
-import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.Client;
-import net.runelite.api.gameval.DBTableID;
+import java.util.*;
+import javax.inject.*;
+import lombok.extern.slf4j.*;
+import net.runelite.api.*;
+import net.runelite.api.gameval.*;
 
 /**
  * The plugin's Slayer DB-table lookups: the task name and Konar's area name, read the way core SlayerPlugin

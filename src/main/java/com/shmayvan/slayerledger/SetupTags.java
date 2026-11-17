@@ -1,8 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+import lombok.*;
 
 /**
  * A task's setup tags (V2 plan 4.3): cannon, style and gear focus, each with its detected value, whether that
@@ -17,19 +16,34 @@ import java.util.Objects;
  * ({@link CannonTasks#fired}), as 1.x classified it. Style and gear may be {@link SetupStyle#UNKNOWN} and
  * {@link GearFocus#UNKNOWN}, which are never estimated.</p>
  */
+@EqualsAndHashCode(doNotUseGetters = true)
+@ToString(doNotUseGetters = true)
 final class SetupTags
 {
 	/** The last tooltip line when a detected value is an estimate. */
 	static final String ESTIMATE_NOTE = "~ estimated: saved before setup was recorded";
 
+	/** The detected cannon (the fallback for a record that stored none), whatever the override. */
+	@Getter
 	private final boolean detectedCannon;
+	/** The detected style (never {@code null}), whatever the override. */
+	@Getter
 	private final SetupStyle detectedStyle;
+	/** The detected gear focus (never {@code null}), whatever the override. */
+	@Getter
 	private final GearFocus detectedGear;
 	private final boolean cannonEstimated;
 	private final boolean styleEstimated;
 	private final boolean gearEstimated;
+	/** The player's overrides (never {@code null}). */
+	@Getter
 	private final SetupOverrides overrides;
-	/** Whether a detected value or an override was stored (a record saved or migrated by 2.0, or a live session). */
+	/**
+	 * Whether a detected value or an override was stored (a record saved or migrated by 2.0, or a live session).
+	 * {@code false} only for a record built without them (never one read through {@link LedgerStore}), whose tags are
+	 * then all fallbacks.
+	 */
+	@Getter
 	private final boolean recorded;
 
 	private SetupTags(boolean detectedCannon, boolean cannonEstimated, SetupStyle detectedStyle,
@@ -125,15 +139,6 @@ final class SetupTags
 			gearEstimated, newOverrides, true);
 	}
 
-	/**
-	 * Whether the tags were stored: a detected value or an override. {@code false} only for a record built without them
-	 * (never one read through {@link LedgerStore}), whose tags are then all fallbacks.
-	 */
-	boolean isRecorded()
-	{
-		return recorded;
-	}
-
 	/** The effective cannon: the override, else the detected value. */
 	boolean isCannon()
 	{
@@ -170,22 +175,10 @@ final class SetupTags
 		return overrides.getGear() == null && gearEstimated;
 	}
 
-	/** The detected cannon (the fallback for a record that stored none), whatever the override. */
-	boolean isDetectedCannon()
-	{
-		return detectedCannon;
-	}
-
 	/** Whether the detected cannon is an estimate (a migrated task), whatever the override. */
 	boolean isDetectedCannonEstimated()
 	{
 		return cannonEstimated;
-	}
-
-	/** The detected style (never {@code null}), whatever the override. */
-	SetupStyle getDetectedStyle()
-	{
-		return detectedStyle;
 	}
 
 	/** Whether the detected style is an estimate, whatever the override. */
@@ -194,22 +187,10 @@ final class SetupTags
 		return styleEstimated;
 	}
 
-	/** The detected gear focus (never {@code null}), whatever the override. */
-	GearFocus getDetectedGear()
-	{
-		return detectedGear;
-	}
-
 	/** Whether the detected gear focus is an estimate, whatever the override. */
 	boolean isDetectedGearEstimated()
 	{
 		return gearEstimated;
-	}
-
-	/** The player's overrides (never {@code null}). */
-	SetupOverrides getOverrides()
-	{
-		return overrides;
 	}
 
 	/** Whether any detected value is an estimate, overridden or not. */
@@ -254,34 +235,5 @@ final class SetupTags
 	private static String overridden(boolean overridden, String detected)
 	{
 		return overridden ? " (set by you; detected " + detected + ")" : "";
-	}
-
-	@Override
-	public boolean equals(Object other)
-	{
-		if (!(other instanceof SetupTags))
-		{
-			return false;
-		}
-		final SetupTags that = (SetupTags) other;
-		return detectedCannon == that.detectedCannon && cannonEstimated == that.cannonEstimated
-			&& detectedStyle == that.detectedStyle && styleEstimated == that.styleEstimated
-			&& detectedGear == that.detectedGear && gearEstimated == that.gearEstimated
-			&& overrides.equals(that.overrides) && recorded == that.recorded;
-	}
-
-	@Override
-	public int hashCode()
-	{
-		return Objects.hash(detectedCannon, cannonEstimated, detectedStyle, styleEstimated, detectedGear,
-			gearEstimated, overrides, recorded);
-	}
-
-	@Override
-	public String toString()
-	{
-		return "SetupTags(cannon=" + shown(cannonLabel(detectedCannon), cannonEstimated) + ", style="
-			+ shown(detectedStyle.name(), styleEstimated) + ", gear=" + shown(detectedGear.name(), gearEstimated)
-			+ ", overrides=" + overrides + ")";
 	}
 }

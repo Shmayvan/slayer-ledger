@@ -1,7 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 /**
  * Rules for a session's kills per NPC name: each death of an NPC the player damaged while the session ran is

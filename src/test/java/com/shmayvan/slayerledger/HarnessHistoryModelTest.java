@@ -2,11 +2,9 @@ package com.shmayvan.slayerledger;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.atLeast;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -14,27 +12,24 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicReference;
 import net.runelite.api.gameval.ItemID;
-import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.util.Filepath;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.mockito.ArgumentCaptor;
 
 /**
- * The plugin's {@link LedgerHistoryModel} as wired ({@link PluginHarness}): the assignment chat line
- * (which replaced the old preview) and the overlay's historical time per kill never need the panel's refresh
- * timer. {@link #setUp} stops that timer and no test calls the panel's {@code refresh()}, so each result below comes
- * from the one trigger the test names:
+ * The plugin's {@link LedgerHistoryModel} as wired ({@link PluginHarness}): the advisor's plan and the
+ * overlay's historical time per kill never need the panel's refresh timer. {@link #setUp} stops that timer and
+ * no test calls the panel's {@code refresh()}, so each result below comes from the one trigger the test names:
  * <ul>
- * <li>a new assignment's chat line: the settled tick's assignment watch ({@code requestAssignmentLine}), then the
- * plan worked out off the EDT ({@code Change.VIEWS});</li>
- * <li>a chat line waiting for today's prices whose answer was lost: a later settled tick ending the expired wait
+ * <li>a new assignment's plan: the settled tick whose live inputs changed ({@code refreshLive}), then the plan worked
+ * out off the EDT;</li>
+ * <li>a plan waiting for today's prices whose answer was lost: a later settled tick ending the expired wait
  * ({@code endExpiredCurrentPricesWait});</li>
- * <li>a chat line waiting for the records: the model's own {@code setRecords} (called directly, not through the
- * panel, and with no tick before the check);</li>
+ * <li>a plan waiting for the records: the model's own {@code setRecords} (called directly, not through the panel, and
+ * with no tick before the check);</li>
  * <li>the overlay's pace at Play, Stop and Play: the plugin's {@code refreshLive} after the panel action; after a
  * kill: the settled tick whose live inputs changed; when the history empties: the model's {@code setRecords};</li>
  * <li>records arriving during a session: the model's {@code setRecords} (written by the plugin);</li>
@@ -54,8 +49,7 @@ public class HarnessHistoryModelTest
 	private static final int UNNAMED = TestSpots.UNLISTED;
 	private static final int SMOKE = 12_946;
 	private static final int CATACOMBS = 6_557;
-	/** The advisor's line for 20 Abyssal demons from the three saved tasks, which have no spot or style. */
-	private static final String LINE = "<colHIGHLIGHT>Abyssal demons x20:<colNORMAL> ~20 min (3 tasks, setup unknown).";
+
 
 	@Rule
 	public final PluginHarness harness = new PluginHarness();
@@ -163,12 +157,22 @@ public class HarnessHistoryModelTest
 		}
 	}
 
-	private List<String> lines()
+	/** The advisor's plan the model shows now, after the queued work has run; {@code null} for none. */
+	private TaskPlan plan()
 	{
-		ArgumentCaptor<QueuedMessage> messages = ArgumentCaptor.forClass(QueuedMessage.class);
-		verify(harness.chatMessageManager, atLeast(0)).queue(messages.capture());
-		return messages.getAllValues().stream().map(QueuedMessage::getRuneLiteFormattedMessage)
-			.collect(Collectors.toList());
+		harness.drain();
+		AtomicReference<TaskPlan> plan = new AtomicReference<>();
+		harness.onEdt(() -> plan.set(harness.historyModel().plan()));
+		return plan.get();
+	}
+
+	/** Asserts the plan is for 20 Abyssal demons from the three saved tasks. */
+	private void assertPlanForTwentyDemons()
+	{
+		TaskPlan plan = plan();
+		assertNotNull("a plan", plan);
+		assertEquals(20, plan.getKillsLeft());
+		assertEquals(3, plan.getAllSetups().getTasks());
 	}
 
 	/** The overlay's time left now ({@code ~12 min}), with every group on; {@code null} without a session. */
@@ -185,21 +189,26 @@ public class HarnessHistoryModelTest
 	}
 
 	@Test
-	public void aNewAssignmentsChatLineIsPostedOnceWithoutThePanelTimer()
+	public void aNewAssignmentsPlanIsWorkedOutWithoutThePanelTimer()
 	{
 		harness.setRemaining(0);
 		harness.loginAndSettle(ACCOUNT);
 		harness.ticks(AssignmentWatch.SYNC_MAX_TICKS);
+		assertNull("no task, no plan", plan());
 		harness.setTask(DEMONS, "Abyssal demons", 20, 20);
 		harness.tick();
 
-		assertEquals(Collections.singletonList(LINE), lines());
+		assertPlanForTwentyDemons();
+		final AtomicReference<Integer> builds = new AtomicReference<>();
+		harness.onEdt(() -> builds.set(harness.historyModel().getPlanBuildCount()));
 		harness.ticks(5);
-		assertEquals("still once", Collections.singletonList(LINE), lines());
+		final AtomicReference<Integer> after = new AtomicReference<>();
+		harness.onEdt(() -> after.set(harness.historyModel().getPlanBuildCount()));
+		assertEquals("worked out once", builds.get(), after.get());
 	}
 
 	@Test
-	public void aChatLineWaitingForTodaysPricesIsPostedWhenTheWaitRunsOutWithoutThePanelTimer()
+	public void aPlanWaitingForTodaysPricesIsWorkedOutWhenTheWaitRunsOutWithoutThePanelTimer()
 	{
 		harness.setRemaining(0);
 		harness.loginAndSettle(ACCOUNT);
@@ -220,28 +229,21 @@ public class HarnessHistoryModelTest
 
 		harness.setTask(DEMONS, "Abyssal demons", 20, 20);
 		harness.tick();
-		assertEquals("waits for today's prices", Collections.emptyList(), lines());
-		final AtomicBoolean pending = new AtomicBoolean();
-		harness.onEdt(() -> pending.set(harness.historyModel().isAssignmentLinePending()));
-		assertTrue(pending.get());
+		assertNull("waits for today's prices", plan());
 
 		// The 3 seconds pass with nothing else changing; the next settled tick ends the wait.
 		harness.onEdt(() -> harness.historyModel().expireCurrentPricesWait());
 		harness.tick();
-		assertEquals(Collections.singletonList(LINE), lines());
-		harness.onEdt(() ->
-		{
-			waiting.set(harness.historyModel().isWaitingForCurrentPrices());
-			pending.set(harness.historyModel().isAssignmentLinePending());
-		});
+		harness.onEdt(() -> waiting.set(harness.historyModel().isWaitingForCurrentPrices()));
 		assertFalse(waiting.get());
-		assertFalse(pending.get());
-		harness.ticks(3);
-		assertEquals("still once", Collections.singletonList(LINE), lines());
+		TaskPlan plan = plan();
+		assertNotNull("worked out at the prices there are", plan);
+		assertEquals(20, plan.getKillsLeft());
+		assertEquals("the unfinished task is no sample", 3, plan.getAllSetups().getTasks());
 	}
 
 	@Test
-	public void aChatLineWaitingForTheRecordsIsPostedWhenTheyArriveWithoutThePanelTimer()
+	public void aPlanWaitingForTheRecordsIsWorkedOutWhenTheyArriveWithoutThePanelTimer()
 	{
 		harness.setRemaining(0);
 		harness.loginAndSettle(ACCOUNT);
@@ -250,18 +252,13 @@ public class HarnessHistoryModelTest
 		harness.onEdt(() -> harness.historyModel().clearRecords(ACCOUNT, SlayerLedgerPanel.LOADING_MESSAGE));
 		harness.setTask(DEMONS, "Abyssal demons", 20, 20);
 		harness.ticks(3);
-		verify(harness.chatMessageManager, never()).queue(any(QueuedMessage.class));
-		final AtomicBoolean pending = new AtomicBoolean();
-		harness.onEdt(() -> pending.set(harness.historyModel().isAssignmentLinePending()));
-		assertTrue("waits for the records", pending.get());
+		assertNull("waits for the records", plan());
 
-		// Straight to the model, not through the panel: the model posts on its own. No tick runs before the check.
+		// Straight to the model, not through the panel: the model asks for the plan on its own. No tick runs before
+		// the check.
 		final List<LedgerRecord> records = harness.records(ACCOUNT);
 		harness.onEdt(() -> harness.historyModel().setRecords(ACCOUNT, records));
-		harness.drain();
-		assertEquals(Collections.singletonList(LINE), lines());
-		harness.onEdt(() -> pending.set(harness.historyModel().isAssignmentLinePending()));
-		assertFalse(pending.get());
+		assertPlanForTwentyDemons();
 	}
 
 	@Test

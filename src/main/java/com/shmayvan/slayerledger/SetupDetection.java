@@ -1,9 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * The rules that turn what was seen at a task's kills into its detected setup tags (V2 plan 4.3): each kill's

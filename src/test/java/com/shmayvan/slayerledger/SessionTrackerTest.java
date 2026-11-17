@@ -163,9 +163,9 @@ public class SessionTrackerTest
 	{
 		tracker.startNow(ACCOUNT);
 		tracker.observe(null, SessionTracker.NO_CREATURE, 0, false);
-		assertFalse(tracker.hasSessionTask());
+		assertFalse(tracker.summary().hasTask());
 		demons(120);
-		assertTrue(tracker.hasSessionTask());
+		assertTrue(tracker.summary().hasTask());
 		demons(119);
 		assertEquals(1, tracker.getKills());
 		assertEquals(120, tracker.summary().getInitialAmount());

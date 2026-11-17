@@ -1,25 +1,15 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.GridLayout;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
+import java.awt.*;
+import java.awt.event.*;
+import java.time.*;
+import java.time.format.*;
+import java.util.*;
 import java.util.List;
-import java.util.function.BiConsumer;
-import javax.swing.BorderFactory;
-import javax.swing.BoxLayout;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JMenuItem;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
-import javax.swing.border.EmptyBorder;
+import java.util.function.*;
+import javax.swing.*;
+import javax.swing.border.*;
+import lombok.*;
 
 /**
  * The collapsed "Skipped / blocked" section of {@link SlayerLedgerPanel}: assignments that ended without a saved
@@ -33,6 +23,7 @@ import javax.swing.border.EmptyBorder;
  * takes {@link LedgerTheme#HOVER} under the mouse, since it has a right-click menu; every text colour keeps 4.5:1 on
  * both backgrounds.</p>
  */
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 final class AssignmentsSection
 {
 	/** Shown instead of the rows while there are none (DESIGN_PRINCIPLES.md 3.9: plain, one line). */
@@ -64,17 +55,6 @@ final class AssignmentsSection
 	private int builds;
 	/** The "Skipped / blocked" setting; while off, no rows are built. The panel hides the components. */
 	private boolean shown = true;
-
-	/** @param icons draws the rows' task icons */
-	AssignmentsSection(LedgerHistoryModel model, Runnable relayout, Component dialogParent,
-		BiConsumer<Long, String> delete, ItemIcons icons)
-	{
-		this.model = model;
-		this.relayout = relayout;
-		this.dialogParent = dialogParent;
-		this.delete = delete;
-		this.icons = icons;
-	}
 
 	/** Adds the header and the body to {@code content}, collapsed. */
 	void addTo(JPanel content)

@@ -7,7 +7,6 @@ import java.util.Collections;
 import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
@@ -15,7 +14,7 @@ import org.junit.Test;
 
 /**
  * Catacombs variant tasks in the session, the saved record and every per-monster grouping: the per-task
- * statistics, the monster ranking, the history list and its Monster filter, and the task advisor's badge (pooled).
+ * statistics and the history list and its Monster filter.
  * Records saved in older versions have no variant and stay standard.
  */
 public class CatacombsVariantGroupingTest
@@ -138,8 +137,8 @@ public class CatacombsVariantGroupingTest
 		assertEquals(TaskSelection.of(DEVIANT), restored.getCurrentTaskSelection());
 		assertEquals(DEVIANT, LedgerRecord.fromSummary(restored.activeSummary(), true).getVariant());
 		// A snapshot that can't be restored becomes a partial record with its variant.
-		assertEquals(DEVIANT, LedgerRecord.fromSummary(gson.fromJson(json, SessionSnapshot.class).toSummary(), true)
-			.getVariant());
+		SessionSnapshot unrestorable = gson.fromJson(json, SessionSnapshot.class);
+		assertEquals(DEVIANT, LedgerRecord.fromSummary(unrestorable.toSummary(SlayerSpots.NONE), true).getVariant());
 
 		// Fewer variant kills than standard ones in the restored tally: standard, live and on save. (Task kills the tally
 		// missed count for neither, so 5 variant kills alone would still be the variant.)
@@ -192,21 +191,6 @@ public class CatacombsVariantGroupingTest
 	}
 
 	@Test
-	public void theAdvisorRankingPoolsAVariantWithItsTask()
-	{
-		List<LedgerRecord> records = new ArrayList<>();
-		records.add(profit(null, 100_000L));
-		records.add(profit(DEVIANT, 400_000L));
-		records.add(profit(DEVIANT, 400_000L));
-
-		List<TaskRanking.Entry> pooled = TaskRanking.rank(records, TaskRanking.Metric.PROFIT, LootPriceMode.GE, null,
-			HiddenLoot.NONE);
-		assertEquals(1, pooled.size());
-		assertEquals(TASK, pooled.get(0).getMonster());
-		assertEquals(3, pooled.get(0).getSampleCount());
-	}
-
-	@Test
 	public void theHistoryFilterListsTheVariantSeparately()
 	{
 		List<LedgerRecord> records = Arrays.asList(record(null, 10, HOUR), record(DEVIANT, 10, HOUR));
@@ -218,33 +202,6 @@ public class CatacombsVariantGroupingTest
 			.contains("Catacombs variant of Aberrant spectres"));
 		assertFalse(LedgerHistory.historyRowTooltip(records.get(0), HistoryPricing.value(records.get(0),
 			LootPriceMode.GE, Collections.emptyMap()), null, LedgerHistory.NO_VALUE).contains("Catacombs variant"));
-	}
-
-	// ---- Task advisor ----
-
-	@Test
-	public void theMainAdvicePoolsBothVersions()
-	{
-		// Six monsters of 3 tasks each; the spectres' tasks are split 2 + 1 between the versions.
-		List<LedgerRecord> records = new ArrayList<>();
-		for (int creature = 1; creature <= 5; creature++)
-		{
-			for (int task = 0; task < TaskAdvisor.MIN_TASKS; task++)
-			{
-				LedgerRecord other = profit(null, (creature + 1) * 100_000L);
-				other.setCreatureId(100 + creature);
-				other.setMonster("Monster " + creature);
-				records.add(other);
-			}
-		}
-		records.add(profit(null, 50_000L));
-		records.add(profit(null, 50_000L));
-		records.add(profit(DEVIANT, 50_000L));
-		TaskAdvisor.Result advice = TaskAdvisor.advise(records, SPECTRES, TASK, TaskRanking.Metric.PROFIT,
-			LootPriceMode.GE, null, HiddenLoot.NONE);
-		assertNotNull("pooled, the spectres have 3 tasks and qualify", advice);
-		assertEquals(3, advice.getTasks());
-		assertEquals(TaskAdvisor.Advice.CONSIDER_SKIP, advice.getAdvice());
 	}
 
 	// ---- Helpers ----
@@ -277,15 +234,6 @@ public class CatacombsVariantGroupingTest
 	private static TaskStatistics stats(List<LedgerRecord> records, TaskSelection variant)
 	{
 		return TaskStatistics.forTask(records, SPECTRES, TASK, variant, null, null);
-	}
-
-	/** An hour-long completed spectres task making {@code profit} (loot at GE, no supplies). */
-	private static LedgerRecord profit(String variant, long profit)
-	{
-		LedgerRecord record = record(variant, 10, HOUR);
-		record.setLootGeValue(profit);
-		record.setSuppliesGeValue(0L);
-		return record;
 	}
 
 	private static LedgerRecord record(String variant, int kills, long activeMillis)

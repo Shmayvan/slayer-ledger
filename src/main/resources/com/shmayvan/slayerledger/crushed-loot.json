@@ -1,0 +1,41 @@
+{
+  "description": "The loot CrushedLootFilter leaves out. \"bones\": buryable bones that monsters drop, which a bonecrusher crushes; bones only obtained otherwise (blessed bones, quest and minigame bones) are not listed, since they are not kill loot. \"demonicAshes\": demonic ashes, which an ash sanctifier scatters; plain ashes are not demonic and are always kept. Only unnoted ids are listed: the crushers do not crush noted bones. Ids are RuneLite 1.13.6 gameval constants (net.runelite.api.gameval); \"constant\" names the constant each id was taken from.",
+  "bones": [
+    {"id": 526, "constant": "ItemID.BONES", "item": "Bones"},
+    {"id": 530, "constant": "ItemID.BAT_BONES", "item": "Bat bones"},
+    {"id": 532, "constant": "ItemID.BIG_BONES", "item": "Big bones"},
+    {"id": 534, "constant": "ItemID.BABYDRAGON_BONES", "item": "Babydragon bones"},
+    {"id": 536, "constant": "ItemID.DRAGON_BONES", "item": "Dragon bones"},
+    {"id": 2859, "constant": "ItemID.WOLF_BONES", "item": "Wolf bones"},
+    {"id": 3123, "constant": "ItemID.TBWT_BEAST_BONES", "item": "Shaikahan bones"},
+    {"id": 3125, "constant": "ItemID.TBWT_JOGRE_BONES", "item": "Jogre bones"},
+    {"id": 3179, "constant": "ItemID.MM_SMALL_NINJA_MONKEY_BONES", "item": "Small ninja monkey bones"},
+    {"id": 3180, "constant": "ItemID.MM_MEDIUM_NINJA_MONKEY_BONES", "item": "Medium ninja monkey bones"},
+    {"id": 3181, "constant": "ItemID.MM_NORMAL_GORILLA_MONKEY_BONES", "item": "Gorilla bones"},
+    {"id": 3182, "constant": "ItemID.MM_BEARDED_GORILLA_MONKEY_BONES", "item": "Bearded gorilla bones"},
+    {"id": 3183, "constant": "ItemID.MM_NORMAL_MONKEY_BONES", "item": "Monkey bones"},
+    {"id": 3185, "constant": "ItemID.MM_SMALL_ZOMBIE_MONKEY_BONES", "item": "Small zombie monkey bones"},
+    {"id": 3186, "constant": "ItemID.MM_LARGE_ZOMBIE_MONKEY_BONES", "item": "Large zombie monkey bones"},
+    {"id": 4812, "constant": "ItemID.ZOGRE_BONES", "item": "Zogre bones"},
+    {"id": 4830, "constant": "ItemID.ZOGRE_ANCESTRAL_BONES_FAYG", "item": "Fayrg bones"},
+    {"id": 4832, "constant": "ItemID.ZOGRE_ANCESTRAL_BONES_RAURG", "item": "Raurg bones"},
+    {"id": 4834, "constant": "ItemID.ZOGRE_ANCESTRAL_BONES_OURG", "item": "Ourg bones"},
+    {"id": 6729, "constant": "ItemID.DAGANNOTH_KING_BONES", "item": "Dagannoth bones"},
+    {"id": 6812, "constant": "ItemID.WYVERN_BONES", "item": "Wyvern bones"},
+    {"id": 11943, "constant": "ItemID.LAVA_DRAGON_BONES", "item": "Lava dragon bones"},
+    {"id": 22124, "constant": "ItemID.DRAGON_BONES_SUPERIOR", "item": "Superior dragon bones"},
+    {"id": 22780, "constant": "ItemID.WYRM_BONES", "item": "Wyrm bones"},
+    {"id": 22783, "constant": "ItemID.DRAKE_BONES", "item": "Drake bones"},
+    {"id": 22786, "constant": "ItemID.HYDRA_BONES", "item": "Hydra bones"},
+    {"id": 28899, "constant": "ItemID.BABYWYRM_BONES", "item": "Wyrmling bones"},
+    {"id": 31726, "constant": "ItemID.STRYKEWYRM_BONES", "item": "Strykewyrm bones"},
+    {"id": 31729, "constant": "ItemID.FROST_DRAGON_BONES", "item": "Frost dragon bones"}
+  ],
+  "demonicAshes": [
+    {"id": 25766, "constant": "ItemID.FIENDISH_ASHES", "item": "Fiendish ashes"},
+    {"id": 25769, "constant": "ItemID.VILE_ASHES", "item": "Vile ashes"},
+    {"id": 25772, "constant": "ItemID.MALICIOUS_ASHES", "item": "Malicious ashes"},
+    {"id": 25775, "constant": "ItemID.ABYSSAL_ASHES", "item": "Abyssal ashes"},
+    {"id": 25778, "constant": "ItemID.INFERNAL_ASHES", "item": "Infernal ashes"}
+  ]
+}

@@ -1,7 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 
 /**
  * Pure loot valuation in a {@link LootPriceMode}, from per-item GE and high-alchemy unit prices (keyed by the id as

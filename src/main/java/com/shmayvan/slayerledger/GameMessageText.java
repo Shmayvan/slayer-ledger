@@ -1,7 +1,7 @@
 package com.shmayvan.slayerledger;
 
-import java.util.regex.Pattern;
-import net.runelite.client.util.Text;
+import java.util.regex.*;
+import net.runelite.client.util.*;
 
 /**
  * Plain text of a game chat message, for the matchers that compare it. Pure (RuneLite's static {@link Text} only).

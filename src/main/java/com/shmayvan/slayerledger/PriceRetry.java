@@ -1,11 +1,6 @@
 package com.shmayvan.slayerledger;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.*;
 
 /**
  * Decides when to look up again the items whose GE price was unavailable when the history asked for today's prices

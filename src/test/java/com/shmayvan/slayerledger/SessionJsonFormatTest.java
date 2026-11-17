@@ -155,7 +155,7 @@ public class SessionJsonFormatTest
 	@Test
 	public void snapshotSavedAsPartialIsWrittenAsBefore()
 	{
-		LedgerRecord partial = LedgerRecord.fromSummary(snapshot().toSummary(), true);
+		LedgerRecord partial = LedgerRecord.fromSummary(snapshot().toSummary(SlayerSpots.NONE), true);
 		assertEquals(PARTIAL_JSON, gson.toJson(partial));
 	}
 

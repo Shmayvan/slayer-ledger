@@ -1,31 +1,11 @@
 package com.shmayvan.slayerledger;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Container;
-import java.awt.Dimension;
-import java.awt.FontMetrics;
-import java.awt.GridLayout;
-import java.awt.Insets;
-import java.awt.LayoutManager;
-import java.awt.event.FocusAdapter;
-import java.awt.event.FocusEvent;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.OptionalDouble;
-import java.util.OptionalLong;
-import javax.swing.BorderFactory;
-import javax.swing.BoxLayout;
-import javax.swing.DefaultComboBoxModel;
-import javax.swing.JComboBox;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.SwingConstants;
+import javax.swing.*;
+import lombok.*;
 
 /**
  * The live task section of {@link SlayerLedgerPanel} (DESIGN_PRINCIPLES.md 3.4, V2 plan 8). First the live task
@@ -149,16 +129,11 @@ final class LiveSessionSection
 	 * room to spare (a grid of equal columns cut most times left of an hour or more); {@link #leftColumnWidth} splits
 	 * the room. It asks for no width of its own, so it never widens the sidebar (DESIGN_PRINCIPLES.md 3.1). EDT only.
 	 */
+	@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 	private static final class StatsLayout implements LayoutManager
 	{
 		private final int hgap;
 		private final int vgap;
-
-		private StatsLayout(int hgap, int vgap)
-		{
-			this.hgap = hgap;
-			this.vgap = vgap;
-		}
 
 		@Override
 		public void addLayoutComponent(String name, Component component)
@@ -349,8 +324,9 @@ final class LiveSessionSection
 	private long setupAccount = SessionTracker.NO_ACCOUNT;
 	/**
 	 * Live values last received, or {@code null} when none are known yet. Only shown while they belong to the
-	 * tracker's current session.
+	 * tracker's current session. Set through {@link SlayerLedgerPanel#setSessionValues}; the next refresh shows them.
 	 */
+	@Setter
 	private SessionValuation.Values sessionValues;
 
 	/**
@@ -442,12 +418,6 @@ final class LiveSessionSection
 		taskLootSection.setVisible(false);
 		SlayerLedgerPanel.addHideableRow(content, taskLootSection);
 		SlayerLedgerPanel.addHideableRow(content, noteSection);
-	}
-
-	/** Keeps the live values to show ({@link SlayerLedgerPanel#setSessionValues}); the next refresh shows them. */
-	void setSessionValues(SessionValuation.Values values)
-	{
-		sessionValues = values;
 	}
 
 	/** Asks for (or withdraws) the "Check your blowpipe" hint; the next refresh shows or hides it. */
@@ -828,12 +798,6 @@ final class LiveSessionSection
 				TaskTimeEstimate.MIN_KILLS, TaskTimeEstimate.MIN_ACTIVE_MILLIS / 60_000);
 		}
 		timeLeft.show(timeLeftText(activeMillis, kills, remaining, historicalPerKill), LedgerTheme.VALUE, tooltip);
-	}
-
-	/** {@link #timeLeftText(long, int, int, Long)} without history: the session's pace alone. */
-	static String timeLeftText(long activeMillis, int kills, int remaining)
-	{
-		return timeLeftText(activeMillis, kills, remaining, null);
 	}
 
 	/**

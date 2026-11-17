@@ -18,6 +18,7 @@ import static com.shmayvan.slayerledger.TestSpots.TOWER_ID;
 import static com.shmayvan.slayerledger.TestSpots.UNLISTED;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import java.util.HashMap;
@@ -277,12 +278,12 @@ public class TaskLocationTest
 	@Test
 	public void locationsMatchIgnoringCaseAndSpacing()
 	{
-		assertTrue(TaskLocation.sameLocation("Smoke Dungeon", "  smoke   DUNGEON "));
-		assertFalse(TaskLocation.sameLocation("Smoke Dungeon", "Smoke Devil Dungeon"));
-		assertFalse("no name never matches", TaskLocation.sameLocation(null, null));
-		assertFalse(TaskLocation.sameLocation(" ", " "));
-		assertFalse(TaskLocation.sameLocation("Smoke Dungeon", null));
+		assertEquals(TaskLocation.matchKey("Smoke Dungeon"), TaskLocation.matchKey("  smoke   DUNGEON "));
+		assertNotEquals(TaskLocation.matchKey("Smoke Dungeon"), TaskLocation.matchKey("Smoke Devil Dungeon"));
 		assertEquals("smoke dungeon", TaskLocation.matchKey(" Smoke\tDungeon "));
+		// No name has no key, so it never matches a name or another no name.
+		assertNull(TaskLocation.matchKey(null));
+		assertNull(TaskLocation.matchKey(" "));
 		assertNull(TaskLocation.matchKey(""));
 	}
 

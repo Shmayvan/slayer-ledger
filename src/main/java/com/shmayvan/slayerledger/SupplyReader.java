@@ -1,21 +1,12 @@
 package com.shmayvan.slayerledger;
 
-import java.util.HashSet;
-import java.util.Set;
-import javax.inject.Inject;
-import net.runelite.api.Client;
-import net.runelite.api.EnumComposition;
-import net.runelite.api.EnumID;
-import net.runelite.api.EquipmentInventorySlot;
-import net.runelite.api.Item;
-import net.runelite.api.ItemComposition;
-import net.runelite.api.ItemContainer;
+import java.util.*;
+import javax.inject.*;
+import net.runelite.api.*;
+import net.runelite.api.gameval.*;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
-import net.runelite.api.gameval.VarPlayerID;
-import net.runelite.api.gameval.VarbitID;
-import net.runelite.client.game.ItemManager;
-import net.runelite.client.game.ItemStats;
+import net.runelite.client.game.*;
 
 /**
  * Reads what the player carries for supply counting: the {@link SupplyTracker.Observation} of the tracked
